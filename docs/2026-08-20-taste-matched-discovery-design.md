@@ -113,13 +113,13 @@ require a rewrite later.
 
 ## Age-segmented profiles (exploratory, post-MVP)
 
-Raised as a direction to explore: curating the app differently for a 50+ audience versus
-a 20s/30s audience, rather than one undifferentiated experience. Starting point is 50+,
-with a 20s/30s variant to follow for comparison. This is exploratory design work, not a
-committed roadmap item — the single-profile MVP described above remains the near-term
-build target.
+Raised as a direction to explore: curating the app differently for a 40/50+ audience
+versus a 20s/30s audience, rather than one undifferentiated experience. **Focus has been
+narrowed to 40/50+ only for now** — the 20s/30s variant is deliberately deferred, not
+being built in parallel. This is exploratory design work, not a committed roadmap item —
+the single-profile MVP described above remains the near-term build target.
 
-Early hypothesis for a 50+ variant (see session design canvas for mockups):
+Early hypothesis for a 40/50+ variant (see session design canvas for mockups):
 
 - Taste-signal collection doesn't default to Spotify as the obvious choice — "Connect
   Spotify" and "tell us what you like" (manual genre/artist entry) are presented as
@@ -131,9 +131,18 @@ Early hypothesis for a 50+ variant (see session design canvas for mockups):
   not a hard rule.
 - The "surprise me" action carries a text label ("Something different") alongside the
   icon, not icon-only.
-- Ties into the rewards/booking portfolio idea below — a 50+ audience is more likely to
+- Ties into the rewards/booking portfolio idea below — a 40/50+ audience is more likely to
   hold premium cards and have established Resy/Yelp habits, which is why that idea
   surfaced in this profile's context first.
+- **New onboarding step: cities already visited.** Added after cuisine quick-pick — a
+  searchable, tap-to-mark list of cities the user has already been to. Skippable (refines
+  results, doesn't gate onboarding). Feeds forward into city search: an unmarked city gets
+  the normal first-timer pitch ("Great for: X & Y"); a city marked as visited gets a "Been
+  here" tag and the pitch swaps to what's new since a prior trip (e.g. "New spots since
+  your last trip: 4 fresh picks") instead of repeating generic highlights. This is
+  currently scoped to the 40/50+ profile mockup but the underlying signal (visited vs. new
+  city) isn't inherently age-specific — worth deciding later whether it belongs in the
+  single-profile MVP too rather than staying 40/50+-only.
 
 None of this is validated with real users yet. Before building a second profile, worth
 deciding whether "profile" means a different curated experience for the same account, a
