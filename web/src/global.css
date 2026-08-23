@@ -1,0 +1,8 @@
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: #EDE7DC;
+}
+button { font: inherit; cursor: pointer; }
+input { font: inherit; }
