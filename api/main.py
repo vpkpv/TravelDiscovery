@@ -1,4 +1,5 @@
 import random
+from typing import Optional
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,7 +16,7 @@ app.add_middleware(
 )
 
 
-def _split(param: str | None) -> set[str]:
+def _split(param: Optional[str]) -> set:
     return {v for v in (param or "").split(",") if v}
 
 
@@ -32,7 +33,7 @@ def get_music_genres():
 @app.get("/api/cities")
 def get_cities(
     q: str = "",
-    visited: str | None = Query(default=None, description="comma-separated city ids"),
+    visited: Optional[str] = Query(default=None, description="comma-separated city ids"),
 ):
     visited_ids = _split(visited)
     q_lower = q.strip().lower()
