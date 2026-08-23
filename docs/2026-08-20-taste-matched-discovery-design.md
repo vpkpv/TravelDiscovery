@@ -111,6 +111,35 @@ require a rewrite later.
 - Production-tier Spotify quota / open signup
 - Any inference of food taste from external data (kept to explicit quick-pick for MVP)
 
+## Age-segmented profiles (exploratory, post-MVP)
+
+Raised as a direction to explore: curating the app differently for a 50+ audience versus
+a 20s/30s audience, rather than one undifferentiated experience. Starting point is 50+,
+with a 20s/30s variant to follow for comparison. This is exploratory design work, not a
+committed roadmap item — the single-profile MVP described above remains the near-term
+build target.
+
+Early hypothesis for a 50+ variant (see session design canvas for mockups):
+
+- Taste-signal collection doesn't default to Spotify as the obvious choice — "Connect
+  Spotify" and "tell us what you like" (manual genre/artist entry) are presented as
+  equal-weight options, not primary/secondary.
+- Larger, higher-contrast type throughout (roughly +2px body size, darker text color) and
+  more breathing room per card.
+- Sample curation leans toward sit-down dining, jazz clubs, wine bars, and supper clubs
+  rather than nightlife/clubs — reflects a pacing and venue-type assumption to validate,
+  not a hard rule.
+- The "surprise me" action carries a text label ("Something different") alongside the
+  icon, not icon-only.
+- Ties into the rewards/booking portfolio idea below — a 50+ audience is more likely to
+  hold premium cards and have established Resy/Yelp habits, which is why that idea
+  surfaced in this profile's context first.
+
+None of this is validated with real users yet. Before building a second profile, worth
+deciding whether "profile" means a different curated experience for the same account, a
+one-time onboarding branch, or a fully separate product surface — that's a real product
+decision, not just a visual one.
+
 ## Relationship to FfAdvisor
 
 This is a new, separate project — separate repo, separate GCP project, separate billing.

@@ -114,6 +114,24 @@ This is a product-strategy note, not a build decision — worth revisiting expli
 itinerary planning moves from "intent" to a scoped subsystem (it's currently still
 explicitly out of scope per the MVP design doc).
 
+## Rewards/booking portfolio integration (speculative, not MVP-scoped)
+
+Raised as an idea for the 50+ profile specifically: link a user's existing rewards and
+booking accounts (American Express Platinum, Resy, Yelp) so the app can (1) surface picks
+already covered by a card benefit ("covered by your $50 Resy dining credit") and (2) let a
+user reserve a food pick inline via Resy instead of leaving the app.
+
+This isn't speculative in the sense of "nobody would want it" — the **Music Tastes by
+Amex** precedent above (Spotify × Amex × Resy) is direct evidence that Amex and Resy
+already see commercial value in taste-based discovery tied to a card benefit. It's
+speculative in scope: linking real financial/loyalty accounts is an OAuth/API integration
+against a different trust and compliance bar than Spotify or Google Places (the MVP's
+current external dependencies), and would likely require an actual partnership
+conversation with Amex/Resy rather than just API access. Treat this as a post-MVP,
+partnership-dependent backlog item, not a build task — see the mockup in the session's
+design canvas (Connected Accounts screen + a food card with an inline "Reserve on Resy"
+action) for what it could look like.
+
 ## Open questions this raises (worth revisiting before/during implementation)
 
 - Music Tastes by Amex suggests restaurant partners (Resy, Amex) may already see value in
