@@ -73,17 +73,19 @@ export function ResultsFeed({ city }) {
   const [saved, setSaved] = useState({});
   const [surprise, setSurprise] = useState(null); // null = browsing, {items, seed} = surprise mode
 
+  const citySlug = city.slug || city.id; // slug: groups a real Places result with our curated content
+
   useEffect(() => {
-    api.results({ city: city.id, filter }).then((d) => {
+    api.results({ city: citySlug, filter }).then((d) => {
       setItems(d.items);
       setTotalCount(d.count);
     });
-  }, [city.id, filter]);
+  }, [citySlug, filter]);
 
   const toggleSave = (id) => setSaved((s) => ({ ...s, [id]: !s[id] }));
 
   const rollSurprise = (seed) => {
-    api.surprise({ city: city.id, seed }).then((d) => setSurprise({ items: d.items, seed }));
+    api.surprise({ city: citySlug, seed }).then((d) => setSurprise({ items: d.items, seed }));
   };
 
   const showing = surprise ? surprise.items : items;

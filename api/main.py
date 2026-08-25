@@ -85,6 +85,7 @@ async def get_cities(
             "cities": [
                 {
                     "id": c["id"],
+                    "slug": c["id"],  # curated ids are already slug-shaped
                     "name": c["name"],
                     "country": c["country"],
                     "visited": c["id"] in visited_ids,
@@ -96,15 +97,18 @@ async def get_cities(
         }
 
     # A typed query: use real autocomplete if configured, else fall back to
-    # substring-filtering the same curated list (old behavior).
+    # substring-filtering the same curated list (old behavior). Visited-status
+    # and the resulting pitch are matched on `slug`, not `id` — a real Places
+    # result's `id` is an opaque place_id, but its `slug` (from the city name)
+    # is what lines up with our curated visited-city ids and RESULTS data.
     if places.configured():
         results = await places.autocomplete_cities(q_stripped)
         return {
             "cities": [
                 {
                     **r,
-                    "visited": r["id"] in visited_ids,
-                    "pitch": "New spots since your last trip" if r["id"] in visited_ids else "",
+                    "visited": r["slug"] in visited_ids,
+                    "pitch": "New spots since your last trip" if r["slug"] in visited_ids else "",
                 }
                 for r in results
             ],
@@ -115,6 +119,7 @@ async def get_cities(
     out = [
         {
             "id": c["id"],
+            "slug": c["id"],
             "name": c["name"],
             "country": c["country"],
             "visited": c["id"] in visited_ids,

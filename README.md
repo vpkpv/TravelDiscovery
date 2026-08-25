@@ -54,8 +54,7 @@ real Places grounding (verifying each food/music pick against a real address and
 dropping anything that doesn't resolve):
 
 1. In [Google Cloud Console](https://console.cloud.google.com/), create or select a
-   project, enable the **Places API** (the classic one — this code calls the legacy REST
-   endpoints, not "Places API (New)"), and enable billing on the project (required even
+   project, enable **Places API (New)**, and enable billing on the project (required even
    within the free tier).
 2. Create an API key under Credentials, and restrict it to the Places API.
 3. `cp api/.env.example api/.env` and paste your key into `GOOGLE_PLACES_API_KEY=`.
