@@ -88,6 +88,51 @@ VIDEOS = [
         "city": "Rome",
         "source": "Mark Wiens — Amazing Roman Food and Attractions",
     },
+    # Chicago (US) — second US city
+    {
+        "video_id": "YmEJzrDVACg",
+        "city": "Chicago",
+        "source": "Mark Wiens — Ultimate Chicago Pizza Tour",
+    },
+    # Tokyo — already in the app's curated "trending" city list
+    {
+        "video_id": "u1YtIwW6HGY",
+        "city": "Tokyo",
+        "source": "Mark Wiens — Tokyo Nightlife Food Tour",
+    },
+    {
+        "video_id": "iszTT9U4OA8",
+        "city": "Tokyo",
+        "source": "Mark Wiens — Tokyo Hidden Gems Food Tour",
+    },
+    # Mexico City — already in the app's curated "trending" city list
+    {
+        "video_id": "Xcbf0LyGHpw",
+        "city": "Mexico City",
+        "source": "Mark Wiens x Nat Geo — Huarache, Tacos & More",
+    },
+    {
+        "video_id": "DGFYeusTrKc",
+        "city": "Mexico City",
+        "source": "The Food Ranger — Huge Street Food Tour",
+    },
+    # Bangkok — already in the app's curated "trending" city list
+    {
+        "video_id": "MY3Qy6vAbZQ",
+        "city": "Bangkok",
+        "source": "Mark Wiens x Nat Geo — 24 Hour Thai Street Food Challenge",
+    },
+    {
+        "video_id": "eCFV-_0UeSI",
+        "city": "Bangkok",
+        "source": "Mark Wiens x Best Ever Food Review Show — Thailand Collab",
+    },
+    # Seoul — already in the app's curated "trending" city list
+    {
+        "video_id": "RbpKkvlHYTw",
+        "city": "Seoul",
+        "source": "Mark Wiens — Best Korean Food Tour Ever (Seoul to Busan)",
+    },
 ]
 
 
