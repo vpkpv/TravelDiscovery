@@ -1,4 +1,8 @@
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// In production, window.__API_URL__ is injected at container startup (see
+// web/docker-entrypoint.d and web/config.js.template) so the same built
+// image can point at whatever API URL a deploy sets, without rebuilding.
+// Local dev falls through to VITE_API_URL (build-time) or localhost.
+const BASE = window.__API_URL__ || import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 async function get(path) {
   const res = await fetch(`${BASE}${path}`);

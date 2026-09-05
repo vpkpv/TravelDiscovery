@@ -1,4 +1,5 @@
 import asyncio
+import os
 import random
 from typing import Optional
 
@@ -14,9 +15,15 @@ from data import CITIES, CUISINES, MUSIC_GENRES, RESULTS
 
 app = FastAPI(title="TravelDiscovery API (dev)")
 
+# "*" (the default, dev-friendly) or a comma-separated allowlist, e.g.
+# ALLOWED_ORIGINS=https://travel-web-xyz.a.run.app — set once the web
+# service's URL is known, to stop any origin from calling this API.
+_allowed = os.environ.get("ALLOWED_ORIGINS", "*").strip()
+_origins = ["*"] if _allowed == "*" else [o.strip() for o in _allowed.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # dev only — tighten before this ever leaves localhost
+    allow_origins=_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

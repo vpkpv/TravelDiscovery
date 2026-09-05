@@ -64,6 +64,30 @@ dropping anything that doesn't resolve):
 billing not enabled, API not enabled), the backend logs a clear warning in its terminal
 rather than failing silently, and everything falls back to the mock data.
 
+## Deploying to Cloud Run
+
+The app deploys as two Cloud Run services — `travel-api` and `travel-web` — via
+[`deploy.sh`](deploy.sh). Requires the [`gcloud` CLI](https://cloud.google.com/sdk/docs/install)
+installed and authenticated (`gcloud init`); no local Docker needed, Cloud Build handles
+the image builds remotely.
+
+```bash
+gcloud auth login   # if you haven't already
+PROJECT_ID=your-gcp-project-id GOOGLE_PLACES_API_KEY=your-key ./deploy.sh
+```
+
+This deploys the API first, captures its URL, then deploys the web app pointing at it —
+the web container reads the API URL at **startup** (not build time), via a small
+`config.js` that nginx generates from the `API_URL` env var when the container boots
+(see `web/docker-entrypoint.d/40-inject-config.sh`). That means the same built web image
+can be repointed at a different API just by updating an env var and restarting, no
+rebuild needed.
+
+The script prints both URLs at the end, plus an optional follow-up command to lock the
+API's CORS policy down to just the deployed web origin (it defaults to accepting any
+origin, fine for a closed pilot you're the only one hitting, worth tightening once others
+are using it).
+
 ## The flow as built
 
 1. **Welcome** — equal-weight "Connect Spotify" (currently a stub — clicking it just
