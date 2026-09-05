@@ -3,5 +3,5 @@ uvicorn[standard]==0.30.6
 httpx==0.28.1
 python-dotenv==1.0.1
 youtube-transcript-api==1.2.4
-google-genai==2.22.0
+google-genai>=1.20.0,<3.0.0
 pydantic==2.13.4
