@@ -17,6 +17,13 @@ REGION="${REGION:-us-central1}"
 gcloud config set project "$PROJECT_ID"
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com
 
+if [ -s ./api/ingest/output.json ]; then
+  echo "Found api/ingest/output.json — ingested venues will be included in this deploy."
+else
+  echo "No api/ingest/output.json found — deploying with curated Lisbon data only."
+  echo "  Run 'python -m ingest.run' from api/ first if you want ingested cities (e.g. Mumbai) included."
+fi
+
 echo "== Deploying API =="
 gcloud run deploy travel-api \
   --source ./api \

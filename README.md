@@ -83,6 +83,12 @@ the web container reads the API URL at **startup** (not build time), via a small
 can be repointed at a different API just by updating an env var and restarting, no
 rebuild needed.
 
+If `api/ingest/output.json` exists locally when you run `deploy.sh`, it's included in the
+deploy and its venues get merged into the served results (see "The ingestion pipeline"
+below) — `api/.gcloudignore` deliberately re-includes it even though `.gitignore` excludes
+it from version control. No `output.json` yet, or want it regenerated? Run
+`python -m ingest.run` from `api/` first, then deploy.
+
 The script prints both URLs at the end, plus an optional follow-up command to lock the
 API's CORS policy down to just the deployed web origin (it defaults to accepting any
 origin, fine for a closed pilot you're the only one hitting, worth tightening once others
@@ -90,8 +96,9 @@ are using it).
 
 ## The flow as built
 
-1. **Welcome** — equal-weight "Connect Spotify" (currently a stub — clicking it just
-   advances, no real OAuth) vs. "Tell us what you like" (manual genre picker)
+1. **Welcome** — equal-weight "Connect Spotify" (currently a stub — no real OAuth yet, it
+   routes into the same manual genre picker as the other option, with a note that
+   Spotify's coming soon) vs. "Tell us what you like" (manual genre picker)
 2. **Cuisine quick-pick** — multi-select chips, from `GET /api/cuisines`
 3. **Cities already visited** — new step, tap to mark, skippable
 4. **City search** — live-filters as you type; a visited city gets a "Been here" tag and
@@ -101,8 +108,25 @@ are using it).
    random food+music pairing, and a per-card save/bookmark toggle (`GET /api/results`,
    `GET /api/results/surprise`)
 
-Only Lisbon has sample result data (`api/data.py`) — every other city returns an empty
-list, so the empty state is real and visible rather than papered over.
+Lisbon has hand-written sample result data (`api/data.py`); other cities get real results
+once ingested (see "The ingestion pipeline" below) — a city with no ingested or curated
+data still returns an empty list, so the empty state stays real and visible.
+
+## The ingestion pipeline
+
+`api/ingest/` is the real venue-discovery pipeline: `python -m ingest.run` (from `api/`,
+with `GEMINI_API_KEY`, `GOOGLE_PLACES_API_KEY`, and ideally `SUPADATA_API_KEY` set — see
+`api/.env.example`) fetches transcripts for a fixed list of real, individually-verified
+YouTube food-travel videos (`api/ingest/run.py`'s `VIDEOS` list), extracts named venues
+with Gemini, grounds each one against a real Google Places record, and writes the result
+to `api/ingest/output.json`.
+
+That file isn't just a report — `api/main.py` loads it at startup and merges its venues
+into `RESULTS`, grouped by city, deduped against any hand-written entries for the same
+city by name. So a completed ingestion run shows up in the running app automatically; no
+manual edit of `api/data.py` needed. It's gitignored (regenerated data, not source), but
+`deploy.sh`/`api/.gcloudignore` make sure it still reaches Cloud Run if it exists locally
+when you deploy.
 
 ## What's stubbed vs. real
 
@@ -114,14 +138,15 @@ Google Places autocomplete instead of the 6-city mock list, and every result-fee
 grounded against a real place record (real address, real rating, dropped if it doesn't
 resolve to a real, open business).
 
+**Real, when ingestion has been run (see above):** venue *discovery* itself — the actual
+YouTube transcript → Gemini extraction that finds candidate venues in the first place,
+not just Places verifying names someone already typed in.
+
 **Stubbed, needs real work before this is a product:**
-- Spotify OAuth (no real connection — see `web/src/screens/Welcome.jsx`)
+- Spotify OAuth (no real connection — see `web/src/screens/Welcome.jsx`; the button
+  routes into the manual genre picker instead)
 - Auth / user accounts / the closed-pilot Firestore approval gate described in the design
   doc — nothing here is per-user yet, state lives in `localStorage` on one device
-- The actual YouTube transcript → Gemini extraction pipeline that would generate venue
-  *candidates* in the first place — `api/data.py`'s venue names/why-copy are still
-  hand-written for one city; Places only grounds/verifies those candidates, it doesn't
-  discover them
 - Persistence — saved/bookmarked picks reset on refresh; nothing is written to a database
 - The itinerary screen and rewards-portfolio ideas from the design canvas aren't wired
   into this app yet — they're still exploratory mockups, not scoped for this build

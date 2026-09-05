@@ -7,7 +7,7 @@ import { StepHeader } from '../components/StepHeader.jsx';
 // Manual taste-entry path — the fallback described in the design doc for when Spotify
 // isn't the right fit. Produces the same shape of taste signal (a set of genres) without
 // needing OAuth.
-export function MusicGenrePick({ selected, onChange, onContinue }) {
+export function MusicGenrePick({ selected, onChange, onContinue, tasteMethod }) {
   const [genres, setGenres] = useState([]);
 
   useEffect(() => {
@@ -23,7 +23,11 @@ export function MusicGenrePick({ selected, onChange, onContinue }) {
       <StepHeader
         step={1} total={4}
         title="What do you listen to?"
-        subtitle="Pick a few genres or artists you gravitate toward — this stands in for a Spotify connection."
+        subtitle={
+          tasteMethod === 'spotify'
+            ? "Spotify connection is coming soon — pick a few genres for now and we'll swap in your real listening history shortly."
+            : 'Pick a few genres or artists you gravitate toward — this stands in for a Spotify connection.'
+        }
       />
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px 8px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>

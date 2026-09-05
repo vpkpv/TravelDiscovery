@@ -37,6 +37,7 @@ async def ingest_video(video_id: str, city: str, source_label: str) -> list:
             "rating": ground.get("rating"),
             "addr": ground["addr"],
             "why": candidate["why"],
+            "city": city,
             "source_video_id": video_id,
         })
     return grounded

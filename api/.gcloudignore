@@ -1,0 +1,15 @@
+# Source-upload ignore rules for `gcloud run deploy --source ./api`.
+#
+# Without this file, gcloud auto-generates one from .gitignore — which would
+# also exclude ingest/output.json (kept out of git deliberately, since it's
+# regenerated data, not source) and silently drop the real ingested venues
+# from every deploy, even when the file exists locally. This mirrors
+# .gitignore but explicitly re-includes ingest/output.json so a completed
+# `python -m ingest.run` actually reaches the deployed API.
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+!ingest/output.json

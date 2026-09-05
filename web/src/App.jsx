@@ -41,7 +41,11 @@ export default function App() {
     case 'welcome':
       screen = (
         <Welcome
-          onChooseSpotify={() => set({ tasteMethod: 'spotify', step: 'cuisines' })}
+          // Real Spotify OAuth isn't wired yet (tracked separately) — route
+          // through the same genre picker as the manual path rather than
+          // silently skipping music-taste capture and landing on the food
+          // question with no music step ever shown.
+          onChooseSpotify={() => set({ tasteMethod: 'spotify', step: 'genres' })}
           onChooseManual={() => set({ tasteMethod: 'manual', step: 'genres' })}
         />
       );
@@ -50,6 +54,7 @@ export default function App() {
     case 'genres':
       screen = (
         <MusicGenrePick
+          tasteMethod={state.tasteMethod}
           selected={state.musicGenres}
           onChange={(musicGenres) => set({ musicGenres })}
           onContinue={() => state.musicGenres.length && set({ step: 'cuisines' })}
@@ -106,7 +111,7 @@ export default function App() {
             if (state.step === 'results') set({ step: 'search' });
             else if (state.step === 'search') set({ step: 'visited' });
             else if (state.step === 'visited') set({ step: 'cuisines' });
-            else if (state.step === 'cuisines') set({ step: state.tasteMethod === 'manual' ? 'genres' : 'welcome' });
+            else if (state.step === 'cuisines') set({ step: 'genres' });
             else if (state.step === 'genres') set({ step: 'welcome' });
           }}
           style={{ position: 'absolute', margin: '16px 0 0 16px', cursor: 'pointer', opacity: 0.5, fontSize: 13 }}

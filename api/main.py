@@ -1,6 +1,9 @@
 import asyncio
+import json
+import logging
 import os
 import random
+from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -13,7 +16,59 @@ from fastapi.middleware.cors import CORSMiddleware
 import places
 from data import CITIES, CUISINES, MUSIC_GENRES, RESULTS
 
+log = logging.getLogger("main")
+
 app = FastAPI(title="TravelDiscovery API (dev)")
+
+
+def _load_ingested_results() -> None:
+    """Merges ingest/output.json (written by `python -m ingest.run`) into
+    RESULTS, grouped by city slug, so a completed ingestion run actually
+    shows up in the app instead of sitting in a file nothing reads. A
+    missing file is a no-op — the curated Lisbon set keeps working either
+    way, same as before this existed.
+    """
+    output_path = Path(__file__).resolve().parent / "ingest" / "output.json"
+    if not output_path.exists():
+        return
+    try:
+        items = json.loads(output_path.read_text())
+    except (OSError, ValueError) as exc:
+        log.warning("couldn't read %s: %s", output_path, exc)
+        return
+
+    # Runs from before pipeline.py tagged each item with "city" only carry
+    # source_video_id — reconstruct the city from ingest/run.py's VIDEOS
+    # list so an already-generated output.json still loads without a rerun.
+    try:
+        from ingest.run import VIDEOS
+        video_city = {v["video_id"]: v["city"] for v in VIDEOS}
+    except ImportError:
+        video_city = {}
+
+    for i, item in enumerate(items):
+        city = item.get("city") or video_city.get(item.get("source_video_id"))
+        if not city:
+            log.warning("skipping ingested item with no attributable city: %r", item.get("name"))
+            continue
+        slug = places._slugify(city)
+        existing = RESULTS.setdefault(slug, [])
+        if any(e["name"].lower() == item["name"].lower() for e in existing):
+            continue  # already covered by curated data or an earlier video
+        entry = {
+            "id": f"ingest-{slug}-{i}",
+            "type": item["type"],
+            "name": item["name"],
+            "meta": item["meta"],
+            "addr": item["addr"],
+            "why": item["why"],
+        }
+        if item.get("rating") is not None:
+            entry["rating"] = item["rating"]
+        existing.append(entry)
+
+
+_load_ingested_results()
 
 # "*" (the default, dev-friendly) or a comma-separated allowlist, e.g.
 # ALLOWED_ORIGINS=https://travel-web-xyz.a.run.app — set once the web
