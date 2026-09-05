@@ -13,6 +13,7 @@ blocks youtube.com by policy. Run it on a normal machine or in Cloud Run.
 
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -136,6 +137,14 @@ VIDEOS = [
 ]
 
 
+# Seconds to wait between videos. YouTube rate-limits (sometimes outright
+# blocks) an IP that fires many transcript requests back-to-back — this
+# spacing is a mitigation, not a guarantee. Override with INGEST_DELAY_SECONDS.
+DELAY_SECONDS = float(os.environ.get("INGEST_DELAY_SECONDS", "8"))
+
+OUTPUT_FILE = Path(__file__).resolve().parent / "output.json"
+
+
 async def main():
     if not gemini_configured():
         print("GEMINI_API_KEY not set — nothing to do. See api/.env.example.", file=sys.stderr)
@@ -149,12 +158,26 @@ async def main():
         sys.exit(1)
 
     all_results = []
-    for v in VIDEOS:
+    blocked_count = 0
+    for i, v in enumerate(VIDEOS):
         print(f"Ingesting: {v['source']} ({v['video_id']})...", file=sys.stderr)
         items = await ingest_video(v["video_id"], v["city"], v["source"])
         print(f"  -> {len(items)} grounded venue(s)", file=sys.stderr)
+        if not items:
+            blocked_count += 1  # could be a real zero-venue video too, not just a block
         all_results.extend(items)
 
+        # Save after every video, not just at the end — a mid-run IP block
+        # (YouTube's, not ours) shouldn't lose everything fetched so far.
+        OUTPUT_FILE.write_text(json.dumps(all_results, indent=2))
+
+        if i < len(VIDEOS) - 1:
+            await asyncio.sleep(DELAY_SECONDS)
+
+    print(f"\nDone: {len(all_results)} venues from {len(VIDEOS)} videos "
+          f"({blocked_count} videos produced zero venues — check the warnings above for why).",
+          file=sys.stderr)
+    print(f"Full results written to {OUTPUT_FILE}", file=sys.stderr)
     print(json.dumps(all_results, indent=2))
 
 
