@@ -26,10 +26,13 @@ import places
 from ingest.extract import configured as gemini_configured
 from ingest.pipeline import ingest_video
 
-# Real, verified Mark Wiens videos with confirmed Lisbon food content
-# (see docs/2026-08-23-competitive-landscape.md session notes for how
-# these were sourced). Add more here as the channel/city list grows.
+# Real, verified videos from a small stable of reputable, broad-coverage
+# food-travel channels (Mark Wiens, Best Ever Food Review Show, The Food
+# Ranger — all verified via web search for subscriber count/reputation and
+# genuine coverage of the target city before being added here; none of
+# these video IDs are guessed). Add more as the channel/city list grows.
 VIDEOS = [
+    # Lisbon
     {
         "video_id": "sLtuZEtCSLA",
         "city": "Lisbon",
@@ -44,6 +47,46 @@ VIDEOS = [
         "video_id": "yNEGYdZIsbo",
         "city": "Lisbon",
         "source": "Mark Wiens — Egg Tarts & Chinese Food in Lisbon",
+    },
+    # Mumbai
+    {
+        "video_id": "vLSqdRODai0",
+        "city": "Mumbai",
+        "source": "Mark Wiens — Bombay Duck Fry and Vada Pav",
+    },
+    {
+        "video_id": "VfNqA2ukNrk",
+        "city": "Mumbai",
+        "source": "Mark Wiens — Nalli Nihari and Bombay Street Sandwich",
+    },
+    {
+        "video_id": "ksubPh-Of4M",
+        "city": "Mumbai",
+        "source": "Best Ever Food Review Show — Exotic Street Food Tour",
+    },
+    {
+        "video_id": "ltUDZD1vgxQ",
+        "city": "Mumbai",
+        "source": "The Food Ranger — Street Food Tour, Best Curry",
+    },
+    # New York City (US) — Mark Wiens x National Geographic co-production,
+    # still his content/voice, just cross-posted rather than his own channel.
+    {
+        "video_id": "CE6Y8tqhO4A",
+        "city": "New York City",
+        "source": "Mark Wiens x Nat Geo — NYC's Most Iconic Foods in 24 Hours",
+    },
+    # Paris (Europe)
+    {
+        "video_id": "k0B7Va-te44",
+        "city": "Paris",
+        "source": "Mark Wiens — Paris Street Food, 10 Cheap Eats",
+    },
+    # Rome (Europe)
+    {
+        "video_id": "vPVqo3MvfVo",
+        "city": "Rome",
+        "source": "Mark Wiens — Amazing Roman Food and Attractions",
     },
 ]
 
