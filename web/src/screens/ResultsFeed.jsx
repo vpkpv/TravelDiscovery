@@ -149,7 +149,11 @@ export function ResultsFeed({ city }) {
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 22px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
         {showing.length === 0 && (
           <div style={{ fontSize: 14, color: theme.textFaint, padding: '24px 4px' }}>
-            No picks yet for {city.name} — only Lisbon has sample data in this scaffold.
+            {filter === 'music'
+              ? `No music picks yet for ${city.name} — music matching isn't built for ingested cities yet.`
+              : filter === 'food'
+              ? `No food picks yet for ${city.name}.`
+              : `No picks yet for ${city.name}.`}
           </div>
         )}
         {showing.map((item) => (
