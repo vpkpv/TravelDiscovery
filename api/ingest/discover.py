@@ -49,6 +49,9 @@ def _extract_list(data: dict) -> list:
 def _extract_field(item: dict, *candidates: str) -> str:
     for key in candidates:
         value = item.get(key)
+        if isinstance(value, dict):
+            # e.g. "channel": {"id": ..., "name": ..., "thumbnail": ...}
+            value = value.get("name") or value.get("title")
         if value:
             return str(value)
     return ""
