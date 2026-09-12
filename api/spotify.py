@@ -1,5 +1,5 @@
-"""Spotify OAuth: derive a music-taste profile from the user's real listening
-history instead of the manual genre quick-pick.
+"""Spotify OAuth: derive a music-taste signal from the user's real
+listening history instead of the manual genre quick-pick.
 
 Runs against Spotify's standard (Dev Mode) tier deliberately — see
 docs/2026-08-20-taste-matched-discovery-design.md's "Spotify quota
@@ -9,23 +9,25 @@ with this app's closed-pilot access model rather than fighting it.
 
 Flow: browser -> /auth/spotify/login (redirect to Spotify) -> user approves
 -> Spotify redirects to /auth/spotify/callback with a code -> we exchange it
-for a token, read the user's top artists, and map their genres onto this
-app's fixed MUSIC_GENRES vocabulary (the same list the manual picker uses,
-so both paths produce an identical taste-profile shape per the design doc).
-We then redirect back to the web app with the derived genres in the URL —
-there's no user-account/session store yet (that's Firebase+Firestore, a
-separate not-yet-built task), so the token is used once for this exchange
-and discarded rather than persisted.
+for a token, read the user's top artists, and redirect back to the web app
+with those artist names in the URL. There's no user-account/session store
+yet (that's Firebase+Firestore, a separate not-yet-built task), so the
+token is used once for this exchange and discarded rather than persisted.
+
+The taste signal here is artist names, not the manual picker's fixed genre
+list (Jazz, Rock, ...) — an earlier version tried mapping Spotify's
+per-artist `genres` field onto that vocabulary, but real-world testing
+showed Spotify's Web API returns an empty `genres` array on essentially
+every artist now (a platform-side gap, not something fixable by a better
+keyword table), so there was no genre string to map from. Artist names are
+always present and need no mapping.
 """
 
 import base64
 import logging
 import os
-from collections import Counter
 
 import httpx
-
-from data import MUSIC_GENRES
 
 CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID", "").strip()
 CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET", "").strip()
@@ -37,25 +39,6 @@ TOP_ARTISTS_URL = "https://api.spotify.com/v1/me/top/artists"
 SCOPE = "user-top-read"
 
 log = logging.getLogger("spotify")
-
-# Keyword -> app genre. A Spotify artist genre (e.g. "chicago blues", "indie
-# folk") is matched by substring against each keyword; one Spotify genre can
-# credit multiple app genres (e.g. "indie rock" credits both).
-_GENRE_KEYWORDS = {
-    "Jazz": ["jazz"],
-    "Fado / World": ["fado", "world"],
-    "Classical": ["classical", "orchestra", "opera"],
-    "Rock": ["rock"],
-    "Indie": ["indie"],
-    "Electronic": ["electronic", "edm", "house", "techno", "dance", "dubstep"],
-    "Soul / R&B": ["soul", "r&b", "rnb", "funk"],
-    "Country": ["country"],
-    "Blues": ["blues"],
-    "Folk": ["folk", "singer-songwriter"],
-    "Pop": ["pop"],
-    "Hip-Hop / Rap": ["hip hop", "hip-hop", "rap", "trap"],
-    "Latin": ["latin", "reggaeton", "salsa", "bachata", "banda", "corrido"],
-}
 
 
 def configured() -> bool:
@@ -99,47 +82,22 @@ async def exchange_code(code: str) -> str:
         return ""
 
 
-async def top_genres(access_token: str, limit: int = 6) -> list:
-    """Returns up to `limit` app-vocabulary genres (from MUSIC_GENRES),
-    ranked by how often they show up across the user's top artists. Empty
-    list if the API call fails or nothing maps onto our vocabulary.
+async def top_artists(access_token: str, limit: int = 6) -> list:
+    """Returns up to `limit` of the user's top artist names, ranked by
+    Spotify's own ordering. Empty list if the API call fails or the account
+    has no top-artist data for this time range.
     """
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
                 TOP_ARTISTS_URL,
-                params={"limit": 50, "time_range": "medium_term"},
+                params={"limit": limit, "time_range": "medium_term"},
                 headers={"Authorization": f"Bearer {access_token}"},
             )
             resp.raise_for_status()
-            body = resp.json()
-            artists = body.get("items", [])
+            artists = resp.json().get("items", [])
     except httpx.HTTPError as exc:
         log.warning("Spotify top-artists request failed: %s", exc)
         return []
 
-    # Temporary: pin down whether an empty result means "no top artists at
-    # all" (thin listening history under medium_term) vs "artists returned,
-    # but Spotify's genres field on them is empty" — two different problems.
-    log.warning(
-        "Spotify top-artists: %d returned, total=%s, names=%s",
-        len(artists), body.get("total"), [a.get("name") for a in artists[:10]],
-    )
-
-    counts = Counter()
-    raw_seen = set()
-    for artist in artists:
-        for raw_genre in artist.get("genres", []):
-            raw_seen.add(raw_genre)
-            raw_lower = raw_genre.lower()
-            for app_genre, keywords in _GENRE_KEYWORDS.items():
-                if any(kw in raw_lower for kw in keywords):
-                    counts[app_genre] += 1
-
-    matched = [g for g, _ in counts.most_common(limit) if g in MUSIC_GENRES]
-    if not matched:
-        # Temporary: surfaces exactly what didn't map, so the keyword table
-        # can be fixed with real data instead of guesswork. Remove once the
-        # vocabulary has stabilized against real-world Spotify genre tags.
-        log.warning("no app genre matched; raw Spotify genres seen: %s", sorted(raw_seen))
-    return matched
+    return [a["name"] for a in artists if a.get("name")]

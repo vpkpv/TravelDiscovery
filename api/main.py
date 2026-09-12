@@ -111,9 +111,13 @@ def spotify_login():
 @app.get("/auth/spotify/callback")
 async def spotify_callback(code: str = "", error: str = ""):
     """Spotify redirects here after the user approves/denies. Exchanges the
-    code, derives a genre profile from top artists, and redirects back to
-    the web app with the result in the query string — there's no session to
-    store it in yet, so the frontend picks it up directly from the URL.
+    code, reads top artists, and redirects back to the web app with the
+    result in the query string — there's no session to store it in yet, so
+    the frontend picks it up directly from the URL.
+
+    Artist names, not a genre bucket: Spotify's Web API returns an empty
+    `genres` field on essentially every artist in practice, so there's no
+    genre data to map onto our fixed vocabulary. Names are always present.
     """
     if error or not code:
         return RedirectResponse(f"{WEB_URL}/?spotify_error=denied")
@@ -122,12 +126,12 @@ async def spotify_callback(code: str = "", error: str = ""):
     if not token:
         return RedirectResponse(f"{WEB_URL}/?spotify_error=token_exchange_failed")
 
-    genres = await spotify.top_genres(token)
-    if not genres:
-        log.warning("Spotify auth succeeded but no top-artist genres matched our vocabulary")
-        return RedirectResponse(f"{WEB_URL}/?spotify_error=no_genres_matched")
+    artists = await spotify.top_artists(token)
+    if not artists:
+        log.warning("Spotify auth succeeded but no top artists were returned")
+        return RedirectResponse(f"{WEB_URL}/?spotify_error=no_artists_found")
 
-    return RedirectResponse(f"{WEB_URL}/?{urlencode({'spotify_genres': ','.join(genres)})}")
+    return RedirectResponse(f"{WEB_URL}/?{urlencode({'spotify_artists': json.dumps(artists)})}")
 
 _CITY_BY_ID = {c["id"]: c for c in CITIES}
 

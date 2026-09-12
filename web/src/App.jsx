@@ -22,7 +22,8 @@ function loadState() {
 const initial = loadState() || {
   step: 'welcome', // welcome -> genres (manual, or Spotify-failure fallback) -> cuisines -> visited -> search -> results
   tasteMethod: null, // 'spotify' | 'manual'
-  musicGenres: [],
+  musicGenres: [], // manual path's fixed-vocabulary picks
+  musicArtists: [], // Spotify path's top artist names — a freeform signal, not genre-bucketed (see api/spotify.py)
   spotifyFailed: false,
   cuisines: [],
   visitedCities: [],
@@ -42,10 +43,20 @@ export default function App() {
   // immediately after so a refresh doesn't re-process stale params.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const genres = params.get('spotify_genres');
+    const artistsRaw = params.get('spotify_artists');
     const error = params.get('spotify_error');
-    if (genres) {
-      set({ tasteMethod: 'spotify', musicGenres: genres.split(','), step: 'cuisines' });
+    if (artistsRaw) {
+      let artists = [];
+      try {
+        artists = JSON.parse(artistsRaw);
+      } catch {
+        // malformed — treat like any other failure below
+      }
+      if (artists.length) {
+        set({ tasteMethod: 'spotify', musicArtists: artists, step: 'cuisines' });
+      } else {
+        set({ tasteMethod: 'spotify', spotifyFailed: true, step: 'genres' });
+      }
       window.history.replaceState(null, '', window.location.pathname);
     } else if (error) {
       set({ tasteMethod: 'spotify', spotifyFailed: true, step: 'genres' });
@@ -71,7 +82,6 @@ export default function App() {
       screen = (
         <MusicGenrePick
           tasteMethod={state.tasteMethod}
-          spotifyFailed={state.spotifyFailed}
           selected={state.musicGenres}
           onChange={(musicGenres) => set({ musicGenres })}
           onContinue={() => state.musicGenres.length && set({ step: 'cuisines' })}
@@ -128,7 +138,13 @@ export default function App() {
             if (state.step === 'results') set({ step: 'search' });
             else if (state.step === 'search') set({ step: 'visited' });
             else if (state.step === 'visited') set({ step: 'cuisines' });
-            else if (state.step === 'cuisines') set({ step: 'genres' });
+            else if (state.step === 'cuisines') {
+              // A successful Spotify connection skips the genre-picker step
+              // entirely (musicArtists comes straight from the OAuth
+              // callback) — there's nothing to go back to there, so return
+              // to the taste-method choice instead.
+              set({ step: state.tasteMethod === 'spotify' && !state.spotifyFailed ? 'welcome' : 'genres' });
+            }
             else if (state.step === 'genres') set({ step: 'welcome' });
           }}
           style={{ position: 'absolute', margin: '16px 0 0 16px', cursor: 'pointer', opacity: 0.5, fontSize: 13 }}

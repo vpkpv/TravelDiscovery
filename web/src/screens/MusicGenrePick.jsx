@@ -6,8 +6,10 @@ import { StepHeader } from '../components/StepHeader.jsx';
 
 // Manual taste-entry path — the fallback described in the design doc for when Spotify
 // isn't the right fit. Produces the same shape of taste signal (a set of genres) without
-// needing OAuth.
-export function MusicGenrePick({ selected, onChange, onContinue, tasteMethod, spotifyFailed }) {
+// needing OAuth. Also doubles as the Spotify-failure fallback: a successful Spotify
+// connection skips this screen entirely (see App.jsx), so tasteMethod === 'spotify' here
+// always means the OAuth flow failed and we're falling back to manual entry.
+export function MusicGenrePick({ selected, onChange, onContinue, tasteMethod }) {
   const [genres, setGenres] = useState([]);
 
   useEffect(() => {
@@ -25,9 +27,7 @@ export function MusicGenrePick({ selected, onChange, onContinue, tasteMethod, sp
         title="What do you listen to?"
         subtitle={
           tasteMethod === 'spotify'
-            ? spotifyFailed
-              ? "We couldn't read your Spotify listening history just now — pick a few genres instead and we'll use those."
-              : "Here's what we picked up from your Spotify listening — adjust if anything's off."
+            ? "We couldn't read your Spotify listening history just now — pick a few genres instead and we'll use those."
             : 'Pick a few genres or artists you gravitate toward — this stands in for a Spotify connection.'
         }
       />
