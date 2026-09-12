@@ -124,6 +124,7 @@ async def spotify_callback(code: str = "", error: str = ""):
 
     genres = await spotify.top_genres(token)
     if not genres:
+        log.warning("Spotify auth succeeded but no top-artist genres matched our vocabulary")
         return RedirectResponse(f"{WEB_URL}/?spotify_error=no_genres_matched")
 
     return RedirectResponse(f"{WEB_URL}/?{urlencode({'spotify_genres': ','.join(genres)})}")

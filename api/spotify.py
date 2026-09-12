@@ -52,6 +52,9 @@ _GENRE_KEYWORDS = {
     "Country": ["country"],
     "Blues": ["blues"],
     "Folk": ["folk", "singer-songwriter"],
+    "Pop": ["pop"],
+    "Hip-Hop / Rap": ["hip hop", "hip-hop", "rap", "trap"],
+    "Latin": ["latin", "reggaeton", "salsa", "bachata", "banda", "corrido"],
 }
 
 

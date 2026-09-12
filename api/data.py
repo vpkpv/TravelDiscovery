@@ -12,6 +12,7 @@ CUISINES = [
 MUSIC_GENRES = [
     "Jazz", "Fado / World", "Classical", "Rock", "Indie",
     "Electronic", "Soul / R&B", "Country", "Blues", "Folk",
+    "Pop", "Hip-Hop / Rap", "Latin",
 ]
 
 CITIES = [
