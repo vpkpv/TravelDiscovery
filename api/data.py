@@ -45,6 +45,26 @@ CITIES = [
         "first_time_pitch": "Great for: K-indie & Korean BBQ",
         "return_pitch": "New spots since your last trip",
     },
+    {
+        "id": "mumbai", "name": "Mumbai", "country": "India",
+        "first_time_pitch": "Great for: Street food crawls & spice-forward classics",
+        "return_pitch": "New spots since your last trip",
+    },
+    {
+        "id": "new-york-city", "name": "New York City", "country": "USA",
+        "first_time_pitch": "Great for: Delis, pizza slices & late-night bites",
+        "return_pitch": "New spots since your last trip",
+    },
+    {
+        "id": "rome", "name": "Rome", "country": "Italy",
+        "first_time_pitch": "Great for: Trattoria classics & gelato hunting",
+        "return_pitch": "New spots since your last trip",
+    },
+    {
+        "id": "chicago", "name": "Chicago", "country": "USA",
+        "first_time_pitch": "Great for: Deep dish & tavern-style pizza tours",
+        "return_pitch": "New spots since your last trip",
+    },
 ]
 
 # city_id -> list of picks. Each pick's "why" is written as if generated from a taste
