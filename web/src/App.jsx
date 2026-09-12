@@ -6,6 +6,7 @@ import { CuisinePick } from './screens/CuisinePick.jsx';
 import { CitiesVisited } from './screens/CitiesVisited.jsx';
 import { CitySearch } from './screens/CitySearch.jsx';
 import { ResultsFeed } from './screens/ResultsFeed.jsx';
+import { spotifyLoginUrl } from './api.js';
 
 const STORAGE_KEY = 'traveldiscovery.onboarding.v1';
 
@@ -19,9 +20,10 @@ function loadState() {
 }
 
 const initial = loadState() || {
-  step: 'welcome', // welcome -> genres (manual only) -> cuisines -> visited -> search -> results
+  step: 'welcome', // welcome -> genres (manual, or Spotify-failure fallback) -> cuisines -> visited -> search -> results
   tasteMethod: null, // 'spotify' | 'manual'
   musicGenres: [],
+  spotifyFailed: false,
   cuisines: [],
   visitedCities: [],
   city: null,
@@ -34,6 +36,24 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
+  // Landing back here after /auth/spotify/callback redirects the browser
+  // with the result in the query string — there's no session store yet, so
+  // this is the handoff point. Runs once on mount; the URL is cleaned up
+  // immediately after so a refresh doesn't re-process stale params.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const genres = params.get('spotify_genres');
+    const error = params.get('spotify_error');
+    if (genres) {
+      set({ tasteMethod: 'spotify', musicGenres: genres.split(','), step: 'cuisines' });
+      window.history.replaceState(null, '', window.location.pathname);
+    } else if (error) {
+      set({ tasteMethod: 'spotify', spotifyFailed: true, step: 'genres' });
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const set = (patch) => setState((s) => ({ ...s, ...patch }));
 
   let screen;
@@ -41,11 +61,7 @@ export default function App() {
     case 'welcome':
       screen = (
         <Welcome
-          // Real Spotify OAuth isn't wired yet (tracked separately) — route
-          // through the same genre picker as the manual path rather than
-          // silently skipping music-taste capture and landing on the food
-          // question with no music step ever shown.
-          onChooseSpotify={() => set({ tasteMethod: 'spotify', step: 'genres' })}
+          onChooseSpotify={() => { window.location.href = spotifyLoginUrl; }}
           onChooseManual={() => set({ tasteMethod: 'manual', step: 'genres' })}
         />
       );
@@ -55,6 +71,7 @@ export default function App() {
       screen = (
         <MusicGenrePick
           tasteMethod={state.tasteMethod}
+          spotifyFailed={state.spotifyFailed}
           selected={state.musicGenres}
           onChange={(musicGenres) => set({ musicGenres })}
           onContinue={() => state.musicGenres.length && set({ step: 'cuisines' })}

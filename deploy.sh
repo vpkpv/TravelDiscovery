@@ -9,6 +9,10 @@
 # Usage:
 #   PROJECT_ID=your-gcp-project-id ./deploy.sh
 #   # optionally: REGION=us-central1 GOOGLE_PLACES_API_KEY=... PROJECT_ID=... ./deploy.sh
+#   # for Spotify OAuth: also set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET
+#   # (from developer.spotify.com/dashboard) — this script computes and wires
+#   # up SPOTIFY_REDIRECT_URI itself. See api/.env.example for details,
+#   # including the Dev Mode user-allowlisting requirement.
 set -euo pipefail
 
 : "${PROJECT_ID:?Set PROJECT_ID, e.g. PROJECT_ID=my-project ./deploy.sh}"
@@ -29,7 +33,7 @@ gcloud run deploy travel-api \
   --source ./api \
   --region "$REGION" \
   --allow-unauthenticated \
-  --set-env-vars "GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-}"
+  --set-env-vars "GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-},SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-},SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET:-}"
 
 API_URL=$(gcloud run services describe travel-api --region "$REGION" --format='value(status.url)')
 echo "API live at: $API_URL"
@@ -42,6 +46,22 @@ gcloud run deploy travel-web \
   --set-env-vars "API_URL=${API_URL}"
 
 WEB_URL=$(gcloud run services describe travel-web --region "$REGION" --format='value(status.url)')
+
+# SPOTIFY_REDIRECT_URI/WEB_URL depend on URLs only known after both services
+# exist, so wire them onto travel-api now via --update-env-vars (merges,
+# unlike --set-env-vars above which would wipe the vars just set).
+SPOTIFY_REDIRECT_URI="${API_URL}/auth/spotify/callback"
+gcloud run services update travel-api \
+  --region "$REGION" \
+  --update-env-vars "WEB_URL=${WEB_URL},SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI}" \
+  >/dev/null
+
+if [ -n "${SPOTIFY_CLIENT_ID:-}" ]; then
+  echo
+  echo "Spotify: make sure this exact Redirect URI is registered on your"
+  echo "Spotify app (developer.spotify.com/dashboard -> your app -> Settings):"
+  echo "  $SPOTIFY_REDIRECT_URI"
+fi
 
 echo
 echo "======================================================"

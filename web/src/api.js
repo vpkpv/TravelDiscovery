@@ -10,6 +10,8 @@ async function get(path) {
   return res.json();
 }
 
+export const spotifyLoginUrl = `${BASE}/auth/spotify/login`;
+
 export const api = {
   cuisines: () => get('/api/cuisines'),
   musicGenres: () => get('/api/music-genres'),

@@ -3,8 +3,10 @@ import json
 import logging
 import os
 import random
+import secrets
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlencode
 
 from dotenv import load_dotenv
 
@@ -12,8 +14,10 @@ load_dotenv()  # picks up api/.env for local dev — see .env.example
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 
 import places
+import spotify
 from data import CITIES, CUISINES, MUSIC_GENRES, RESULTS
 
 log = logging.getLogger("main")
@@ -82,6 +86,47 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Where to send the browser back to once Spotify OAuth finishes. Defaults to
+# localhost for local dev; set to the deployed web service's URL in prod.
+WEB_URL = os.environ.get("WEB_URL", "http://localhost:5173").rstrip("/")
+
+
+@app.get("/auth/spotify/login")
+def spotify_login():
+    """Kicks off the OAuth flow: a full browser redirect to Spotify's
+    consent screen, not a fetch — Spotify won't authorize inside an XHR.
+
+    No user-session store exists yet (that's Firebase+Firestore, tracked
+    separately), so `state` is a CSRF nonce only, not verified against
+    anything stored server-side. Acceptable for now: worth revisiting once
+    real user accounts exist.
+    """
+    if not spotify.configured():
+        return RedirectResponse(f"{WEB_URL}/?spotify_error=not_configured")
+    state = secrets.token_urlsafe(16)
+    return RedirectResponse(spotify.authorize_url(state))
+
+
+@app.get("/auth/spotify/callback")
+async def spotify_callback(code: str = "", error: str = ""):
+    """Spotify redirects here after the user approves/denies. Exchanges the
+    code, derives a genre profile from top artists, and redirects back to
+    the web app with the result in the query string — there's no session to
+    store it in yet, so the frontend picks it up directly from the URL.
+    """
+    if error or not code:
+        return RedirectResponse(f"{WEB_URL}/?spotify_error=denied")
+
+    token = await spotify.exchange_code(code)
+    if not token:
+        return RedirectResponse(f"{WEB_URL}/?spotify_error=token_exchange_failed")
+
+    genres = await spotify.top_genres(token)
+    if not genres:
+        return RedirectResponse(f"{WEB_URL}/?spotify_error=no_genres_matched")
+
+    return RedirectResponse(f"{WEB_URL}/?{urlencode({'spotify_genres': ','.join(genres)})}")
 
 _CITY_BY_ID = {c["id"]: c for c in CITIES}
 
