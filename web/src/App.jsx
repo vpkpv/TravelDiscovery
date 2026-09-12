@@ -6,6 +6,7 @@ import { CuisinePick } from './screens/CuisinePick.jsx';
 import { CitiesVisited } from './screens/CitiesVisited.jsx';
 import { CitySearch } from './screens/CitySearch.jsx';
 import { ResultsFeed } from './screens/ResultsFeed.jsx';
+import { SpotifyConfirm } from './screens/SpotifyConfirm.jsx';
 import { spotifyLoginUrl } from './api.js';
 
 const STORAGE_KEY = 'traveldiscovery.onboarding.v1';
@@ -53,7 +54,7 @@ export default function App() {
         // malformed — treat like any other failure below
       }
       if (artists.length) {
-        set({ tasteMethod: 'spotify', musicArtists: artists, step: 'cuisines' });
+        set({ tasteMethod: 'spotify', musicArtists: artists, step: 'spotify-confirm' });
       } else {
         set({ tasteMethod: 'spotify', spotifyFailed: true, step: 'genres' });
       }
@@ -74,6 +75,16 @@ export default function App() {
         <Welcome
           onChooseSpotify={() => { window.location.href = spotifyLoginUrl; }}
           onChooseManual={() => set({ tasteMethod: 'manual', step: 'genres' })}
+        />
+      );
+      break;
+
+    case 'spotify-confirm':
+      screen = (
+        <SpotifyConfirm
+          artists={state.musicArtists}
+          onContinue={() => set({ step: 'cuisines' })}
+          onPickManually={() => set({ tasteMethod: 'manual', musicGenres: [], step: 'genres' })}
         />
       );
       break;
@@ -139,12 +150,12 @@ export default function App() {
             else if (state.step === 'search') set({ step: 'visited' });
             else if (state.step === 'visited') set({ step: 'cuisines' });
             else if (state.step === 'cuisines') {
-              // A successful Spotify connection skips the genre-picker step
-              // entirely (musicArtists comes straight from the OAuth
-              // callback) — there's nothing to go back to there, so return
-              // to the taste-method choice instead.
-              set({ step: state.tasteMethod === 'spotify' && !state.spotifyFailed ? 'welcome' : 'genres' });
+              // A successful Spotify connection shows the confirmation
+              // screen instead of the genre picker — go back to whichever
+              // one this taste method actually used.
+              set({ step: state.tasteMethod === 'spotify' && !state.spotifyFailed ? 'spotify-confirm' : 'genres' });
             }
+            else if (state.step === 'spotify-confirm') set({ step: 'welcome' });
             else if (state.step === 'genres') set({ step: 'welcome' });
           }}
           style={{ position: 'absolute', margin: '16px 0 0 16px', cursor: 'pointer', opacity: 0.5, fontSize: 13 }}
