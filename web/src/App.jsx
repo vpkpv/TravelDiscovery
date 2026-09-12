@@ -134,7 +134,10 @@ export default function App() {
       break;
 
     case 'results':
-      screen = <ResultsFeed city={state.city} />;
+      // Only the manual picker's fixed-vocabulary genres bias which live-music
+      // venues get found for cities with no music data of their own — Spotify's
+      // artist-name signal has no genre to key off (see api/spotify.py).
+      screen = <ResultsFeed city={state.city} musicGenre={state.musicGenres[0] || ''} />;
       break;
 
     default:

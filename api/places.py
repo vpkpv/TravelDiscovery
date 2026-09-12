@@ -138,3 +138,59 @@ async def find_place(name: str, city: str) -> dict:
         "rating": place.get("rating"),
         "place_id": place.get("id"),
     }
+
+
+# Genre -> a Text Search query that tends to surface a real venue of that
+# type. Falls back to a generic live-music search for anything unmapped —
+# notably the Spotify/artist-name taste signal, which has no genre to key
+# off (see api/spotify.py's docstring on why artist genres aren't reliable).
+_MUSIC_SEARCH_TERMS = {
+    "Jazz": "jazz club",
+    "Fado / World": "world music bar",
+    "Classical": "concert hall",
+    "Rock": "live rock music venue",
+    "Indie": "indie live music venue",
+    "Electronic": "nightclub",
+    "Soul / R&B": "soul music bar",
+    "Country": "country music bar",
+    "Blues": "blues bar",
+    "Folk": "folk music venue",
+    "Pop": "live music venue",
+    "Hip-Hop / Rap": "hip hop club",
+    "Latin": "latin music club",
+}
+
+
+async def find_music_venues(city: str, genre_hint: str = "", limit: int = 4) -> list:
+    """Real, Places-sourced live-music venues for a city, for cities with no
+    hand-curated or ingested music picks. Unlike find_place(), there's no
+    "candidate name" to ground here — these results are themselves the real
+    venues, straight from Places, so nothing needs a match-confidence check.
+    """
+    if not configured():
+        return []
+
+    query = _MUSIC_SEARCH_TERMS.get(genre_hint, "live music venue")
+    data = await _post(
+        "places:searchText",
+        {"textQuery": f"{query} in {city}"},
+        field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName",
+    )
+
+    out = []
+    for place in data.get("places", []):
+        if place.get("businessStatus") in CLOSED_STATUSES:
+            continue
+        name = place.get("displayName", {}).get("text", "")
+        if not name:
+            continue
+        out.append({
+            "place_id": place.get("id"),
+            "name": name,
+            "addr": place.get("formattedAddress", ""),
+            "rating": place.get("rating"),
+            "genre": genre_hint or "Live music",
+        })
+        if len(out) >= limit:
+            break
+    return out

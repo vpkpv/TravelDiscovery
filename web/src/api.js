@@ -17,8 +17,8 @@ export const api = {
   musicGenres: () => get('/api/music-genres'),
   cities: ({ q = '', visited = [] } = {}) =>
     get(`/api/cities?q=${encodeURIComponent(q)}&visited=${visited.join(',')}`),
-  results: ({ city, filter = 'all' }) =>
-    get(`/api/results?city=${encodeURIComponent(city)}&filter=${filter}`),
-  surprise: ({ city, seed = 0 }) =>
-    get(`/api/results/surprise?city=${encodeURIComponent(city)}&seed=${seed}`),
+  results: ({ city, filter = 'all', musicGenre = '' }) =>
+    get(`/api/results?city=${encodeURIComponent(city)}&filter=${filter}&music_genre=${encodeURIComponent(musicGenre)}`),
+  surprise: ({ city, seed = 0, musicGenre = '' }) =>
+    get(`/api/results/surprise?city=${encodeURIComponent(city)}&seed=${seed}&music_genre=${encodeURIComponent(musicGenre)}`),
 };

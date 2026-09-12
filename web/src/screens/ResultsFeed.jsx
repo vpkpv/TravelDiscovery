@@ -66,7 +66,7 @@ function ResultCard({ item, saved, onToggleSave }) {
   );
 }
 
-export function ResultsFeed({ city }) {
+export function ResultsFeed({ city, musicGenre = '' }) {
   const [filter, setFilter] = useState('all');
   const [items, setItems] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -76,16 +76,16 @@ export function ResultsFeed({ city }) {
   const citySlug = city.slug || city.id; // slug: groups a real Places result with our curated content
 
   useEffect(() => {
-    api.results({ city: citySlug, filter }).then((d) => {
+    api.results({ city: citySlug, filter, musicGenre }).then((d) => {
       setItems(d.items);
       setTotalCount(d.count);
     });
-  }, [citySlug, filter]);
+  }, [citySlug, filter, musicGenre]);
 
   const toggleSave = (id) => setSaved((s) => ({ ...s, [id]: !s[id] }));
 
   const rollSurprise = (seed) => {
-    api.surprise({ city: citySlug, seed }).then((d) => setSurprise({ items: d.items, seed }));
+    api.surprise({ city: citySlug, seed, musicGenre }).then((d) => setSurprise({ items: d.items, seed }));
   };
 
   const showing = surprise ? surprise.items : items;
@@ -150,7 +150,7 @@ export function ResultsFeed({ city }) {
         {showing.length === 0 && (
           <div style={{ fontSize: 14, color: theme.textFaint, padding: '24px 4px' }}>
             {filter === 'music'
-              ? `No music picks yet for ${city.name} — music matching isn't built for ingested cities yet.`
+              ? `No music picks yet for ${city.name}.`
               : filter === 'food'
               ? `No food picks yet for ${city.name}.`
               : `No picks yet for ${city.name}.`}

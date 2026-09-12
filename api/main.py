@@ -145,7 +145,7 @@ def _city_display_name(city_id: str) -> str:
     return city["name"] if city else city_id.replace("-", " ").title()
 
 
-async def _grounded_items(city_id: str) -> list:
+async def _grounded_items(city_id: str, music_genre: str = "") -> list:
     """The RESULTS mock list for a city, ground-truthed against Google Places
     when a key is configured. A candidate that doesn't resolve to a real
     place (or resolves to one marked permanently closed) is dropped rather
@@ -153,23 +153,54 @@ async def _grounded_items(city_id: str) -> list:
 
     Falls back to the raw mock data untouched when no API key is set, so the
     scaffold keeps working for anyone who hasn't configured Places yet.
+
+    Music picks only exist at all for Lisbon (hand-written) — no city has a
+    music-venue content pipeline, ingested or otherwise. So for any city
+    with zero music items after the above, this supplements with real
+    live-music venues straight from Places (see places.find_music_venues) —
+    these are the venues themselves, not candidates needing grounding.
+    `music_genre`, when it's one of the fixed vocabulary values (only
+    meaningful for the manual taste-entry path — Spotify's artist-name
+    signal has no genre to key off), biases which kind of venue gets found.
     """
     items = RESULTS.get(city_id, [])
-    if not items or not places.configured():
-        return items
+    if items and places.configured():
+        city_name = _city_display_name(city_id)
+        grounded = await asyncio.gather(*(places.find_place(i["name"], city_name) for i in items))
 
-    city_name = _city_display_name(city_id)
-    grounded = await asyncio.gather(*(places.find_place(i["name"], city_name) for i in items))
+        out = []
+        for item, ground in zip(items, grounded):
+            if not ground:
+                continue  # didn't resolve to a real place — drop it
+            merged = {**item, "addr": ground["addr"], "place_verified": True}
+            if item["type"] == "food" and ground.get("rating") is not None:
+                merged["rating"] = ground["rating"]
+            out.append(merged)
+        items = out
 
-    out = []
-    for item, ground in zip(items, grounded):
-        if not ground:
-            continue  # didn't resolve to a real place — drop it
-        merged = {**item, "addr": ground["addr"], "place_verified": True}
-        if item["type"] == "food" and ground.get("rating") is not None:
-            merged["rating"] = ground["rating"]
-        out.append(merged)
-    return out
+    if places.configured() and not any(i["type"] == "music" for i in items):
+        city_name = _city_display_name(city_id)
+        venues = await places.find_music_venues(city_name, music_genre)
+        items = items + [
+            {
+                "id": v["place_id"] or f"places-music-{city_id}-{i}",
+                "type": "music",
+                "name": v["name"],
+                "meta": v["genre"],
+                "genre": v["genre"],
+                "addr": v["addr"],
+                "rating": v["rating"],
+                "why": (
+                    f"A real, Google-verified {v['genre'].lower()} spot in {city_name}"
+                    if music_genre
+                    else f"A real, Google-verified live-music spot in {city_name}"
+                ),
+                "place_verified": True,
+            }
+            for i, v in enumerate(venues)
+        ]
+
+    return items
 
 
 @app.get("/api/cuisines")
@@ -244,16 +275,16 @@ async def get_cities(
 
 
 @app.get("/api/results")
-async def get_results(city: str, filter: str = "all"):
-    items = await _grounded_items(city)
+async def get_results(city: str, filter: str = "all", music_genre: str = ""):
+    items = await _grounded_items(city, music_genre)
     if filter in ("food", "music"):
         items = [i for i in items if i["type"] == filter]
     return {"city": city, "count": len(items), "items": items}
 
 
 @app.get("/api/results/surprise")
-async def get_surprise(city: str, seed: int = 0):
-    items = await _grounded_items(city)
+async def get_surprise(city: str, seed: int = 0, music_genre: str = ""):
+    items = await _grounded_items(city, music_genre)
     food = [i for i in items if i["type"] == "food"]
     music = [i for i in items if i["type"] == "music"]
     if not food or not music:
