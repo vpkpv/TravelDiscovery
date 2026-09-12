@@ -106,6 +106,28 @@ VIDEOS = [
         "city": "Tokyo",
         "source": "Mark Wiens — Tokyo Hidden Gems Food Tour",
     },
+    # Found via ingest/discover.py's Supadata search, 2026-09-12 — reviewed for
+    # channel reputation and city relevance before adding, same as the rest.
+    {
+        "video_id": "90_z41hZg0Y",
+        "city": "Tokyo",
+        "source": "TabiEats — Tokyo's Ultimate Street Food Tour",
+    },
+    {
+        "video_id": "PuZ4tvODw60",
+        "city": "Tokyo",
+        "source": "TabiEats — Tokyo Japan Street Food Tour",
+    },
+    {
+        "video_id": "y0-LwK9Ni9U",
+        "city": "Tokyo",
+        "source": "Strictly Dumpling — 18 Best Local Japanese Cheap Eats in Tokyo",
+    },
+    {
+        "video_id": "An6cuIMTgxo",
+        "city": "Tokyo",
+        "source": "Best Ever Food Review Show — Japan Street Food $100 Challenge in Asakusa, Tokyo",
+    },
     # Mexico City — already in the app's curated "trending" city list
     {
         "video_id": "Xcbf0LyGHpw",
