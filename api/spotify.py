@@ -118,11 +118,19 @@ async def top_genres(access_token: str, limit: int = 6) -> list:
         return []
 
     counts = Counter()
+    raw_seen = set()
     for artist in artists:
         for raw_genre in artist.get("genres", []):
+            raw_seen.add(raw_genre)
             raw_lower = raw_genre.lower()
             for app_genre, keywords in _GENRE_KEYWORDS.items():
                 if any(kw in raw_lower for kw in keywords):
                     counts[app_genre] += 1
 
-    return [g for g, _ in counts.most_common(limit) if g in MUSIC_GENRES]
+    matched = [g for g, _ in counts.most_common(limit) if g in MUSIC_GENRES]
+    if not matched:
+        # Temporary: surfaces exactly what didn't map, so the keyword table
+        # can be fixed with real data instead of guesswork. Remove once the
+        # vocabulary has stabilized against real-world Spotify genre tags.
+        log.warning("no app genre matched; raw Spotify genres seen: %s", sorted(raw_seen))
+    return matched
