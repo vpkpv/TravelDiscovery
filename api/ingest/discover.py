@@ -25,6 +25,9 @@ import os
 import sys
 
 import httpx
+from dotenv import load_dotenv
+
+load_dotenv()  # picks up api/.env, same as ingest/run.py
 
 SUPADATA_API_KEY = os.environ.get("SUPADATA_API_KEY", "").strip()
 SEARCH_URL = "https://api.supadata.ai/v1/youtube/search"
