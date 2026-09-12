@@ -112,10 +112,19 @@ async def top_genres(access_token: str, limit: int = 6) -> list:
                 headers={"Authorization": f"Bearer {access_token}"},
             )
             resp.raise_for_status()
-            artists = resp.json().get("items", [])
+            body = resp.json()
+            artists = body.get("items", [])
     except httpx.HTTPError as exc:
         log.warning("Spotify top-artists request failed: %s", exc)
         return []
+
+    # Temporary: pin down whether an empty result means "no top artists at
+    # all" (thin listening history under medium_term) vs "artists returned,
+    # but Spotify's genres field on them is empty" — two different problems.
+    log.warning(
+        "Spotify top-artists: %d returned, total=%s, names=%s",
+        len(artists), body.get("total"), [a.get("name") for a in artists[:10]],
+    )
 
     counts = Counter()
     raw_seen = set()
