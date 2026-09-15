@@ -13,11 +13,16 @@ from ingest.extract import extract_venues
 from ingest.transcripts import fetch_transcript
 
 
-async def ingest_video(video_id: str, city: str, source_label: str) -> list:
+async def ingest_video(video_id: str, city: str, source_label: str, country: str = "") -> list:
     """Returns a list of grounded venue dicts shaped like api/data.py's
     RESULTS entries (missing only an id, which the caller assigns).
     Empty list if the transcript is unavailable, Gemini finds nothing, or
     nothing grounds against a real Places record.
+
+    `country`, when known, guards against Text Search matching a
+    same-named real place in the wrong country entirely — confirmed live:
+    a Tokyo candidate named "Le" grounded to a result in India before this
+    check existed. See places._in_target_country.
     """
     transcript = fetch_transcript(video_id)
     if not transcript:
@@ -27,7 +32,7 @@ async def ingest_video(video_id: str, city: str, source_label: str) -> list:
 
     grounded = []
     for candidate in candidates:
-        ground = await places.find_place(candidate["name"], city)
+        ground = await places.find_place(candidate["name"], city, country)
         if not ground:
             continue  # ungrounded — could be a mishear, a closed business, or hallucinated
         grounded.append({

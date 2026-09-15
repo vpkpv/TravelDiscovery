@@ -171,6 +171,23 @@ VIDEOS = [
     },
 ]
 
+# city -> country, so places.find_place can reject a same-named result in
+# the wrong country entirely (confirmed live: a Tokyo candidate named "Le"
+# grounded to a result in India before this check existed). Keyed by city
+# name rather than repeated on every VIDEOS entry above.
+CITY_COUNTRIES = {
+    "Lisbon": "Portugal",
+    "Mumbai": "India",
+    "New York City": "USA",
+    "Paris": "France",
+    "Rome": "Italy",
+    "Chicago": "USA",
+    "Tokyo": "Japan",
+    "Mexico City": "Mexico",
+    "Bangkok": "Thailand",
+    "Seoul": "South Korea",
+}
+
 
 # Seconds to wait between videos. YouTube rate-limits (sometimes outright
 # blocks) an IP that fires many transcript requests back-to-back — this
@@ -196,7 +213,7 @@ async def main():
     blocked_count = 0
     for i, v in enumerate(VIDEOS):
         print(f"Ingesting: {v['source']} ({v['video_id']})...", file=sys.stderr)
-        items = await ingest_video(v["video_id"], v["city"], v["source"])
+        items = await ingest_video(v["video_id"], v["city"], v["source"], CITY_COUNTRIES.get(v["city"], ""))
         print(f"  -> {len(items)} grounded venue(s)", file=sys.stderr)
         if not items:
             blocked_count += 1  # could be a real zero-venue video too, not just a block

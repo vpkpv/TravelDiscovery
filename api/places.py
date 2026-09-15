@@ -52,6 +52,27 @@ def _looks_like_match(candidate: str, found: str) -> bool:
     return SequenceMatcher(None, c, f).ratio() >= MATCH_THRESHOLD
 
 
+def _in_target_country(address: str, country: str) -> bool:
+    """Text Search is fuzzy enough that a short/generic candidate name (e.g.
+    "Le", "Kikuya") can match a same-named real place in a totally different
+    city or country and still pass _looks_like_match — confirmed live: a
+    Tokyo candidate named "Le" grounded to a result in Gurugram, India, and
+    "Kikuya" grounded to one in Bangkok, Thailand. Name similarity alone
+    isn't enough.
+
+    Checks country, not city: Places renders the country in English
+    regardless of locale, but the city/region portion of the address often
+    isn't (e.g. Mexico City's addresses read "Ciudad de México", never the
+    literal string "Mexico City") — a city-name substring check would
+    reject every legitimate result for cities like that. `country` is
+    optional; when the caller doesn't have one (e.g. an ad-hoc city search
+    with no known country), this check is skipped rather than guessed at.
+    """
+    if not country:
+        return True
+    return _normalize(country) in _normalize(address)
+
+
 async def _post(path: str, body: dict, field_mask: str = "") -> dict:
     headers = {"Content-Type": "application/json", "X-Goog-Api-Key": API_KEY}
     if field_mask:
@@ -103,12 +124,13 @@ async def autocomplete_cities(query: str) -> list:
     return out
 
 
-async def find_place(name: str, city: str) -> dict:
+async def find_place(name: str, city: str, country: str = "") -> dict:
     """Ground a candidate venue name against a real place record.
 
     Returns {} if nothing resolves to a close-enough real match — callers
     should drop the candidate rather than show it, per the design doc's
-    grounding rule.
+    grounding rule. Pass `country` when known (see _in_target_country) to
+    catch a same-named result in the wrong country entirely.
     """
     if not configured():
         return {}
@@ -128,6 +150,14 @@ async def find_place(name: str, city: str) -> dict:
 
     if not _looks_like_match(name, found_name):
         log.info("grounding rejected: %r did not match closest result %r", name, found_name)
+        return {}
+
+    address = place.get("formattedAddress", "")
+    if not _in_target_country(address, country):
+        log.info(
+            "grounding rejected: %r matched %r by name, but its address %r isn't in %r",
+            name, found_name, address, country,
+        )
         return {}
 
     if place.get("businessStatus") in CLOSED_STATUSES:
@@ -161,11 +191,14 @@ _MUSIC_SEARCH_TERMS = {
 }
 
 
-async def find_music_venues(city: str, genre_hint: str = "", limit: int = 4) -> list:
+async def find_music_venues(city: str, genre_hint: str = "", limit: int = 4, country: str = "") -> list:
     """Real, Places-sourced live-music venues for a city, for cities with no
     hand-curated or ingested music picks. Unlike find_place(), there's no
     "candidate name" to ground here — these results are themselves the real
-    venues, straight from Places, so nothing needs a match-confidence check.
+    venues, straight from Places — but the underlying textQuery is still
+    fuzzy enough to drift to a same-named place in the wrong country for an
+    ambiguous city name, same failure mode as find_place(); pass `country`
+    when known to filter those out too.
     """
     if not configured():
         return []
@@ -183,6 +216,8 @@ async def find_music_venues(city: str, genre_hint: str = "", limit: int = 4) -> 
             continue
         name = place.get("displayName", {}).get("text", "")
         if not name:
+            continue
+        if not _in_target_country(place.get("formattedAddress", ""), country):
             continue
         out.append({
             "place_id": place.get("id"),

@@ -145,6 +145,11 @@ def _city_display_name(city_id: str) -> str:
     return city["name"] if city else city_id.replace("-", " ").title()
 
 
+def _city_country(city_id: str) -> str:
+    city = _CITY_BY_ID.get(city_id)
+    return city["country"] if city else ""
+
+
 async def _grounded_items(city_id: str, music_genre: str = "") -> list:
     """The RESULTS mock list for a city, ground-truthed against Google Places
     when a key is configured. A candidate that doesn't resolve to a real
@@ -166,7 +171,8 @@ async def _grounded_items(city_id: str, music_genre: str = "") -> list:
     items = RESULTS.get(city_id, [])
     if items and places.configured():
         city_name = _city_display_name(city_id)
-        grounded = await asyncio.gather(*(places.find_place(i["name"], city_name) for i in items))
+        country = _city_country(city_id)
+        grounded = await asyncio.gather(*(places.find_place(i["name"], city_name, country) for i in items))
 
         out = []
         for item, ground in zip(items, grounded):
@@ -180,7 +186,7 @@ async def _grounded_items(city_id: str, music_genre: str = "") -> list:
 
     if places.configured() and not any(i["type"] == "music" for i in items):
         city_name = _city_display_name(city_id)
-        venues = await places.find_music_venues(city_name, music_genre)
+        venues = await places.find_music_venues(city_name, music_genre, country=_city_country(city_id))
         items = items + [
             {
                 "id": v["place_id"] or f"places-music-{city_id}-{i}",
