@@ -95,6 +95,13 @@ def search_videos(query: str, limit: int = 10) -> list:
         if not video_id:
             log.warning("Result missing a recognizable video id field: %s", json.dumps(item)[:500])
             continue
+        # Search results can mix in playlists/channels alongside videos —
+        # a real YouTube video id is always exactly 11 chars (confirmed
+        # empirically: a playlist id like "PLeoy0zUu6bq..." slipped through
+        # here and is 34 chars). Skip anything that isn't video-shaped.
+        if len(video_id) != 11:
+            log.warning("Skipping non-video result (id %r isn't 11 chars — likely a playlist/channel): %s", video_id, title)
+            continue
         out.append({"video_id": video_id, "title": title, "channel": channel})
     return out
 

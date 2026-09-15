@@ -150,6 +150,19 @@ VIDEOS = [
         "city": "Bangkok",
         "source": "Mark Wiens x Best Ever Food Review Show — Thailand Collab",
     },
+    # Found via ingest/discover.py's Supadata search, 2026-09-15 — the two
+    # existing Bangkok videos above produced zero venues (one copyright-
+    # removed, one just didn't yield named venues), so this needed backfill.
+    {
+        "video_id": "bpd6uGHpoYY",
+        "city": "Bangkok",
+        "source": "Mark Wiens — Chatuchak Weekend Market Street Food Tour",
+    },
+    {
+        "video_id": "Y8TwAYjDkQI",
+        "city": "Bangkok",
+        "source": "Doobydobap — Michelin Street Food in Bangkok",
+    },
     # Seoul — already in the app's curated "trending" city list
     {
         "video_id": "RbpKkvlHYTw",
