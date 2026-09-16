@@ -12,10 +12,11 @@ from dotenv import load_dotenv
 
 load_dotenv()  # picks up api/.env for local dev — see .env.example
 
-from fastapi import FastAPI, Query
+from fastapi import Depends, FastAPI, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
+import auth
 import places
 import spotify
 from data import CITIES, CUISINES, MUSIC_GENRES, RESULTS
@@ -25,12 +26,59 @@ log = logging.getLogger("main")
 app = FastAPI(title="TravelDiscovery API (dev)")
 
 
-def _load_ingested_results() -> None:
-    """Merges ingest/output.json (written by `python -m ingest.run`) into
-    RESULTS, grouped by city slug, so a completed ingestion run actually
-    shows up in the app instead of sitting in a file nothing reads. A
-    missing file is a no-op — the curated Lisbon set keeps working either
-    way, same as before this existed.
+def _merge_ingested_items(items: list, city_lookup: dict) -> None:
+    """Shared by both loaders below: merges a flat list of ingested venue
+    dicts into RESULTS, grouped by city slug, deduped against whatever's
+    already there (curated data or an earlier video covering the same
+    venue).
+    """
+    for i, item in enumerate(items):
+        city = item.get("city") or city_lookup.get(item.get("source_video_id"))
+        if not city:
+            log.warning("skipping ingested item with no attributable city: %r", item.get("name"))
+            continue
+        slug = places._slugify(city)
+        existing = RESULTS.setdefault(slug, [])
+        if any(e["name"].lower() == item["name"].lower() for e in existing):
+            continue
+        entry = {
+            "id": f"ingest-{slug}-{i}",
+            "type": item["type"],
+            "name": item["name"],
+            "meta": item["meta"],
+            "addr": item["addr"],
+            "why": item["why"],
+        }
+        if item.get("rating") is not None:
+            entry["rating"] = item["rating"]
+        existing.append(entry)
+
+
+def _load_ingested_results_from_firestore() -> bool:
+    """Reads every venues/{slug} doc (written by `python -m ingest.run`
+    once AUTH_ENABLED/Firestore is set up) and merges its items into
+    RESULTS. Returns False (so the caller falls back to the local file) on
+    any failure — a Firestore hiccup shouldn't take down city results.
+    """
+    try:
+        docs = auth.firestore_client().collection("venues").stream()
+        flat = []
+        for doc in docs:
+            data = doc.to_dict() or {}
+            for item in data.get("items", []):
+                flat.append({**item, "city": item.get("city") or data.get("city")})
+        _merge_ingested_items(flat, {})
+        return True
+    except Exception as exc:
+        log.warning("Firestore venue load failed, falling back to local output.json: %s", exc)
+        return False
+
+
+def _load_ingested_results_from_file() -> None:
+    """Merges ingest/output.json (written by `python -m ingest.run` before
+    Firestore storage existed, or still today when AUTH_ENABLED isn't set)
+    into RESULTS. A missing file is a no-op — the curated Lisbon set keeps
+    working either way.
     """
     output_path = Path(__file__).resolve().parent / "ingest" / "output.json"
     if not output_path.exists():
@@ -50,26 +98,12 @@ def _load_ingested_results() -> None:
     except ImportError:
         video_city = {}
 
-    for i, item in enumerate(items):
-        city = item.get("city") or video_city.get(item.get("source_video_id"))
-        if not city:
-            log.warning("skipping ingested item with no attributable city: %r", item.get("name"))
-            continue
-        slug = places._slugify(city)
-        existing = RESULTS.setdefault(slug, [])
-        if any(e["name"].lower() == item["name"].lower() for e in existing):
-            continue  # already covered by curated data or an earlier video
-        entry = {
-            "id": f"ingest-{slug}-{i}",
-            "type": item["type"],
-            "name": item["name"],
-            "meta": item["meta"],
-            "addr": item["addr"],
-            "why": item["why"],
-        }
-        if item.get("rating") is not None:
-            entry["rating"] = item["rating"]
-        existing.append(entry)
+    _merge_ingested_items(items, video_city)
+
+
+def _load_ingested_results() -> None:
+    if not (auth.configured() and _load_ingested_results_from_firestore()):
+        _load_ingested_results_from_file()
 
 
 _load_ingested_results()
@@ -209,6 +243,33 @@ async def _grounded_items(city_id: str, music_genre: str = "") -> list:
     return items
 
 
+@app.get("/api/me")
+async def get_me(authorization: str = Header(default="")):
+    """Reports auth/approval status without raising — unlike the
+    auth.current_user dependency used on the data endpoints below, this
+    always returns 200 so the frontend can render the right screen (no
+    login needed, please sign in, or waiting on approval) instead of
+    treating every non-approved state as an error to recover from.
+    """
+    if not auth.configured():
+        return {"auth_enabled": False, "signed_in": True, "approved": True}
+
+    if not authorization.startswith("Bearer "):
+        return {"auth_enabled": True, "signed_in": False}
+
+    user = await auth.verify_token(authorization.removeprefix("Bearer ").strip())
+    if not user:
+        return {"auth_enabled": True, "signed_in": False}
+
+    return {
+        "auth_enabled": True,
+        "signed_in": True,
+        "uid": user["uid"],
+        "email": user["email"],
+        "approved": auth.is_approved(user["uid"]),
+    }
+
+
 @app.get("/api/cuisines")
 def get_cuisines():
     return {"cuisines": CUISINES}
@@ -223,6 +284,7 @@ def get_music_genres():
 async def get_cities(
     q: str = "",
     visited: Optional[str] = Query(default=None, description="comma-separated city ids"),
+    _user: dict = Depends(auth.current_user),
 ):
     visited_ids = _split(visited)
     q_stripped = q.strip()
@@ -281,7 +343,7 @@ async def get_cities(
 
 
 @app.get("/api/results")
-async def get_results(city: str, filter: str = "all", music_genre: str = ""):
+async def get_results(city: str, filter: str = "all", music_genre: str = "", _user: dict = Depends(auth.current_user)):
     items = await _grounded_items(city, music_genre)
     if filter in ("food", "music"):
         items = [i for i in items if i["type"] == filter]
@@ -289,7 +351,7 @@ async def get_results(city: str, filter: str = "all", music_genre: str = ""):
 
 
 @app.get("/api/results/surprise")
-async def get_surprise(city: str, seed: int = 0, music_genre: str = ""):
+async def get_surprise(city: str, seed: int = 0, music_genre: str = "", _user: dict = Depends(auth.current_user)):
     items = await _grounded_items(city, music_genre)
     food = [i for i in items if i["type"] == "food"]
     music = [i for i in items if i["type"] == "music"]

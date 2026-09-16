@@ -4,8 +4,12 @@
 // Local dev falls through to VITE_API_URL (build-time) or localhost.
 const BASE = window.__API_URL__ || import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+import { getIdToken } from './firebase.js';
+
 async function get(path) {
-  const res = await fetch(`${BASE}${path}`);
+  const token = await getIdToken();
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const res = await fetch(`${BASE}${path}`, { headers });
   if (!res.ok) throw new Error(`${path} -> ${res.status}`);
   return res.json();
 }
@@ -13,6 +17,7 @@ async function get(path) {
 export const spotifyLoginUrl = `${BASE}/auth/spotify/login`;
 
 export const api = {
+  me: () => get('/api/me'),
   cuisines: () => get('/api/cuisines'),
   musicGenres: () => get('/api/music-genres'),
   cities: ({ q = '', visited = [] } = {}) =>

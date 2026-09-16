@@ -23,6 +23,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import auth
 import places
 from ingest.extract import configured as gemini_configured
 from ingest.pipeline import ingest_video
@@ -230,7 +231,38 @@ async def main():
           f"({blocked_count} videos produced zero venues — check the warnings above for why).",
           file=sys.stderr)
     print(f"Full results written to {OUTPUT_FILE}", file=sys.stderr)
+
+    if auth.configured():
+        _write_to_firestore(all_results)
+    else:
+        print(
+            "AUTH_ENABLED not set — skipping Firestore write, output.json above is the "
+            "only copy. See api/.env.example if you've set up Firebase and want this to "
+            "persist there instead of needing a manual copy-and-redeploy each time.",
+            file=sys.stderr,
+        )
+
     print(json.dumps(all_results, indent=2))
+
+
+def _write_to_firestore(all_results: list) -> None:
+    """Groups venues by city slug and writes each as venues/{slug}, so the
+    deployed API can read directly from Firestore (see main.py's
+    _load_ingested_results_from_firestore) instead of needing output.json
+    manually copied into the checkout and redeployed every time.
+    """
+    by_city = {}
+    for item in all_results:
+        slug = places._slugify(item["city"])
+        by_city.setdefault(slug, {"city": item["city"], "items": []})["items"].append(item)
+
+    try:
+        db = auth.firestore_client()
+        for slug, doc in by_city.items():
+            db.collection("venues").document(slug).set(doc)
+        print(f"Wrote {len(by_city)} cities to Firestore (venues/{{slug}}).", file=sys.stderr)
+    except Exception as exc:
+        print(f"Firestore write failed (output.json above still has everything): {exc}", file=sys.stderr)
 
 
 if __name__ == "__main__":

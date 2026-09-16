@@ -5,4 +5,5 @@
 # from the Cloud Run env var — so one built image can point at any backend
 # without rebuilding.
 set -e
-envsubst '${API_URL}' < /etc/nginx/templates/config.js.template > /usr/share/nginx/html/config.js
+envsubst '${API_URL} ${FIREBASE_API_KEY} ${FIREBASE_AUTH_DOMAIN} ${FIREBASE_PROJECT_ID} ${FIREBASE_APP_ID}' \
+  < /etc/nginx/templates/config.js.template > /usr/share/nginx/html/config.js

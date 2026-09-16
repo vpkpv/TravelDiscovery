@@ -13,6 +13,11 @@
 #   # (from developer.spotify.com/dashboard) — this script computes and wires
 #   # up SPOTIFY_REDIRECT_URI itself. See api/.env.example for details,
 #   # including the Dev Mode user-allowlisting requirement.
+#   # for Firebase Auth + the closed-pilot approval gate: set AUTH_ENABLED=true
+#   # plus FIREBASE_API_KEY, FIREBASE_AUTH_DOMAIN, FIREBASE_PROJECT_ID,
+#   # FIREBASE_APP_ID (from the Firebase console's web app config). See
+#   # api/.env.example for the full setup, including the IAM role the
+#   # travel-api service account needs for Firestore access.
 set -euo pipefail
 
 : "${PROJECT_ID:?Set PROJECT_ID, e.g. PROJECT_ID=my-project ./deploy.sh}"
@@ -33,7 +38,7 @@ gcloud run deploy travel-api \
   --source ./api \
   --region "$REGION" \
   --allow-unauthenticated \
-  --set-env-vars "GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-},SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-},SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET:-}"
+  --set-env-vars "GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-},SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-},SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET:-},AUTH_ENABLED=${AUTH_ENABLED:-}"
 
 API_URL=$(gcloud run services describe travel-api --region "$REGION" --format='value(status.url)')
 echo "API live at: $API_URL"
@@ -43,7 +48,7 @@ gcloud run deploy travel-web \
   --source ./web \
   --region "$REGION" \
   --allow-unauthenticated \
-  --set-env-vars "API_URL=${API_URL}"
+  --set-env-vars "API_URL=${API_URL},FIREBASE_API_KEY=${FIREBASE_API_KEY:-},FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN:-},FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-},FIREBASE_APP_ID=${FIREBASE_APP_ID:-}"
 
 WEB_URL=$(gcloud run services describe travel-web --region "$REGION" --format='value(status.url)')
 
@@ -61,6 +66,15 @@ if [ -n "${SPOTIFY_CLIENT_ID:-}" ]; then
   echo "Spotify: make sure this exact Redirect URI is registered on your"
   echo "Spotify app (developer.spotify.com/dashboard -> your app -> Settings):"
   echo "  $SPOTIFY_REDIRECT_URI"
+fi
+
+if [ "${AUTH_ENABLED:-}" = "true" ]; then
+  echo
+  echo "Auth: make sure the travel-api service account has Firestore access"
+  echo "(Cloud Datastore User role, at minimum) — see api/.env.example."
+  echo "Approve yourself: add a document at approved_users/<your-uid> in the"
+  echo "Firestore console (Firebase console -> Firestore -> Start collection)"
+  echo "after signing in once so a uid exists to approve."
 fi
 
 echo

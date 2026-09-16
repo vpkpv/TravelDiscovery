@@ -1,1 +1,7 @@
 window.__API_URL__ = "${API_URL}";
+window.__FIREBASE_CONFIG__ = {
+  apiKey: "${FIREBASE_API_KEY}",
+  authDomain: "${FIREBASE_AUTH_DOMAIN}",
+  projectId: "${FIREBASE_PROJECT_ID}",
+  appId: "${FIREBASE_APP_ID}",
+};
