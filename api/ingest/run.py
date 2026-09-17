@@ -228,7 +228,23 @@ async def main():
         )
         sys.exit(1)
 
+    db = auth.firestore_client() if auth.configured() else None
+    if db is None:
+        print(
+            "AUTH_ENABLED not set — skipping Firestore writes, output.json is the "
+            "only copy. See api/.env.example if you've set up Firebase and want this to "
+            "persist there instead of needing a manual copy-and-redeploy each time.",
+            file=sys.stderr,
+        )
+
     all_results = []
+    by_city = {}  # slug -> {city, items} — rebuilt fully each video, written to
+                  # Firestore after every video (not just at the end): this is
+                  # meant to run as an ephemeral Cloud Run Job, which can be
+                  # killed mid-run by a timeout, so the same "don't lose
+                  # everything fetched so far" reasoning that already applies
+                  # to the local output.json below applies doubly to Firestore,
+                  # since nothing else reads output.json back afterwards.
     blocked_count = 0
     for i, v in enumerate(VIDEOS):
         print(f"Ingesting: {v['source']} ({v['video_id']})...", file=sys.stderr)
@@ -242,6 +258,14 @@ async def main():
         # (YouTube's, not ours) shouldn't lose everything fetched so far.
         OUTPUT_FILE.write_text(json.dumps(all_results, indent=2))
 
+        if items and db is not None:
+            slug = places._slugify(v["city"])
+            by_city.setdefault(slug, {"city": v["city"], "items": []})["items"].extend(items)
+            try:
+                db.collection("venues").document(slug).set(by_city[slug])
+            except Exception as exc:
+                print(f"  Firestore write for {slug} failed (output.json still has it): {exc}", file=sys.stderr)
+
         if i < len(VIDEOS) - 1:
             await asyncio.sleep(DELAY_SECONDS)
 
@@ -249,38 +273,10 @@ async def main():
           f"({blocked_count} videos produced zero venues — check the warnings above for why).",
           file=sys.stderr)
     print(f"Full results written to {OUTPUT_FILE}", file=sys.stderr)
-
-    if auth.configured():
-        _write_to_firestore(all_results)
-    else:
-        print(
-            "AUTH_ENABLED not set — skipping Firestore write, output.json above is the "
-            "only copy. See api/.env.example if you've set up Firebase and want this to "
-            "persist there instead of needing a manual copy-and-redeploy each time.",
-            file=sys.stderr,
-        )
+    if db is not None:
+        print(f"Wrote {len(by_city)} cities to Firestore (venues/{{slug}}), incrementally per video.", file=sys.stderr)
 
     print(json.dumps(all_results, indent=2))
-
-
-def _write_to_firestore(all_results: list) -> None:
-    """Groups venues by city slug and writes each as venues/{slug}, so the
-    deployed API can read directly from Firestore (see main.py's
-    _load_ingested_results_from_firestore) instead of needing output.json
-    manually copied into the checkout and redeployed every time.
-    """
-    by_city = {}
-    for item in all_results:
-        slug = places._slugify(item["city"])
-        by_city.setdefault(slug, {"city": item["city"], "items": []})["items"].append(item)
-
-    try:
-        db = auth.firestore_client()
-        for slug, doc in by_city.items():
-            db.collection("venues").document(slug).set(doc)
-        print(f"Wrote {len(by_city)} cities to Firestore (venues/{{slug}}).", file=sys.stderr)
-    except Exception as exc:
-        print(f"Firestore write failed (output.json above still has everything): {exc}", file=sys.stderr)
 
 
 if __name__ == "__main__":
