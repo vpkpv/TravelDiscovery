@@ -48,6 +48,11 @@ def _merge_ingested_items(items: list, city_lookup: dict) -> None:
             "meta": item["meta"],
             "addr": item["addr"],
             "why": item["why"],
+            # Already went through Places grounding once during ingest —
+            # _grounded_items skips re-verifying anything with this set,
+            # so it isn't re-searched (and potentially dropped by a
+            # different fuzzy-match result) on every single request.
+            "place_verified": True,
         }
         if item.get("rating") is not None:
             entry["rating"] = item["rating"]
@@ -209,20 +214,25 @@ async def _grounded_items(city_id: str, music_genre: str = "") -> list:
     signal has no genre to key off), biases which kind of venue gets found.
     """
     items = RESULTS.get(city_id, [])
-    if items and places.configured():
+    to_verify = [i for i in items if not i.get("place_verified")]
+    already_verified = [i for i in items if i.get("place_verified")]
+
+    if to_verify and places.configured():
         city_name = _city_display_name(city_id)
         country = _city_country(city_id)
-        grounded = await asyncio.gather(*(places.find_place(i["name"], city_name, country) for i in items))
+        grounded = await asyncio.gather(*(places.find_place(i["name"], city_name, country) for i in to_verify))
 
         out = []
-        for item, ground in zip(items, grounded):
+        for item, ground in zip(to_verify, grounded):
             if not ground:
                 continue  # didn't resolve to a real place — drop it
             merged = {**item, "addr": ground["addr"], "place_verified": True}
             if item["type"] == "food" and ground.get("rating") is not None:
                 merged["rating"] = ground["rating"]
             out.append(merged)
-        items = out
+        to_verify = out
+
+    items = already_verified + to_verify
 
     if places.configured() and not any(i["type"] == "music" for i in items):
         city_name = _city_display_name(city_id)

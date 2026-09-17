@@ -149,12 +149,16 @@ async def find_place(name: str, city: str, country: str = "") -> dict:
     found_name = place.get("displayName", {}).get("text", "")
 
     if not _looks_like_match(name, found_name):
-        log.info("grounding rejected: %r did not match closest result %r", name, found_name)
+        # WARNING, not INFO: a venue silently disappearing from what's
+        # served is worth being able to see in Cloud Run's default log
+        # capture, which doesn't pick up INFO without extra config —
+        # confirmed missing exactly this way debugging a prior issue.
+        log.warning("grounding rejected: %r did not match closest result %r", name, found_name)
         return {}
 
     address = place.get("formattedAddress", "")
     if not _in_target_country(address, country):
-        log.info(
+        log.warning(
             "grounding rejected: %r matched %r by name, but its address %r isn't in %r",
             name, found_name, address, country,
         )
