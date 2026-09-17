@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { theme } from '../theme.js';
-import { api } from '../api.js';
+import { api, photoUrl } from '../api.js';
 
 function FoodIcon({ color = '#FFFFFF' }) {
   return (
@@ -19,18 +19,29 @@ function MusicIcon({ color = '#FFFFFF' }) {
 
 function ResultCard({ item, saved, onToggleSave }) {
   const isFood = item.type === 'food';
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const showPhoto = item.photo_ref && !photoFailed;
   return (
     <div style={{ background: theme.card, borderRadius: 18, padding: 16, display: 'flex', gap: 14, boxShadow: '0 6px 16px rgba(43,36,32,0.06)' }}>
-      <div
-        style={{
-          width: 60, height: 60, borderRadius: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: isFood
-            ? `linear-gradient(135deg, ${theme.accentFoodSoft}, ${theme.accentFood})`
-            : `linear-gradient(135deg, ${theme.accentMusicSoft}, ${theme.accentMusic})`,
-        }}
-      >
-        {isFood ? <FoodIcon /> : <MusicIcon />}
-      </div>
+      {showPhoto ? (
+        <img
+          src={photoUrl(item.photo_ref, 160)}
+          alt=""
+          onError={() => setPhotoFailed(true)}
+          style={{ width: 60, height: 60, borderRadius: 14, flexShrink: 0, objectFit: 'cover' }}
+        />
+      ) : (
+        <div
+          style={{
+            width: 60, height: 60, borderRadius: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: isFood
+              ? `linear-gradient(135deg, ${theme.accentFoodSoft}, ${theme.accentFood})`
+              : `linear-gradient(135deg, ${theme.accentMusicSoft}, ${theme.accentMusic})`,
+          }}
+        >
+          {isFood ? <FoodIcon /> : <MusicIcon />}
+        </div>
+      )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
           <div style={{ fontSize: 16.5, fontWeight: 600, lineHeight: 1.3 }}>{item.name}</div>

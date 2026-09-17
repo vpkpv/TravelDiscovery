@@ -14,7 +14,7 @@ load_dotenv()  # picks up api/.env for local dev — see .env.example
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 
 import auth
 import places
@@ -56,6 +56,8 @@ def _merge_ingested_items(items: list, city_lookup: dict) -> None:
         }
         if item.get("rating") is not None:
             entry["rating"] = item["rating"]
+        if item.get("photo_ref"):
+            entry["photo_ref"] = item["photo_ref"]
         existing.append(entry)
 
 
@@ -229,6 +231,8 @@ async def _grounded_items(city_id: str, music_genre: str = "") -> list:
             merged = {**item, "addr": ground["addr"], "place_verified": True}
             if item["type"] == "food" and ground.get("rating") is not None:
                 merged["rating"] = ground["rating"]
+            if ground.get("photo_ref"):
+                merged["photo_ref"] = ground["photo_ref"]
             out.append(merged)
         to_verify = out
 
@@ -252,6 +256,7 @@ async def _grounded_items(city_id: str, music_genre: str = "") -> list:
                     else f"A real, Google-verified live-music spot in {city_name}"
                 ),
                 "place_verified": True,
+                **({"photo_ref": v["photo_ref"]} if v.get("photo_ref") else {}),
             }
             for i, v in enumerate(venues)
         ]
@@ -307,6 +312,25 @@ def get_cuisines():
 @app.get("/api/music-genres")
 def get_music_genres():
     return {"genres": MUSIC_GENRES}
+
+
+@app.get("/api/photo")
+async def get_photo(ref: str, w: int = 400):
+    """Proxies a Places photo (see places.photo_media) so the browser never
+    sees our Places API key — an <img src="/api/photo?ref=...">  hits this
+    instead of a Places URL with the key attached as a query param.
+
+    Deliberately not behind auth.current_user: an <img> tag can't attach an
+    Authorization header without extra client-side plumbing (fetch + blob
+    URL), and `ref` is an opaque Places resource name only ever handed out
+    by the already-gated /api/results and /api/results/surprise, so there's
+    nothing meaningful to discover by guessing at this endpoint.
+    """
+    result = await places.photo_media(ref, max_width=w)
+    if not result:
+        raise HTTPException(status_code=404, detail="photo not found")
+    content, content_type = result
+    return Response(content=content, media_type=content_type, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.get("/api/cities")

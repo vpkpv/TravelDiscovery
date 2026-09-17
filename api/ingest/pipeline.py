@@ -44,5 +44,6 @@ async def ingest_video(video_id: str, city: str, source_label: str, country: str
             "why": candidate["why"],
             "city": city,
             "source_video_id": video_id,
+            "photo_ref": ground.get("photo_ref"),
         })
     return grounded

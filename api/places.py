@@ -20,6 +20,7 @@ mock data without extra try/except noise at each call site.
 import logging
 import os
 from difflib import SequenceMatcher
+from typing import Optional
 
 import httpx
 
@@ -138,7 +139,7 @@ async def find_place(name: str, city: str, country: str = "") -> dict:
     data = await _post(
         "places:searchText",
         {"textQuery": f"{name}, {city}"},
-        field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName",
+        field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos",
     )
 
     places_found = data.get("places", [])
@@ -171,7 +172,43 @@ async def find_place(name: str, city: str, country: str = "") -> dict:
         "addr": place.get("formattedAddress", ""),
         "rating": place.get("rating"),
         "place_id": place.get("id"),
+        "photo_ref": _first_photo_ref(place),
     }
+
+
+def _first_photo_ref(place: dict):
+    """The resource name (e.g. "places/ABC/photos/XYZ") of a place's first
+    Places photo, if it has one — passed to photo_media() to fetch the
+    actual image bytes. None (not a fixed placeholder) when a place has no
+    photos, which is common enough (smaller/newer venues) that the frontend
+    needs a fallback anyway.
+    """
+    photos = place.get("photos", [])
+    return photos[0]["name"] if photos else None
+
+
+async def photo_media(photo_ref: str, max_width: int = 400) -> Optional[tuple]:
+    """Fetches actual image bytes for a photo_ref from find_place()/
+    find_music_venues(), for main.py's /api/photo to proxy back to the
+    browser. Proxied server-side (rather than handing the browser a Places
+    URL with our API key attached) so the key never reaches the client.
+
+    Returns (content_bytes, content_type), or None on any failure — the
+    caller (an <img> tag) just gets a missing image, same as a venue with
+    no photo at all.
+    """
+    if not configured() or not photo_ref:
+        return None
+    url = f"{BASE}/{photo_ref}/media"
+    try:
+        async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
+            resp = await client.get(url, params={"key": API_KEY, "maxWidthPx": max_width})
+        if resp.status_code != 200:
+            return None
+        return resp.content, resp.headers.get("content-type", "image/jpeg")
+    except httpx.HTTPError as exc:
+        log.warning("photo media fetch failed for %r: %s", photo_ref, exc)
+        return None
 
 
 # Genre -> a Text Search query that tends to surface a real venue of that
@@ -211,7 +248,7 @@ async def find_music_venues(city: str, genre_hint: str = "", limit: int = 4, cou
     data = await _post(
         "places:searchText",
         {"textQuery": f"{query} in {city}"},
-        field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName",
+        field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos",
     )
 
     out = []
@@ -229,6 +266,7 @@ async def find_music_venues(city: str, genre_hint: str = "", limit: int = 4, cou
             "addr": place.get("formattedAddress", ""),
             "rating": place.get("rating"),
             "genre": genre_hint or "Live music",
+            "photo_ref": _first_photo_ref(place),
         })
         if len(out) >= limit:
             break

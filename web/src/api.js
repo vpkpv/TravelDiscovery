@@ -16,6 +16,12 @@ async function get(path) {
 
 export const spotifyLoginUrl = `${BASE}/auth/spotify/login`;
 
+// /api/photo proxies Places photos server-side (see main.py) so the
+// Places API key never reaches the browser. Not behind auth — an <img>
+// tag can't attach a Bearer header — see that endpoint's docstring.
+export const photoUrl = (ref, w = 400) =>
+  `${BASE}/api/photo?ref=${encodeURIComponent(ref)}&w=${w}`;
+
 export const api = {
   me: () => get('/api/me'),
   cuisines: () => get('/api/cuisines'),
