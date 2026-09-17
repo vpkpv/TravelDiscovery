@@ -84,6 +84,24 @@ VIDEOS = [
         "city": "Paris",
         "source": "Mark Wiens — Paris Street Food, 10 Cheap Eats",
     },
+    # Found via ingest/discover.py's Supadata search, 2026-09-17 — Paris only
+    # had 1 source video (2 grounded venues). Les Frenchies verified via web
+    # search: 437K subscribers, dedicated Paris/France food & travel channel.
+    {
+        "video_id": "h13cCP9wCpw",
+        "city": "Paris",
+        "source": "Mark Wiens — Best French Food in Paris for 24 Hours",
+    },
+    {
+        "video_id": "I_Xx1B8Tm-w",
+        "city": "Paris",
+        "source": "Les Frenchies — Paris Street Food That Locals Actually Eat",
+    },
+    {
+        "video_id": "r62zdMEy7vM",
+        "city": "Paris",
+        "source": "Les Frenchies — 12 Street Food Where Locals Eat in Paris",
+    },
     # Rome (Europe)
     {
         "video_id": "vPVqo3MvfVo",
