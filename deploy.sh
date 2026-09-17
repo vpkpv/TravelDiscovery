@@ -18,6 +18,10 @@
 #   # FIREBASE_APP_ID (from the Firebase console's web app config). See
 #   # api/.env.example for the full setup, including the IAM role the
 #   # travel-api service account needs for Firestore access.
+#   # to also stand up the MCP server (exposes picks to Claude/other MCP
+#   # clients — see api/mcp_server.py): set DEPLOY_MCP=true. Needs
+#   # AUTH_ENABLED=true too, since that's how a user gets a token to
+#   # authenticate to it (POST /api/tokens).
 set -euo pipefail
 
 : "${PROJECT_ID:?Set PROJECT_ID, e.g. PROJECT_ID=my-project ./deploy.sh}"
@@ -77,10 +81,47 @@ if [ "${AUTH_ENABLED:-}" = "true" ]; then
   echo "after signing in once so a uid exists to approve."
 fi
 
+MCP_URL=""
+if [ "${DEPLOY_MCP:-}" = "true" ]; then
+  echo
+  echo "== Deploying MCP server =="
+  gcloud run deploy travel-mcp \
+    --source ./api \
+    --region "$REGION" \
+    --allow-unauthenticated \
+    --set-env-vars "ASGI_APP=mcp_server:app,AUTH_ENABLED=${AUTH_ENABLED:-},GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-},MCP_ISSUER_URL=${API_URL}"
+
+  MCP_URL=$(gcloud run services describe travel-mcp --region "$REGION" --format='value(status.url)')
+
+  # --allow-unauthenticated here is deliberate, not an oversight: Cloud
+  # Run's own IAM auth and this server's bearer-token auth are two
+  # different layers — requiring both would mean an external MCP client
+  # also needs a Google Cloud identity token, which defeats the point of
+  # the simpler personal-access-token scheme chosen for this.
+  gcloud run services update travel-mcp \
+    --region "$REGION" \
+    --update-env-vars "MCP_RESOURCE_URL=${MCP_URL}" \
+    >/dev/null
+
+  echo "MCP server live at: ${MCP_URL}/mcp"
+  if [ "${AUTH_ENABLED:-}" != "true" ]; then
+    echo "Warning: DEPLOY_MCP=true but AUTH_ENABLED isn't 'true' — POST"
+    echo "${API_URL}/api/tokens will 404, so there's no way to mint a token"
+    echo "to authenticate to this server. Set both together."
+  else
+    echo "Also needs Firestore access on travel-mcp's service account, same"
+    echo "as travel-api above (they can share the role grant if it's the"
+    echo "same service account, which it is by default)."
+  fi
+fi
+
 echo
 echo "======================================================"
 echo "API:  $API_URL"
 echo "Web:  $WEB_URL"
+if [ -n "$MCP_URL" ]; then
+  echo "MCP:  ${MCP_URL}/mcp"
+fi
 echo "======================================================"
 echo
 echo "Open the web URL above — that's the app."

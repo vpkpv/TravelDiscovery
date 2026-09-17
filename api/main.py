@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # picks up api/.env for local dev — see .env.example
 
-from fastapi import Depends, FastAPI, Header, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
@@ -268,6 +268,19 @@ async def get_me(authorization: str = Header(default="")):
         "email": user["email"],
         "approved": auth.is_approved(user["uid"]),
     }
+
+
+@app.post("/api/tokens")
+async def create_token(user: dict = Depends(auth.current_user)):
+    """Mints a personal access token for the MCP server (see
+    mcp_server.py) to authenticate as this already-approved user. Shown
+    once in the response — there's no way to retrieve it again, only mint
+    a new one. Requires AUTH_ENABLED (the current_user dependency 403s
+    otherwise-anonymous callers aren't "approved").
+    """
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    return {"token": auth.mint_token(user["uid"])}
 
 
 @app.get("/api/cuisines")

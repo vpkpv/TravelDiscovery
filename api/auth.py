@@ -12,8 +12,11 @@ account attached to the service, which needs the "Cloud Datastore User"
 GOOGLE_APPLICATION_CREDENTIALS to a service account key file path.
 """
 
+import hashlib
 import logging
 import os
+import secrets
+import time
 
 import firebase_admin
 from fastapi import Header, HTTPException
@@ -90,3 +93,47 @@ async def current_user(authorization: str = Header(default="")) -> dict:
         raise HTTPException(status_code=403, detail="account not yet approved")
 
     return user
+
+
+# --- Personal access tokens, for the MCP server (see mcp_server.py) ---
+#
+# Only an already-approved Firebase user can mint one (POST /api/tokens,
+# gated by the current_user dependency above) — this isn't a second way
+# in, just a second credential shape for the same approved account, so an
+# assistant can act on their behalf without carrying a Firebase ID token
+# (which expires hourly and isn't meant for long-lived external clients).
+#
+# Stored as a SHA-256 hash, never the raw token — same reasoning as a
+# password: nothing meaningful leaks from a Firestore read.
+
+_TOKEN_PREFIX = "td_"
+
+
+def _hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def mint_token(uid: str) -> str:
+    """Creates a new personal access token for an already-approved uid.
+    Returns the raw token — shown once, never retrievable again (the
+    Firestore doc only ever stores its hash).
+    """
+    token = _TOKEN_PREFIX + secrets.token_urlsafe(32)
+    firestore_client().collection("api_tokens").document(_hash_token(token)).set({
+        "uid": uid,
+        "created_at": int(time.time()),
+    })
+    return token
+
+
+def verify_pat(token: str) -> str:
+    """Returns the uid a personal access token belongs to, or "" if it's
+    invalid or belongs to an account that's since been unapproved.
+    """
+    if not token.startswith(_TOKEN_PREFIX):
+        return ""
+    doc = firestore_client().collection("api_tokens").document(_hash_token(token)).get()
+    if not doc.exists:
+        return ""
+    uid = doc.to_dict().get("uid", "")
+    return uid if uid and is_approved(uid) else ""
