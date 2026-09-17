@@ -58,10 +58,16 @@ def _load_ingested_results_from_firestore() -> bool:
     """Reads every venues/{slug} doc (written by `python -m ingest.run`
     once AUTH_ENABLED/Firestore is set up) and merges its items into
     RESULTS. Returns False (so the caller falls back to the local file) on
-    any failure — a Firestore hiccup shouldn't take down city results.
+    any failure, AND when the collection is simply empty — turning
+    AUTH_ENABLED on doesn't retroactively migrate anything already sitting
+    in a local output.json; without this, a real deploy hit exactly that:
+    Firestore reachable but never written to yet, silently serving zero
+    ingested venues for every city instead of falling back.
     """
     try:
-        docs = auth.firestore_client().collection("venues").stream()
+        docs = list(auth.firestore_client().collection("venues").stream())
+        if not docs:
+            return False
         flat = []
         for doc in docs:
             data = doc.to_dict() or {}
