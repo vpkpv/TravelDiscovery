@@ -15,6 +15,7 @@ load_dotenv()  # picks up api/.env for local dev — see .env.example
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, Response
+from pydantic import BaseModel
 
 import auth
 import curated_food
@@ -371,6 +372,34 @@ async def create_token(user: dict = Depends(auth.current_user)):
     if not auth.configured():
         raise HTTPException(status_code=404, detail="auth not enabled")
     return {"token": auth.mint_token(user["uid"])}
+
+
+class PrefsBody(BaseModel):
+    prefs: dict
+
+
+@app.get("/api/prefs")
+async def get_prefs(user: dict = Depends(auth.current_user)):
+    """Cross-device sync for onboarding preferences (taste method, cuisines,
+    favorite chefs, visited cities, ...) — keyed by the signed-in Firebase
+    uid, so a device with no localStorage of its own (or one that's been
+    cleared) still picks up where the account left off, instead of these
+    being stuck in a single browser. Requires AUTH_ENABLED — same reasoning
+    as /api/tokens: with no real uid to key on, there's no meaningful way
+    to scope this per-account.
+    """
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    doc = auth.firestore_client().collection("user_prefs").document(user["uid"]).get()
+    return {"prefs": doc.to_dict() if doc.exists else None}
+
+
+@app.post("/api/prefs")
+async def save_prefs(body: PrefsBody, user: dict = Depends(auth.current_user)):
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    auth.firestore_client().collection("user_prefs").document(user["uid"]).set(body.prefs)
+    return {"ok": True}
 
 
 @app.get("/api/cuisines")

@@ -14,6 +14,14 @@ async function get(path) {
   return res.json();
 }
 
+async function post(path, body) {
+  const token = await getIdToken();
+  const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  const res = await fetch(`${BASE}${path}`, { method: 'POST', headers, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`${path} -> ${res.status}`);
+  return res.json();
+}
+
 export const spotifyLoginUrl = `${BASE}/auth/spotify/login`;
 
 // /api/photo proxies Places photos server-side (see main.py) so the
@@ -24,6 +32,8 @@ export const photoUrl = (ref, w = 400) =>
 
 export const api = {
   me: () => get('/api/me'),
+  getPrefs: () => get('/api/prefs'),
+  savePrefs: (prefs) => post('/api/prefs', { prefs }),
   cuisines: () => get('/api/cuisines'),
   musicGenres: () => get('/api/music-genres'),
   cities: ({ q = '', visited = [] } = {}) =>

@@ -8,7 +8,8 @@ import { CitiesVisited } from './screens/CitiesVisited.jsx';
 import { CitySearch } from './screens/CitySearch.jsx';
 import { ResultsFeed } from './screens/ResultsFeed.jsx';
 import { SpotifyConfirm } from './screens/SpotifyConfirm.jsx';
-import { spotifyLoginUrl } from './api.js';
+import { api, spotifyLoginUrl } from './api.js';
+import * as fb from './firebase.js';
 
 const STORAGE_KEY = 'traveldiscovery.onboarding.v1';
 
@@ -47,6 +48,13 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    // Best-effort cross-device sync (see /api/prefs) — fire-and-forget, same
+    // as the localStorage write above. A signed-out or auth-not-configured
+    // app just gets a rejected promise here, which is fine to ignore: local
+    // storage above is already the source of truth for that case.
+    if (fb.configured()) {
+      api.savePrefs(state).catch(() => {});
+    }
   }, [state]);
 
   // Landing back here after /auth/spotify/callback redirects the browser
@@ -70,9 +78,24 @@ export default function App() {
         set({ tasteMethod: 'spotify', spotifyFailed: true, step: 'genres' });
       }
       window.history.replaceState(null, '', window.location.pathname);
+      return; // mid Spotify handoff — skip the cross-device fetch below, it'd race this
     } else if (error) {
       set({ tasteMethod: 'spotify', spotifyFailed: true, step: 'genres' });
       window.history.replaceState(null, '', window.location.pathname);
+      return;
+    }
+
+    // Cross-device sync: pulls this account's saved preferences (see
+    // /api/prefs) so a device with no local progress of its own — or one
+    // that's had its site data cleared — still resumes where the account
+    // left off, instead of only ever working on the one browser that set
+    // it. Only overwrites state when the server actually has something
+    // saved; a signed-out or auth-not-configured app just keeps whatever
+    // loadState() already produced.
+    if (fb.configured()) {
+      api.getPrefs().then((d) => {
+        if (d.prefs) set(d.prefs);
+      }).catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
