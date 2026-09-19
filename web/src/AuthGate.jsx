@@ -18,6 +18,8 @@ export function AuthGate({ children }) {
   useEffect(() => {
     if (!fb.configured()) return;
 
+    fb.checkRedirectResult();
+
     return fb.onAuthChange(async (user) => {
       if (!user) {
         setStatus('signed-out');
