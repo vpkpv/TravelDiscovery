@@ -307,23 +307,29 @@ async def _search_one_restaurant(text_query: str, country: str) -> Optional[dict
 
 
 async def find_chef_venues(city: str, chefs: list, country: str = "") -> list:
-    """Real, Places-sourced restaurants tied to a chef or foodie account the
-    user follows. `chefs` is always manually typed input (see web/src/
-    screens/FavoriteChefs.jsx) — this deliberately never reads from
-    Instagram or any other social API; CLAUDE.md's food-taste rule
+    """Real, Places-sourced restaurants tied to a chef, foodie account, or
+    restaurant the user follows. `chefs` is always manually typed input
+    (see web/src/screens/FavoriteChefs.jsx) — this deliberately never reads
+    from Instagram or any other social API; CLAUDE.md's food-taste rule
     ("explicit quick-pick, not inferred from an external API") applies here
     the same as it does to cuisines, just via a free-text field instead of
     a fixed vocabulary.
 
-    Two-step search per chef:
-    1. Does this chef have their own real restaurant in this city? (direct
-       name search — the strongest, most literal match.)
-    2. If not, ask Gemini (chef_style.chef_style) what cuisine/style this
-       chef is known for, and search for *that* instead — e.g. no Gordon
-       Ramsay restaurant in this city, but there is a real modern-French
-       fine-dining spot. Result is tagged match_type so main.py can be
-       honest about which kind of match it is ("his restaurant" vs. "in
-       his style") rather than overclaiming a connection that isn't there.
+    Two-step search per entry:
+    1. Does this exact name have a real restaurant in this city? (direct
+       search — handles a chef's own place, or a restaurant/chain with a
+       branch here.)
+    2. If not, resolve it to the chef actually behind it (chef_style.
+       resolve_chef_style — a restaurant name resolves to its head/founding
+       chef, a chef's name resolves to itself) and search for *their*
+       style instead — e.g. "Le Bernardin" has no location in this city,
+       but Eric Ripert's elevated-French-seafood style does have a real
+       match. Searching the restaurant's own (usually one-location) name
+       in an unrelated city would otherwise almost always find nothing.
+       Result is tagged match_type, and carries the original typed input
+       separately from the resolved chef name, so main.py can be honest
+       about which kind of match it is rather than overclaiming a
+       connection that isn't there.
 
     Same fuzzy-search caveat as find_music_venues(): there's no candidate
     name to fuzzy-match against here either, so `country` is checked to
@@ -333,22 +339,28 @@ async def find_chef_venues(city: str, chefs: list, country: str = "") -> list:
         return []
 
     out = []
-    for chef in chefs:
-        chef = chef.strip()
-        if not chef:
+    for entry in chefs:
+        entry = entry.strip()
+        if not entry:
             continue
 
-        direct = await _search_one_restaurant(f"{chef} restaurant in {city}", country)
+        direct = await _search_one_restaurant(f"{entry} restaurant in {city}", country)
         if direct:
-            out.append({**direct, "chef": chef, "match_type": "own_restaurant"})
+            out.append({**direct, "chef": entry, "match_type": "own_restaurant"})
             continue
 
-        style = chef_style.chef_style(chef)
-        if not style:
+        resolved = chef_style.resolve_chef_style(entry)
+        if not resolved:
             continue
-        similar = await _search_one_restaurant(f"{style} restaurant in {city}", country)
+        similar = await _search_one_restaurant(f"{resolved['style']} restaurant in {city}", country)
         if similar:
-            out.append({**similar, "chef": chef, "match_type": "similar_style", "style": style})
+            out.append({
+                **similar,
+                "chef": resolved["chef_name"],
+                "original_input": entry,
+                "match_type": "similar_style",
+                "style": resolved["style"],
+            })
     return out
 
 

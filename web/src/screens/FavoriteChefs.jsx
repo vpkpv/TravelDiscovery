@@ -4,8 +4,10 @@ import { StepHeader } from '../components/StepHeader.jsx';
 
 // Manual, typed input only — same as the cuisine quick-pick, deliberately not
 // inferred from Instagram/any social API (see CLAUDE.md's food-taste
-// constraint). Used to check whether a chef/foodie account someone follows
-// has a real restaurant in the city being searched (see places.find_chef_venues).
+// constraint). Accepts a chef, a foodie account, or a restaurant name — a
+// restaurant entry gets resolved to its chef server-side (see
+// places.find_chef_venues / chef_style.resolve_chef_style) so a one-location
+// favorite still finds something meaningful in a different city.
 export function FavoriteChefs({ step, chefs = [], onChange, onContinue, onSkip }) {
   const [draft, setDraft] = useState('');
 
@@ -25,8 +27,8 @@ export function FavoriteChefs({ step, chefs = [], onChange, onContinue, onSkip }
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <StepHeader
         step={step} total={5}
-        title="Follow any chefs or foodie accounts?"
-        subtitle="Add a few names — we'll check for a real restaurant of theirs in every city you search."
+        title="Follow any chefs, or have a favorite restaurant?"
+        subtitle="Add a few names — a chef, a foodie account, or a restaurant you love. We'll check for a real match in every city you search."
       />
       <div style={{ padding: '18px 26px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 16, padding: '12px 16px' }}>
@@ -39,7 +41,7 @@ export function FavoriteChefs({ step, chefs = [], onChange, onContinue, onSkip }
                 add();
               }
             }}
-            placeholder="e.g. Gordon Ramsay"
+            placeholder="e.g. Gordon Ramsay, or a restaurant you love"
             style={{ border: 'none', background: 'transparent', fontSize: 15, color: theme.text, flex: 1, outline: 'none' }}
           />
           <div onClick={add} style={{ cursor: 'pointer', color: theme.accentFood, fontWeight: 600, fontSize: 14 }}>

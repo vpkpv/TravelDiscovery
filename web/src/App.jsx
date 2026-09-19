@@ -8,6 +8,7 @@ import { CitiesVisited } from './screens/CitiesVisited.jsx';
 import { CitySearch } from './screens/CitySearch.jsx';
 import { ResultsFeed } from './screens/ResultsFeed.jsx';
 import { SpotifyConfirm } from './screens/SpotifyConfirm.jsx';
+import { Settings } from './screens/Settings.jsx';
 import { api, spotifyLoginUrl } from './api.js';
 import * as fb from './firebase.js';
 
@@ -183,7 +184,19 @@ export default function App() {
       // Only the manual picker's fixed-vocabulary genres bias which live-music
       // venues get found for cities with no music data of their own — Spotify's
       // artist-name signal has no genre to key off (see api/spotify.py).
-      screen = <ResultsFeed city={state.city} musicGenre={state.musicGenres[0] || ''} favoriteChefs={state.favoriteChefs} cuisines={state.cuisines} />;
+      screen = (
+        <ResultsFeed
+          city={state.city}
+          musicGenre={state.musicGenres[0] || ''}
+          favoriteChefs={state.favoriteChefs}
+          cuisines={state.cuisines}
+          onOpenSettings={() => set({ step: 'settings' })}
+        />
+      );
+      break;
+
+    case 'settings':
+      screen = <Settings state={state} onChange={set} onDone={() => set({ step: 'results' })} />;
       break;
 
     default:
@@ -207,6 +220,7 @@ export default function App() {
             }
             else if (state.step === 'spotify-confirm') set({ step: 'welcome' });
             else if (state.step === 'genres') set({ step: 'welcome' });
+            else if (state.step === 'settings') set({ step: 'results' });
           }}
           style={{ position: 'absolute', margin: '16px 0 0 16px', cursor: 'pointer', opacity: 0.5, fontSize: 13 }}
         >

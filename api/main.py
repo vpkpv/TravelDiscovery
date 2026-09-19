@@ -286,12 +286,23 @@ async def _grounded_items(
         def _chef_meta_why(v: dict) -> tuple:
             if v["match_type"] == "own_restaurant":
                 return f"{v['chef']}'s restaurant", f"This is {v['chef']}'s own restaurant in {city_name}."
-            # similar_style: no restaurant of the chef's own here, so say so
-            # honestly rather than implying an endorsement that doesn't exist.
+            # similar_style: no restaurant of the original typed entry here,
+            # so say so honestly rather than implying an endorsement that
+            # doesn't exist. `chef` was resolved from `original_input` (e.g.
+            # a restaurant name resolves to its head chef) — name both when
+            # they differ so it's clear why an unrelated-looking result
+            # showed up for what was typed.
+            original = v.get("original_input", v["chef"])
+            if original.lower() == v["chef"].lower():
+                return (
+                    f"In the style of {v['chef']}",
+                    f"{v['chef']} doesn't have a restaurant in {city_name}, but this matches their "
+                    f"{v['style']} style.",
+                )
             return (
-                f"In the style of {v['chef']}",
-                f"{v['chef']} doesn't have a restaurant in {city_name}, but this matches their "
-                f"{v['style']} style.",
+                f"In the style of {original}",
+                f"{original} doesn't have a location in {city_name}, but this matches "
+                f"{v['chef']}'s {v['style']} style.",
             )
 
         items = items + [

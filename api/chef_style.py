@@ -1,18 +1,24 @@
-"""Translates a chef/foodie-account name into a short cuisine/style
-descriptor via Gemini, e.g. "Gordon Ramsay" -> "modern French fine dining".
+"""Resolves a followed name (chef, foodie account, or restaurant) to the
+chef most associated with it, plus their cuisine/style, via Gemini — e.g.
+"Le Bernardin" -> chef "Eric Ripert", style "elevated French seafood
+fine dining". A chef's own name resolves to itself.
 
-Used by places.find_chef_venues() as a fallback when a chef doesn't have
-their own restaurant in the searched city: instead of finding nothing, we
-search Places for that *style* of restaurant instead. This is a live,
-request-time Gemini call (unlike ingest/extract.py's offline use), so it's
-deliberately a separate, minimal client rather than importing that module —
-keeps the two isolated and avoids risking the already-working ingest path.
+Used by places.find_chef_venues() as a fallback when the input has no
+restaurant of its own in the searched city: instead of literally
+re-searching a one-location restaurant's name in an unrelated city (which
+usually finds nothing), this derives the actual chef behind it and
+searches for *their* style instead. This is a live, request-time Gemini
+call (unlike ingest/extract.py's offline use), so it's deliberately a
+separate, minimal client rather than importing that module — keeps the
+two isolated and avoids risking the already-working ingest path.
 """
 
 import logging
 import os
 
 from google import genai
+from google.genai import types
+from pydantic import BaseModel
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
@@ -20,7 +26,12 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
 log = logging.getLogger("chef_style")
 
 _client = None
-_cache = {}  # chef name (lowercased) -> descriptor ("" = unknown/failed). Process-lifetime only.
+_cache = {}  # input name (lowercased) -> {"chef_name", "style"} or {} (unknown/failed). Process-lifetime only.
+
+
+class ChefStyleResult(BaseModel):
+    chef_name: str
+    style: str
 
 
 def configured() -> bool:
@@ -34,40 +45,53 @@ def _get_client() -> genai.Client:
     return _client
 
 
-def chef_style(chef: str) -> str:
-    """Returns a short cuisine/style descriptor for a chef/food-personality
-    name, or "" if not configured, the name isn't recognized, or the
-    request fails — callers should treat "" the same as "no fallback
-    available" and just show nothing, same convention as the rest of the
-    Places-grounding code in this app.
+def resolve_chef_style(name: str) -> dict:
+    """Returns {"chef_name": ..., "style": ...}, or {} if not configured,
+    unrecognized, or the request fails — callers should treat {} the same
+    as "no fallback available" and just show nothing, same convention as
+    the rest of the Places-grounding code in this app.
 
-    Cached per-process by name: a cold start re-asks Gemini once per chef
-    seen since boot. Not persisted to Firestore — the cost of asking again
-    after a redeploy is one cheap text-only Gemini call per chef, not worth
-    the extra plumbing for.
+    Cached per-process by the input name: a cold start re-resolves once per
+    name seen since boot. Not persisted to Firestore — the cost of asking
+    again after a redeploy is one cheap Gemini call per name, not worth the
+    extra plumbing for.
     """
     if not configured():
-        return ""
-    key = chef.strip().lower()
+        return {}
+    key = name.strip().lower()
     if not key:
-        return ""
+        return {}
     if key in _cache:
         return _cache[key]
 
     prompt = (
-        f'In 3 to 6 words, describe the cuisine style and dining vibe most associated '
-        f'with the chef or food personality "{chef}" — for example "modern French fine '
-        f'dining" or "casual Thai street food". Respond with only the descriptor, '
-        f'nothing else. If you don\'t recognize this as a real chef or food personality, '
-        f'respond with exactly: unknown'
+        f'The input "{name}" is something a person follows for food/dining inspiration — '
+        f'it could be a chef\'s name, a foodie/influencer account, or a specific restaurant. '
+        f'Identify: (1) the chef most associated with it — if it\'s a restaurant, its head or '
+        f'founding chef; if it\'s already a chef or personality, that same name; (2) in 3 to 6 '
+        f'words, that chef\'s cuisine style and dining vibe, e.g. "modern French fine dining" '
+        f'or "casual Thai street food". If you don\'t recognize "{name}" as a real chef, '
+        f'restaurant, or food personality, respond with chef_name and style both set to '
+        f'exactly "unknown".'
     )
     try:
-        response = _get_client().models.generate_content(model=GEMINI_MODEL, contents=prompt)
-        text = (response.text or "").strip().strip('"')
+        response = _get_client().models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=ChefStyleResult,
+            ),
+        )
+        result = response.parsed
     except Exception as exc:
-        log.warning("chef_style request failed for %r: %s", chef, exc)
-        return ""
+        log.warning("resolve_chef_style request failed for %r: %s", name, exc)
+        return {}
 
-    style = "" if text.lower() == "unknown" else text
-    _cache[key] = style
-    return style
+    if result is None or result.chef_name.strip().lower() == "unknown":
+        _cache[key] = {}
+        return {}
+
+    resolved = {"chef_name": result.chef_name.strip(), "style": result.style.strip()}
+    _cache[key] = resolved
+    return resolved

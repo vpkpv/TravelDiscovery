@@ -77,7 +77,7 @@ function ResultCard({ item, saved, onToggleSave }) {
   );
 }
 
-export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisines = [] }) {
+export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisines = [], onOpenSettings }) {
   const [filter, setFilter] = useState('all');
   const [items, setItems] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -136,7 +136,10 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
               </div>
             </div>
           )}
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: theme.card, border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div
+            onClick={onOpenSettings}
+            style={{ width: 40, height: 40, borderRadius: 12, background: theme.card, border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+          >
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={theme.text} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />
             </svg>
