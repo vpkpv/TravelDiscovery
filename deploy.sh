@@ -8,6 +8,12 @@
 #
 # Usage:
 #   PROJECT_ID=your-gcp-project-id ./deploy.sh
+#   # or, to avoid retyping every var by hand each time (and risking one
+#   # getting silently dropped — GEMINI_API_KEY has gone missing this way
+#   # more than once, with no error anywhere, just a feature quietly doing
+#   # nothing): cp deploy-env.sh.example deploy-env.sh, fill in your real
+#   # values (gitignored, never commit it), then:
+#   #   source deploy-env.sh && ./deploy.sh
 #   # optionally: REGION=us-central1 GOOGLE_PLACES_API_KEY=... PROJECT_ID=... ./deploy.sh
 #   # for Spotify OAuth: also set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET
 #   # (from developer.spotify.com/dashboard) — this script computes and wires

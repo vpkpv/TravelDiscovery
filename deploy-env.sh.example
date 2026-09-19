@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Copy this file to deploy-env.sh (gitignored at the repo root — never
+# commit real keys) and fill in your real values below, then deploy with:
+#
+#   source deploy-env.sh && ./deploy.sh
+#
+# instead of retyping the whole long env-var command by hand every time.
+# This exists because a hand-typed deploy command has silently dropped
+# GEMINI_API_KEY more than once during this project — no error anywhere,
+# just the ingest job or the curated-food fallback quietly doing nothing.
+# `export` (not plain assignment) is required so ./deploy.sh, a separate
+# process, actually inherits these when you run it after sourcing this.
+
+export PROJECT_ID=gen-lang-client-0529555554
+export REGION=us-central1
+
+export GOOGLE_PLACES_API_KEY=
+export GEMINI_API_KEY=
+export GEMINI_MODEL=          # optional — defaults to gemini-3.6-flash
+export SUPADATA_API_KEY=      # optional — improves ingest transcript reliability
+
+export SPOTIFY_CLIENT_ID=
+export SPOTIFY_CLIENT_SECRET=
+
+export AUTH_ENABLED=true
+export FIREBASE_API_KEY=
+export FIREBASE_AUTH_DOMAIN=gen-lang-client-0529555554.firebaseapp.com
+export FIREBASE_PROJECT_ID=gen-lang-client-0529555554
+export FIREBASE_APP_ID=1:911993008582:web:c76d903f67cb173a0902c7
+
+export DEPLOY_MCP=true
+export DEPLOY_INGEST_JOB=true
+export INGEST_SCHEDULE=       # optional — defaults to weekly, "0 3 * * 1" (UTC)
