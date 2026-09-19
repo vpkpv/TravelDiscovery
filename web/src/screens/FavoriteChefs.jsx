@@ -6,7 +6,7 @@ import { StepHeader } from '../components/StepHeader.jsx';
 // inferred from Instagram/any social API (see CLAUDE.md's food-taste
 // constraint). Used to check whether a chef/foodie account someone follows
 // has a real restaurant in the city being searched (see places.find_chef_venues).
-export function FavoriteChefs({ step, chefs, onChange, onContinue, onSkip }) {
+export function FavoriteChefs({ step, chefs = [], onChange, onContinue, onSkip }) {
   const [draft, setDraft] = useState('');
 
   const add = () => {

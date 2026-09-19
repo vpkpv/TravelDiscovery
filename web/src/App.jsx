@@ -21,7 +21,7 @@ function loadState() {
   }
 }
 
-const initial = loadState() || {
+const DEFAULT_STATE = {
   step: 'welcome', // welcome -> genres (manual, or Spotify-failure fallback) -> cuisines -> chefs -> visited -> search -> results
   tasteMethod: null, // 'spotify' | 'manual'
   musicGenres: [], // manual path's fixed-vocabulary picks
@@ -32,6 +32,15 @@ const initial = loadState() || {
   visitedCities: [],
   city: null,
 };
+
+// Merged, not `loadState() || DEFAULT_STATE`: a device with progress saved
+// before a field like favoriteChefs existed would otherwise resume with
+// that key simply missing (not even undefined-via-default), which crashed
+// FavoriteChefs.jsx on render (`chefs.map` on undefined) — confirmed live,
+// looked like the app "hanging" right after the cuisines step. Merging
+// backfills any field a saved object predates, so this can't recur the
+// next time a new field is added to this state shape.
+const initial = { ...DEFAULT_STATE, ...(loadState() || {}) };
 
 export default function App() {
   const [state, setState] = useState(initial);
