@@ -20,7 +20,12 @@ from google.genai import types
 from pydantic import BaseModel
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+# `or` on top of .get(), not just a .get() default: Cloud Run can have this
+# var explicitly set to "" (deploy.sh always passes it, even when left
+# blank in deploy-env.sh) — .get()'s default only applies when the key is
+# absent entirely, not when it's present-but-empty, and an empty model
+# name reaching the Gemini SDK fails with "model is required".
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "").strip() or "gemini-3.6-flash"
 
 log = logging.getLogger("curated_food")
 

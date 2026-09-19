@@ -14,7 +14,9 @@ from google.genai import types
 from pydantic import BaseModel
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+# See api/curated_food.py's identical line for why this is `or`, not just
+# a .get() default: Cloud Run can have this var explicitly set to "".
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "").strip() or "gemini-3.6-flash"
 
 log = logging.getLogger("extract")
 
