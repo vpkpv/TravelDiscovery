@@ -27,6 +27,12 @@ log = logging.getLogger("main")
 
 app = FastAPI(title="TravelDiscovery API (dev)")
 
+# Below this many real food items, top up with curated_food's Gemini
+# suggestions (see _grounded_items) — a city with exactly one chef-matched
+# pick is still too thin to feel like "matched to your taste", not just a
+# city with literally zero.
+MIN_FOOD_ITEMS = 4
+
 
 def _merge_ingested_items(items: list, city_lookup: dict) -> None:
     """Shared by both loaders below: merges a flat list of ingested venue
@@ -223,14 +229,15 @@ async def _grounded_items(
     the food list with any real restaurant Places finds for that chef/foodie
     account's name in this city — see places.find_chef_venues.
 
-    A city with zero curated/ingested food content at all (never had a
-    source video, e.g. San Francisco as of this writing) gets a last-resort
-    supplement from curated_food.suggest_venues — Gemini's own restaurant
-    suggestions, ground-truthed against Places the same as every other
-    candidate in this app (an ungrounded suggestion is dropped like any
-    other). `cuisines` (the onboarding quick-pick) biases what it suggests.
-    This only fires when nothing else produced any food items — it never
-    overrides or competes with real curated/ingested content.
+    A city with fewer than MIN_FOOD_ITEMS real food picks after everything
+    above (curated/ingested content plus any chef matches — could be zero,
+    could be a single thin chef match) gets topped up from curated_food.
+    suggest_venues — Gemini's own restaurant suggestions, ground-truthed
+    against Places the same as every other candidate in this app (an
+    ungrounded suggestion is dropped like any other, and a suggestion that
+    duplicates an existing pick by name is skipped). `cuisines` (the
+    onboarding quick-pick) biases what it suggests. This only *adds*, never
+    replaces — real curated/ingested picks are always kept as-is.
     """
     items = RESULTS.get(city_id, [])
     to_verify = [i for i in items if not i.get("place_verified")]
@@ -321,9 +328,11 @@ async def _grounded_items(
             if v["name"].lower() not in existing_names
         ]
 
-    if places.configured() and curated_food.configured() and not any(i["type"] == "food" for i in items):
+    food_count = sum(1 for i in items if i["type"] == "food")
+    if places.configured() and curated_food.configured() and food_count < MIN_FOOD_ITEMS:
         city_name = _city_display_name(city_id)
         country = _city_country(city_id)
+        existing_names = {i["name"].lower() for i in items}
         suggestions = curated_food.suggest_venues(city_name, cuisines or [])
         grounded = await asyncio.gather(*(places.find_place(s["name"], city_name, country) for s in suggestions))
         items = items + [
@@ -339,7 +348,7 @@ async def _grounded_items(
                 **({"photo_ref": ground["photo_ref"]} if ground.get("photo_ref") else {}),
             }
             for i, (s, ground) in enumerate(zip(suggestions, grounded))
-            if ground
+            if ground and s["name"].lower() not in existing_names
         ]
 
     return items
