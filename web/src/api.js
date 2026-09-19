@@ -28,8 +28,8 @@ export const api = {
   musicGenres: () => get('/api/music-genres'),
   cities: ({ q = '', visited = [] } = {}) =>
     get(`/api/cities?q=${encodeURIComponent(q)}&visited=${visited.join(',')}`),
-  results: ({ city, filter = 'all', musicGenre = '', chefs = [] }) =>
-    get(`/api/results?city=${encodeURIComponent(city)}&filter=${filter}&music_genre=${encodeURIComponent(musicGenre)}&chefs=${encodeURIComponent(chefs.join(','))}`),
-  surprise: ({ city, seed = 0, musicGenre = '', chefs = [] }) =>
-    get(`/api/results/surprise?city=${encodeURIComponent(city)}&seed=${seed}&music_genre=${encodeURIComponent(musicGenre)}&chefs=${encodeURIComponent(chefs.join(','))}`),
+  results: ({ city, filter = 'all', musicGenre = '', chefs = [], cuisines = [] }) =>
+    get(`/api/results?city=${encodeURIComponent(city)}&filter=${filter}&music_genre=${encodeURIComponent(musicGenre)}&chefs=${encodeURIComponent(chefs.join(','))}&cuisines=${encodeURIComponent(cuisines.join(','))}`),
+  surprise: ({ city, seed = 0, musicGenre = '', chefs = [], cuisines = [] }) =>
+    get(`/api/results/surprise?city=${encodeURIComponent(city)}&seed=${seed}&music_genre=${encodeURIComponent(musicGenre)}&chefs=${encodeURIComponent(chefs.join(','))}&cuisines=${encodeURIComponent(cuisines.join(','))}`),
 };

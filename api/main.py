@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, Response
 
 import auth
+import curated_food
 import places
 import spotify
 from data import CITIES, CUISINES, MUSIC_GENRES, RESULTS
@@ -197,7 +198,9 @@ def _city_country(city_id: str) -> str:
     return city["country"] if city else ""
 
 
-async def _grounded_items(city_id: str, music_genre: str = "", chefs: Optional[list] = None) -> list:
+async def _grounded_items(
+    city_id: str, music_genre: str = "", chefs: Optional[list] = None, cuisines: Optional[list] = None
+) -> list:
     """The RESULTS mock list for a city, ground-truthed against Google Places
     when a key is configured. A candidate that doesn't resolve to a real
     place (or resolves to one marked permanently closed) is dropped rather
@@ -218,6 +221,15 @@ async def _grounded_items(city_id: str, music_genre: str = "", chefs: Optional[l
     `chefs`, when given (manually typed, see FavoriteChefs.jsx), supplements
     the food list with any real restaurant Places finds for that chef/foodie
     account's name in this city — see places.find_chef_venues.
+
+    A city with zero curated/ingested food content at all (never had a
+    source video, e.g. San Francisco as of this writing) gets a last-resort
+    supplement from curated_food.suggest_venues — Gemini's own restaurant
+    suggestions, ground-truthed against Places the same as every other
+    candidate in this app (an ungrounded suggestion is dropped like any
+    other). `cuisines` (the onboarding quick-pick) biases what it suggests.
+    This only fires when nothing else produced any food items — it never
+    overrides or competes with real curated/ingested content.
     """
     items = RESULTS.get(city_id, [])
     to_verify = [i for i in items if not i.get("place_verified")]
@@ -295,6 +307,27 @@ async def _grounded_items(city_id: str, music_genre: str = "", chefs: Optional[l
             }
             for i, v in enumerate(chef_venues)
             if v["name"].lower() not in existing_names
+        ]
+
+    if places.configured() and curated_food.configured() and not any(i["type"] == "food" for i in items):
+        city_name = _city_display_name(city_id)
+        country = _city_country(city_id)
+        suggestions = curated_food.suggest_venues(city_name, cuisines or [])
+        grounded = await asyncio.gather(*(places.find_place(s["name"], city_name, country) for s in suggestions))
+        items = items + [
+            {
+                "id": ground["place_id"] or f"llm-food-{city_id}-{i}",
+                "type": "food",
+                "name": s["name"],
+                "meta": "Suggested pick",
+                "addr": ground["addr"],
+                "why": s["why"],
+                "place_verified": True,
+                **({"rating": ground["rating"]} if ground.get("rating") is not None else {}),
+                **({"photo_ref": ground["photo_ref"]} if ground.get("photo_ref") else {}),
+            }
+            for i, (s, ground) in enumerate(zip(suggestions, grounded))
+            if ground
         ]
 
     return items
@@ -432,12 +465,15 @@ async def get_cities(
 
 
 @app.get("/api/results")
-async def get_results(city: str, filter: str = "all", music_genre: str = "", chefs: str = "", _user: dict = Depends(auth.current_user)):
+async def get_results(
+    city: str, filter: str = "all", music_genre: str = "", chefs: str = "", cuisines: str = "",
+    _user: dict = Depends(auth.current_user),
+):
     # Run together, not sequentially — the city photo is unrelated to which
     # venues get returned, just an extra Places lookup for ResultsFeed's
     # header banner (see places.find_city_photo).
     items, city_photo_ref = await asyncio.gather(
-        _grounded_items(city, music_genre, list(_split(chefs))),
+        _grounded_items(city, music_genre, list(_split(chefs)), list(_split(cuisines))),
         places.find_city_photo(_city_display_name(city), _city_country(city)),
     )
     if filter in ("food", "music"):
@@ -446,8 +482,11 @@ async def get_results(city: str, filter: str = "all", music_genre: str = "", che
 
 
 @app.get("/api/results/surprise")
-async def get_surprise(city: str, seed: int = 0, music_genre: str = "", chefs: str = "", _user: dict = Depends(auth.current_user)):
-    items = await _grounded_items(city, music_genre, list(_split(chefs)))
+async def get_surprise(
+    city: str, seed: int = 0, music_genre: str = "", chefs: str = "", cuisines: str = "",
+    _user: dict = Depends(auth.current_user),
+):
+    items = await _grounded_items(city, music_genre, list(_split(chefs)), list(_split(cuisines)))
     food = [i for i in items if i["type"] == "food"]
     music = [i for i in items if i["type"] == "music"]
     if not food or not music:

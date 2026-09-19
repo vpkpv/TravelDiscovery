@@ -77,7 +77,7 @@ function ResultCard({ item, saved, onToggleSave }) {
   );
 }
 
-export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [] }) {
+export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisines = [] }) {
   const [filter, setFilter] = useState('all');
   const [items, setItems] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -90,19 +90,19 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [] }) {
 
   useEffect(() => {
     setHeroFailed(false);
-    api.results({ city: citySlug, filter, musicGenre, chefs: favoriteChefs }).then((d) => {
+    api.results({ city: citySlug, filter, musicGenre, chefs: favoriteChefs, cuisines }).then((d) => {
       setItems(d.items);
       setTotalCount(d.count);
       setCityPhotoRef(d.city_photo_ref || null);
     });
-  }, [citySlug, filter, musicGenre, favoriteChefs]);
+  }, [citySlug, filter, musicGenre, favoriteChefs, cuisines]);
 
   const showHero = Boolean(cityPhotoRef) && !heroFailed;
 
   const toggleSave = (id) => setSaved((s) => ({ ...s, [id]: !s[id] }));
 
   const rollSurprise = (seed) => {
-    api.surprise({ city: citySlug, seed, musicGenre, chefs: favoriteChefs }).then((d) => setSurprise({ items: d.items, seed }));
+    api.surprise({ city: citySlug, seed, musicGenre, chefs: favoriteChefs, cuisines }).then((d) => setSurprise({ items: d.items, seed }));
   };
 
   const showing = surprise ? surprise.items : items;
