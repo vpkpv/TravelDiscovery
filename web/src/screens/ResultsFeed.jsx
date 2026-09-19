@@ -77,7 +77,7 @@ function ResultCard({ item, saved, onToggleSave }) {
   );
 }
 
-export function ResultsFeed({ city, musicGenre = '' }) {
+export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [] }) {
   const [filter, setFilter] = useState('all');
   const [items, setItems] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -87,16 +87,16 @@ export function ResultsFeed({ city, musicGenre = '' }) {
   const citySlug = city.slug || city.id; // slug: groups a real Places result with our curated content
 
   useEffect(() => {
-    api.results({ city: citySlug, filter, musicGenre }).then((d) => {
+    api.results({ city: citySlug, filter, musicGenre, chefs: favoriteChefs }).then((d) => {
       setItems(d.items);
       setTotalCount(d.count);
     });
-  }, [citySlug, filter, musicGenre]);
+  }, [citySlug, filter, musicGenre, favoriteChefs]);
 
   const toggleSave = (id) => setSaved((s) => ({ ...s, [id]: !s[id] }));
 
   const rollSurprise = (seed) => {
-    api.surprise({ city: citySlug, seed, musicGenre }).then((d) => setSurprise({ items: d.items, seed }));
+    api.surprise({ city: citySlug, seed, musicGenre, chefs: favoriteChefs }).then((d) => setSurprise({ items: d.items, seed }));
   };
 
   const showing = surprise ? surprise.items : items;

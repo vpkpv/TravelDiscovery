@@ -17,7 +17,7 @@ export function CitiesVisited({ step, visited, onChange, onContinue, onSkip }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <StepHeader
-        step={step} total={4}
+        step={step} total={5}
         title="Where have you already been?"
         subtitle="We'll spotlight new picks in cities you know, and prioritize places that are new to you."
       />

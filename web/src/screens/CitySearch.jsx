@@ -13,7 +13,7 @@ export function CitySearch({ step, visitedCities, onPickCity }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-      <StepHeader step={step} total={4} title="Where are you headed?" />
+      <StepHeader step={step} total={5} title="Where are you headed?" />
       <div style={{ padding: '18px 26px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 16, padding: '12px 16px' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={theme.textFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

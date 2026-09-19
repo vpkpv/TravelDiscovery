@@ -18,7 +18,7 @@ export function CuisinePick({ step, selected, onChange, onContinue }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <StepHeader
-        step={step} total={4}
+        step={step} total={5}
         title="What flavors do you crave?"
         subtitle="Pick a few — we'll match food recs to your taste, sourced from real food-influencer videos, not generic listings."
       />

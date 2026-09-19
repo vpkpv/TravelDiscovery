@@ -23,7 +23,7 @@ export function MusicGenrePick({ selected, onChange, onContinue, tasteMethod }) 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <StepHeader
-        step={1} total={4}
+        step={1} total={5}
         title="What do you listen to?"
         subtitle={
           tasteMethod === 'spotify'

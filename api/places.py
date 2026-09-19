@@ -271,3 +271,52 @@ async def find_music_venues(city: str, genre_hint: str = "", limit: int = 4, cou
         if len(out) >= limit:
             break
     return out
+
+
+async def find_chef_venues(city: str, chefs: list, country: str = "") -> list:
+    """Real, Places-sourced restaurants tied to a chef or foodie account the
+    user follows — e.g. that chef's own restaurant, if they have one in this
+    city. `chefs` is always manually typed input (see web/src/screens/
+    FavoriteChefs.jsx) — this deliberately never reads from Instagram or any
+    other social API; CLAUDE.md's food-taste rule ("explicit quick-pick, not
+    inferred from an external API") applies here the same as it does to
+    cuisines, just via a free-text field instead of a fixed vocabulary.
+
+    Same fuzzy-search caveat as find_music_venues(): there's no candidate
+    name to fuzzy-match against here either, so `country` is checked to
+    filter out a same-named place in the wrong country.
+    """
+    if not configured():
+        return []
+
+    out = []
+    for chef in chefs:
+        chef = chef.strip()
+        if not chef:
+            continue
+        data = await _post(
+            "places:searchText",
+            {"textQuery": f"{chef} restaurant in {city}"},
+            field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos",
+        )
+        found = data.get("places", [])
+        if not found:
+            continue
+        place = found[0]
+        if place.get("businessStatus") in CLOSED_STATUSES:
+            continue
+        name = place.get("displayName", {}).get("text", "")
+        if not name:
+            continue
+        address = place.get("formattedAddress", "")
+        if not _in_target_country(address, country):
+            continue
+        out.append({
+            "place_id": place.get("id"),
+            "name": name,
+            "addr": address,
+            "rating": place.get("rating"),
+            "chef": chef,
+            "photo_ref": _first_photo_ref(place),
+        })
+    return out

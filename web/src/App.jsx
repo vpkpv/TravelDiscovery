@@ -3,6 +3,7 @@ import { PhoneShell } from './components/PhoneShell.jsx';
 import { Welcome } from './screens/Welcome.jsx';
 import { MusicGenrePick } from './screens/MusicGenrePick.jsx';
 import { CuisinePick } from './screens/CuisinePick.jsx';
+import { FavoriteChefs } from './screens/FavoriteChefs.jsx';
 import { CitiesVisited } from './screens/CitiesVisited.jsx';
 import { CitySearch } from './screens/CitySearch.jsx';
 import { ResultsFeed } from './screens/ResultsFeed.jsx';
@@ -21,12 +22,13 @@ function loadState() {
 }
 
 const initial = loadState() || {
-  step: 'welcome', // welcome -> genres (manual, or Spotify-failure fallback) -> cuisines -> visited -> search -> results
+  step: 'welcome', // welcome -> genres (manual, or Spotify-failure fallback) -> cuisines -> chefs -> visited -> search -> results
   tasteMethod: null, // 'spotify' | 'manual'
   musicGenres: [], // manual path's fixed-vocabulary picks
   musicArtists: [], // Spotify path's top artist names — a freeform signal, not genre-bucketed (see api/spotify.py)
   spotifyFailed: false,
   cuisines: [],
+  favoriteChefs: [], // manual, typed names — see FavoriteChefs.jsx's docstring on why this isn't Instagram-sourced
   visitedCities: [],
   city: null,
 };
@@ -106,7 +108,19 @@ export default function App() {
           step={2}
           selected={state.cuisines}
           onChange={(cuisines) => set({ cuisines })}
-          onContinue={() => state.cuisines.length && set({ step: 'visited' })}
+          onContinue={() => state.cuisines.length && set({ step: 'chefs' })}
+        />
+      );
+      break;
+
+    case 'chefs':
+      screen = (
+        <FavoriteChefs
+          step={3}
+          chefs={state.favoriteChefs}
+          onChange={(favoriteChefs) => set({ favoriteChefs })}
+          onContinue={() => set({ step: 'visited' })}
+          onSkip={() => set({ step: 'visited' })}
         />
       );
       break;
@@ -114,7 +128,7 @@ export default function App() {
     case 'visited':
       screen = (
         <CitiesVisited
-          step={3}
+          step={4}
           visited={state.visitedCities}
           onChange={(visitedCities) => set({ visitedCities })}
           onContinue={() => set({ step: 'search' })}
@@ -126,7 +140,7 @@ export default function App() {
     case 'search':
       screen = (
         <CitySearch
-          step={4}
+          step={5}
           visitedCities={state.visitedCities}
           onPickCity={(city) => set({ city, step: 'results' })}
         />
@@ -137,7 +151,7 @@ export default function App() {
       // Only the manual picker's fixed-vocabulary genres bias which live-music
       // venues get found for cities with no music data of their own — Spotify's
       // artist-name signal has no genre to key off (see api/spotify.py).
-      screen = <ResultsFeed city={state.city} musicGenre={state.musicGenres[0] || ''} />;
+      screen = <ResultsFeed city={state.city} musicGenre={state.musicGenres[0] || ''} favoriteChefs={state.favoriteChefs} />;
       break;
 
     default:
@@ -151,7 +165,8 @@ export default function App() {
           onClick={() => {
             if (state.step === 'results') set({ step: 'search' });
             else if (state.step === 'search') set({ step: 'visited' });
-            else if (state.step === 'visited') set({ step: 'cuisines' });
+            else if (state.step === 'visited') set({ step: 'chefs' });
+            else if (state.step === 'chefs') set({ step: 'cuisines' });
             else if (state.step === 'cuisines') {
               // A successful Spotify connection shows the confirmation
               // screen instead of the genre picker — go back to whichever

@@ -197,7 +197,7 @@ def _city_country(city_id: str) -> str:
     return city["country"] if city else ""
 
 
-async def _grounded_items(city_id: str, music_genre: str = "") -> list:
+async def _grounded_items(city_id: str, music_genre: str = "", chefs: Optional[list] = None) -> list:
     """The RESULTS mock list for a city, ground-truthed against Google Places
     when a key is configured. A candidate that doesn't resolve to a real
     place (or resolves to one marked permanently closed) is dropped rather
@@ -214,6 +214,10 @@ async def _grounded_items(city_id: str, music_genre: str = "") -> list:
     `music_genre`, when it's one of the fixed vocabulary values (only
     meaningful for the manual taste-entry path — Spotify's artist-name
     signal has no genre to key off), biases which kind of venue gets found.
+
+    `chefs`, when given (manually typed, see FavoriteChefs.jsx), supplements
+    the food list with any real restaurant Places finds for that chef/foodie
+    account's name in this city — see places.find_chef_venues.
     """
     items = RESULTS.get(city_id, [])
     to_verify = [i for i in items if not i.get("place_verified")]
@@ -259,6 +263,26 @@ async def _grounded_items(city_id: str, music_genre: str = "") -> list:
                 **({"photo_ref": v["photo_ref"]} if v.get("photo_ref") else {}),
             }
             for i, v in enumerate(venues)
+        ]
+
+    if places.configured() and chefs:
+        city_name = _city_display_name(city_id)
+        chef_venues = await places.find_chef_venues(city_name, chefs, country=_city_country(city_id))
+        existing_names = {i["name"].lower() for i in items}
+        items = items + [
+            {
+                "id": v["place_id"] or f"places-chef-{city_id}-{i}",
+                "type": "food",
+                "name": v["name"],
+                "meta": f"Recommended by {v['chef']}",
+                "addr": v["addr"],
+                "why": f"A real spot tied to {v['chef']}, one of the foodie accounts you follow.",
+                "place_verified": True,
+                **({"rating": v["rating"]} if v.get("rating") is not None else {}),
+                **({"photo_ref": v["photo_ref"]} if v.get("photo_ref") else {}),
+            }
+            for i, v in enumerate(chef_venues)
+            if v["name"].lower() not in existing_names
         ]
 
     return items
@@ -396,16 +420,16 @@ async def get_cities(
 
 
 @app.get("/api/results")
-async def get_results(city: str, filter: str = "all", music_genre: str = "", _user: dict = Depends(auth.current_user)):
-    items = await _grounded_items(city, music_genre)
+async def get_results(city: str, filter: str = "all", music_genre: str = "", chefs: str = "", _user: dict = Depends(auth.current_user)):
+    items = await _grounded_items(city, music_genre, list(_split(chefs)))
     if filter in ("food", "music"):
         items = [i for i in items if i["type"] == filter]
     return {"city": city, "count": len(items), "items": items}
 
 
 @app.get("/api/results/surprise")
-async def get_surprise(city: str, seed: int = 0, music_genre: str = "", _user: dict = Depends(auth.current_user)):
-    items = await _grounded_items(city, music_genre)
+async def get_surprise(city: str, seed: int = 0, music_genre: str = "", chefs: str = "", _user: dict = Depends(auth.current_user)):
+    items = await _grounded_items(city, music_genre, list(_split(chefs)))
     food = [i for i in items if i["type"] == "food"]
     music = [i for i in items if i["type"] == "music"]
     if not food or not music:
