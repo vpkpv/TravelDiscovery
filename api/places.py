@@ -24,6 +24,8 @@ from typing import Optional
 
 import httpx
 
+import chef_style
+
 API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY", "").strip()
 BASE = "https://places.googleapis.com/v1"
 CLOSED_STATUSES = {"CLOSED_PERMANENTLY", "CLOSED_TEMPORARILY"}
@@ -273,14 +275,55 @@ async def find_music_venues(city: str, genre_hint: str = "", limit: int = 4, cou
     return out
 
 
+async def _search_one_restaurant(text_query: str, country: str) -> Optional[dict]:
+    """Shared by find_chef_venues()'s two query strategies below: runs a
+    Text Search and returns the first result that passes the same
+    open/real-address checks as everywhere else in this module, or None.
+    """
+    data = await _post(
+        "places:searchText",
+        {"textQuery": text_query},
+        field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos",
+    )
+    found = data.get("places", [])
+    if not found:
+        return None
+    place = found[0]
+    if place.get("businessStatus") in CLOSED_STATUSES:
+        return None
+    name = place.get("displayName", {}).get("text", "")
+    if not name:
+        return None
+    address = place.get("formattedAddress", "")
+    if not _in_target_country(address, country):
+        return None
+    return {
+        "place_id": place.get("id"),
+        "name": name,
+        "addr": address,
+        "rating": place.get("rating"),
+        "photo_ref": _first_photo_ref(place),
+    }
+
+
 async def find_chef_venues(city: str, chefs: list, country: str = "") -> list:
     """Real, Places-sourced restaurants tied to a chef or foodie account the
-    user follows — e.g. that chef's own restaurant, if they have one in this
-    city. `chefs` is always manually typed input (see web/src/screens/
-    FavoriteChefs.jsx) — this deliberately never reads from Instagram or any
-    other social API; CLAUDE.md's food-taste rule ("explicit quick-pick, not
-    inferred from an external API") applies here the same as it does to
-    cuisines, just via a free-text field instead of a fixed vocabulary.
+    user follows. `chefs` is always manually typed input (see web/src/
+    screens/FavoriteChefs.jsx) — this deliberately never reads from
+    Instagram or any other social API; CLAUDE.md's food-taste rule
+    ("explicit quick-pick, not inferred from an external API") applies here
+    the same as it does to cuisines, just via a free-text field instead of
+    a fixed vocabulary.
+
+    Two-step search per chef:
+    1. Does this chef have their own real restaurant in this city? (direct
+       name search — the strongest, most literal match.)
+    2. If not, ask Gemini (chef_style.chef_style) what cuisine/style this
+       chef is known for, and search for *that* instead — e.g. no Gordon
+       Ramsay restaurant in this city, but there is a real modern-French
+       fine-dining spot. Result is tagged match_type so main.py can be
+       honest about which kind of match it is ("his restaurant" vs. "in
+       his style") rather than overclaiming a connection that isn't there.
 
     Same fuzzy-search caveat as find_music_venues(): there's no candidate
     name to fuzzy-match against here either, so `country` is checked to
@@ -294,29 +337,16 @@ async def find_chef_venues(city: str, chefs: list, country: str = "") -> list:
         chef = chef.strip()
         if not chef:
             continue
-        data = await _post(
-            "places:searchText",
-            {"textQuery": f"{chef} restaurant in {city}"},
-            field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos",
-        )
-        found = data.get("places", [])
-        if not found:
+
+        direct = await _search_one_restaurant(f"{chef} restaurant in {city}", country)
+        if direct:
+            out.append({**direct, "chef": chef, "match_type": "own_restaurant"})
             continue
-        place = found[0]
-        if place.get("businessStatus") in CLOSED_STATUSES:
+
+        style = chef_style.chef_style(chef)
+        if not style:
             continue
-        name = place.get("displayName", {}).get("text", "")
-        if not name:
-            continue
-        address = place.get("formattedAddress", "")
-        if not _in_target_country(address, country):
-            continue
-        out.append({
-            "place_id": place.get("id"),
-            "name": name,
-            "addr": address,
-            "rating": place.get("rating"),
-            "chef": chef,
-            "photo_ref": _first_photo_ref(place),
-        })
+        similar = await _search_one_restaurant(f"{style} restaurant in {city}", country)
+        if similar:
+            out.append({**similar, "chef": chef, "match_type": "similar_style", "style": style})
     return out

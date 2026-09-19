@@ -269,14 +269,26 @@ async def _grounded_items(city_id: str, music_genre: str = "", chefs: Optional[l
         city_name = _city_display_name(city_id)
         chef_venues = await places.find_chef_venues(city_name, chefs, country=_city_country(city_id))
         existing_names = {i["name"].lower() for i in items}
+
+        def _chef_meta_why(v: dict) -> tuple:
+            if v["match_type"] == "own_restaurant":
+                return f"{v['chef']}'s restaurant", f"This is {v['chef']}'s own restaurant in {city_name}."
+            # similar_style: no restaurant of the chef's own here, so say so
+            # honestly rather than implying an endorsement that doesn't exist.
+            return (
+                f"In the style of {v['chef']}",
+                f"{v['chef']} doesn't have a restaurant in {city_name}, but this matches their "
+                f"{v['style']} style.",
+            )
+
         items = items + [
             {
                 "id": v["place_id"] or f"places-chef-{city_id}-{i}",
                 "type": "food",
                 "name": v["name"],
-                "meta": f"Recommended by {v['chef']}",
+                "meta": _chef_meta_why(v)[0],
                 "addr": v["addr"],
-                "why": f"A real spot tied to {v['chef']}, one of the foodie accounts you follow.",
+                "why": _chef_meta_why(v)[1],
                 "place_verified": True,
                 **({"rating": v["rating"]} if v.get("rating") is not None else {}),
                 **({"photo_ref": v["photo_ref"]} if v.get("photo_ref") else {}),
