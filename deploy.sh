@@ -55,7 +55,7 @@ gcloud run deploy travel-api \
   --source ./api \
   --region "$REGION" \
   --allow-unauthenticated \
-  --set-env-vars "GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-},SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-},SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET:-},AUTH_ENABLED=${AUTH_ENABLED:-}"
+  --set-env-vars "GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-},GEMINI_API_KEY=${GEMINI_API_KEY:-},GEMINI_MODEL=${GEMINI_MODEL:-},SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-},SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET:-},AUTH_ENABLED=${AUTH_ENABLED:-}"
 
 API_URL=$(gcloud run services describe travel-api --region "$REGION" --format='value(status.url)')
 echo "API live at: $API_URL"
@@ -102,7 +102,7 @@ if [ "${DEPLOY_MCP:-}" = "true" ]; then
     --source ./api \
     --region "$REGION" \
     --allow-unauthenticated \
-    --set-env-vars "ASGI_APP=mcp_server:app,AUTH_ENABLED=${AUTH_ENABLED:-},GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-},MCP_ISSUER_URL=${API_URL}"
+    --set-env-vars "ASGI_APP=mcp_server:app,AUTH_ENABLED=${AUTH_ENABLED:-},GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-},GEMINI_API_KEY=${GEMINI_API_KEY:-},GEMINI_MODEL=${GEMINI_MODEL:-},MCP_ISSUER_URL=${API_URL}"
 
   MCP_URL=$(gcloud run services describe travel-mcp --region "$REGION" --format='value(status.url)')
 
