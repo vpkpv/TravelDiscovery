@@ -4,7 +4,7 @@ export function Welcome({ onChooseSpotify, onChooseManual }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <div style={{ padding: '48px 28px 0' }}>
-        <div style={{ fontFamily: theme.fontDisplay, fontSize: 36, lineHeight: 1.1 }}>
+        <div style={{ fontFamily: theme.fontDisplay, fontWeight: 600, fontSize: 36, lineHeight: 1.1 }}>
           Travel<br />Discovery
         </div>
         <div style={{ marginTop: 14, fontSize: 16, color: theme.textMuted, maxWidth: 300, lineHeight: 1.5 }}>

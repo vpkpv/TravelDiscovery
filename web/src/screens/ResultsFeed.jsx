@@ -25,15 +25,15 @@ function ResultCard({ item, saved, onToggleSave }) {
     <div style={{ background: theme.card, borderRadius: 18, padding: 16, display: 'flex', gap: 14, boxShadow: '0 6px 16px rgba(43,36,32,0.06)' }}>
       {showPhoto ? (
         <img
-          src={photoUrl(item.photo_ref, 160)}
+          src={photoUrl(item.photo_ref, 200)}
           alt=""
           onError={() => setPhotoFailed(true)}
-          style={{ width: 60, height: 60, borderRadius: 14, flexShrink: 0, objectFit: 'cover' }}
+          style={{ width: 84, height: 84, borderRadius: 14, flexShrink: 0, objectFit: 'cover' }}
         />
       ) : (
         <div
           style={{
-            width: 60, height: 60, borderRadius: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 84, height: 84, borderRadius: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: isFood
               ? `linear-gradient(135deg, ${theme.accentFoodSoft}, ${theme.accentFood})`
               : `linear-gradient(135deg, ${theme.accentMusicSoft}, ${theme.accentMusic})`,
@@ -83,15 +83,21 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [] }) {
   const [totalCount, setTotalCount] = useState(0);
   const [saved, setSaved] = useState({});
   const [surprise, setSurprise] = useState(null); // null = browsing, {items, seed} = surprise mode
+  const [cityPhotoRef, setCityPhotoRef] = useState(null);
+  const [heroFailed, setHeroFailed] = useState(false);
 
   const citySlug = city.slug || city.id; // slug: groups a real Places result with our curated content
 
   useEffect(() => {
+    setHeroFailed(false);
     api.results({ city: citySlug, filter, musicGenre, chefs: favoriteChefs }).then((d) => {
       setItems(d.items);
       setTotalCount(d.count);
+      setCityPhotoRef(d.city_photo_ref || null);
     });
   }, [citySlug, filter, musicGenre, favoriteChefs]);
+
+  const showHero = Boolean(cityPhotoRef) && !heroFailed;
 
   const toggleSave = (id) => setSaved((s) => ({ ...s, [id]: !s[id] }));
 
@@ -103,14 +109,33 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [] }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-      <div style={{ padding: '48px 24px 14px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontFamily: theme.fontDisplay, fontSize: 32, lineHeight: 1 }}>{city.name}</div>
-            <div style={{ marginTop: 6, fontSize: 14, color: theme.textMuted }}>
+      {showHero && (
+        <div style={{ position: 'relative', height: 190, flexShrink: 0 }}>
+          <img
+            src={photoUrl(cityPhotoRef, 700)}
+            alt=""
+            onError={() => setHeroFailed(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(20,16,12,0) 45%, rgba(20,16,12,0.6) 100%)' }} />
+          <div style={{ position: 'absolute', left: 24, right: 24, bottom: 18 }}>
+            <div style={{ fontFamily: theme.fontDisplay, fontWeight: 600, fontSize: 32, lineHeight: 1, color: '#FFFFFF' }}>{city.name}</div>
+            <div style={{ marginTop: 6, fontSize: 14, color: 'rgba(255,255,255,0.88)' }}>
               {surprise ? 'One perfect pairing, chosen for you' : `${totalCount} picks matched to your taste`}
             </div>
           </div>
+        </div>
+      )}
+      <div style={{ padding: showHero ? '16px 24px 14px' : '48px 24px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: showHero ? 'flex-end' : 'space-between' }}>
+          {!showHero && (
+            <div>
+              <div style={{ fontFamily: theme.fontDisplay, fontWeight: 600, fontSize: 32, lineHeight: 1 }}>{city.name}</div>
+              <div style={{ marginTop: 6, fontSize: 14, color: theme.textMuted }}>
+                {surprise ? 'One perfect pairing, chosen for you' : `${totalCount} picks matched to your taste`}
+              </div>
+            </div>
+          )}
           <div style={{ width: 40, height: 40, borderRadius: 12, background: theme.card, border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={theme.text} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />

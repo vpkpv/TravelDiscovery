@@ -350,3 +350,26 @@ async def find_chef_venues(city: str, chefs: list, country: str = "") -> list:
         if similar:
             out.append({**similar, "chef": chef, "match_type": "similar_style", "style": style})
     return out
+
+
+async def find_city_photo(city: str, country: str = "") -> Optional[str]:
+    """A real photo representing the city itself (skyline/landmark), for the
+    results screen's header banner — not tied to any one venue. Best-effort:
+    None if Places doesn't have anything landmark-y for an obscure
+    destination, same graceful-degradation stance as everything else here.
+    """
+    if not configured():
+        return None
+
+    data = await _post(
+        "places:searchText",
+        {"textQuery": f"{city} skyline landmark"},
+        field_mask="places.formattedAddress,places.photos",
+    )
+    for place in data.get("places", []):
+        if not _in_target_country(place.get("formattedAddress", ""), country):
+            continue
+        ref = _first_photo_ref(place)
+        if ref:
+            return ref
+    return None

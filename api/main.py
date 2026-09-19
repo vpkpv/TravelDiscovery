@@ -433,10 +433,16 @@ async def get_cities(
 
 @app.get("/api/results")
 async def get_results(city: str, filter: str = "all", music_genre: str = "", chefs: str = "", _user: dict = Depends(auth.current_user)):
-    items = await _grounded_items(city, music_genre, list(_split(chefs)))
+    # Run together, not sequentially — the city photo is unrelated to which
+    # venues get returned, just an extra Places lookup for ResultsFeed's
+    # header banner (see places.find_city_photo).
+    items, city_photo_ref = await asyncio.gather(
+        _grounded_items(city, music_genre, list(_split(chefs))),
+        places.find_city_photo(_city_display_name(city), _city_country(city)),
+    )
     if filter in ("food", "music"):
         items = [i for i in items if i["type"] == filter]
-    return {"city": city, "count": len(items), "items": items}
+    return {"city": city, "count": len(items), "items": items, "city_photo_ref": city_photo_ref}
 
 
 @app.get("/api/results/surprise")
