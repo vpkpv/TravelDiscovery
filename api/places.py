@@ -20,6 +20,7 @@ mock data without extra try/except noise at each call site.
 import asyncio
 import logging
 import os
+import unicodedata
 from difflib import SequenceMatcher
 from typing import Optional
 
@@ -44,6 +45,14 @@ def _slugify(name: str) -> str:
 
 
 def _normalize(s: str) -> str:
+    # Strips accents (é -> e, ü -> u, ô -> o, ...) before comparing — confirmed
+    # live: a World's 50 Best candidate in "Côte d'Ivoire" (Gemini-extracted,
+    # plain ASCII) was rejected against Places' own "Côte d'Ivoire" (accented)
+    # even though they're the same word. NFKD decomposition only affects
+    # Latin-script combining marks, so CJK/Hangul/Thai text passes through
+    # unchanged.
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c))
     return " ".join(s.lower().split())
 
 
@@ -63,9 +72,23 @@ def _looks_like_match(candidate: str, found: str) -> bool:
 # rejects real matches — confirmed live: "Kol" (a real, well-known London
 # restaurant, from World's 50 Best) and "Kabawa" (a real NYC restaurant,
 # from Condé Nast Traveler's Hot List) were both wrongly dropped this way.
+#
+# China also needs Hong Kong/Macau as aliases — confirmed live: "The
+# Chairman" and "Wing" (Hong Kong) and "Chef Tam's Seasons" (Macau), all
+# from World's 50 Best, were wrongly dropped because Places renders their
+# addresses as "Hong Kong"/"Macao" rather than "China", even though Gemini
+# (correctly) named the sovereign country.
+#
+# Turkey/Türkiye isn't just an accent difference (stripped by _normalize
+# above) — "turkiye" and "turkey" are different words entirely, so it needs
+# its own alias, same as China. Confirmed live: "Neolokal" (Istanbul, from
+# World's 50 Best) was wrongly dropped because Places renders "Türkiye"
+# where Gemini wrote "Turkey".
 _COUNTRY_ALIASES = {
     "united states": ["usa", "united states", "united states of america", "us"],
     "united kingdom": ["uk", "united kingdom", "great britain"],
+    "china": ["china", "hong kong", "macau", "macao"],
+    "turkey": ["turkey", "turkiye"],
 }
 
 
