@@ -17,6 +17,7 @@ key, network error, no close-enough match — so callers can fall back to
 mock data without extra try/except noise at each call site.
 """
 
+import asyncio
 import logging
 import os
 from difflib import SequenceMatcher
@@ -334,34 +335,44 @@ async def find_chef_venues(city: str, chefs: list, country: str = "") -> list:
     Same fuzzy-search caveat as find_music_venues(): there's no candidate
     name to fuzzy-match against here either, so `country` is checked to
     filter out a same-named place in the wrong country.
+
+    Entries are processed concurrently (asyncio.gather), not one at a
+    time — with several chefs typed in, a sequential loop meant waiting
+    out each one's Places/Gemini round trip in turn, compounding latency
+    for no reason since they're fully independent of each other.
     """
     if not configured():
         return []
 
-    out = []
-    for entry in chefs:
+    async def _one(entry: str):
         entry = entry.strip()
         if not entry:
-            continue
+            return None
 
         direct = await _search_one_restaurant(f"{entry} restaurant in {city}", country)
         if direct:
-            out.append({**direct, "chef": entry, "match_type": "own_restaurant"})
-            continue
+            return {**direct, "chef": entry, "match_type": "own_restaurant"}
 
-        resolved = chef_style.resolve_chef_style(entry)
+        # chef_style.resolve_chef_style makes a synchronous (blocking) Gemini
+        # SDK call — run it off the event loop via to_thread so a slow
+        # Gemini response doesn't freeze every other concurrent request this
+        # server is handling, not just this one.
+        resolved = await asyncio.to_thread(chef_style.resolve_chef_style, entry)
         if not resolved:
-            continue
+            return None
         similar = await _search_one_restaurant(f"{resolved['style']} restaurant in {city}", country)
-        if similar:
-            out.append({
-                **similar,
-                "chef": resolved["chef_name"],
-                "original_input": entry,
-                "match_type": "similar_style",
-                "style": resolved["style"],
-            })
-    return out
+        if not similar:
+            return None
+        return {
+            **similar,
+            "chef": resolved["chef_name"],
+            "original_input": entry,
+            "match_type": "similar_style",
+            "style": resolved["style"],
+        }
+
+    results = await asyncio.gather(*(_one(entry) for entry in chefs))
+    return [r for r in results if r]
 
 
 async def find_city_photo(city: str, country: str = "") -> Optional[str]:

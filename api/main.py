@@ -362,7 +362,10 @@ async def _grounded_items(
         city_name = _city_display_name(city_id)
         country = _city_country(city_id)
         existing_names = {i["name"].lower() for i in items}
-        suggestions = curated_food.suggest_venues(city_name, cuisines or [])
+        # suggest_venues makes a synchronous (blocking) Gemini SDK call —
+        # run it off the event loop so a slow Gemini response doesn't
+        # freeze every other concurrent request this server is handling.
+        suggestions = await asyncio.to_thread(curated_food.suggest_venues, city_name, cuisines or [])
         grounded = await asyncio.gather(*(places.find_place(s["name"], city_name, country) for s in suggestions))
         items = items + [
             {
