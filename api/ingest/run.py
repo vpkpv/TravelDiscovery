@@ -227,6 +227,13 @@ WORLD_ARTICLES = [
         "url": "https://www.theworlds50best.com/restaurants/best-in-the-world/list/1-50",
         "source": "The World's 50 Best Restaurants",
     },
+    # URL confirmed live by user in their own browser, 2026-09-20 (this
+    # sandbox's tools can't reach cntraveler.com at all — same reason
+    # noted for the Eater SF entry in ARTICLES above).
+    {
+        "url": "https://www.cntraveler.com/story/best-new-restaurants-in-the-world-hot-list-2026",
+        "source": "Condé Nast Traveler — The Hot List 2026",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
