@@ -69,6 +69,18 @@ def _merge_ingested_items(items: list, city_lookup: dict) -> None:
         existing.append(entry)
 
 
+# True only after a genuine Firestore read error (network blip, transient
+# permission issue, etc.) — never after a legitimately empty collection,
+# which is a real, stable state with nothing worth retrying. Cloud Run can
+# run several container instances at once, each loading this exactly once
+# at cold start; without tracking this and retrying, one instance hitting
+# a transient error at startup used to stay silently empty for every city,
+# for its entire lifetime, while other instances worked fine — confirmed
+# live: identical requests for the same city intermittently came back
+# with zero picks depending on which instance handled them.
+_ingested_load_failed = False
+
+
 def _load_ingested_results_from_firestore() -> bool:
     """Reads every venues/{slug} doc (written by `python -m ingest.run`
     once AUTH_ENABLED/Firestore is set up) and merges its items into
@@ -79,9 +91,11 @@ def _load_ingested_results_from_firestore() -> bool:
     Firestore reachable but never written to yet, silently serving zero
     ingested venues for every city instead of falling back.
     """
+    global _ingested_load_failed
     try:
         docs = list(auth.firestore_client().collection("venues").stream())
         if not docs:
+            _ingested_load_failed = False
             return False
         flat = []
         for doc in docs:
@@ -89,9 +103,11 @@ def _load_ingested_results_from_firestore() -> bool:
             for item in data.get("items", []):
                 flat.append({**item, "city": item.get("city") or data.get("city")})
         _merge_ingested_items(flat, {})
+        _ingested_load_failed = False
         return True
     except Exception as exc:
         log.warning("Firestore venue load failed, falling back to local output.json: %s", exc)
+        _ingested_load_failed = True
         return False
 
 
@@ -125,6 +141,17 @@ def _load_ingested_results_from_file() -> None:
 def _load_ingested_results() -> None:
     if not (auth.configured() and _load_ingested_results_from_firestore()):
         _load_ingested_results_from_file()
+
+
+def _ensure_ingested_results_loaded() -> None:
+    """Called at the top of every request that needs RESULTS — a one-shot
+    load at cold start (below) has no way to recover from a transient
+    Firestore error on its own. Retries at most once per request, and only
+    when the last attempt actually errored (see _ingested_load_failed) —
+    a real empty collection isn't retried, there's nothing to find there.
+    """
+    if _ingested_load_failed and auth.configured():
+        _load_ingested_results_from_firestore()
 
 
 _load_ingested_results()
@@ -239,6 +266,8 @@ async def _grounded_items(
     onboarding quick-pick) biases what it suggests. This only *adds*, never
     replaces — real curated/ingested picks are always kept as-is.
     """
+    _ensure_ingested_results_loaded()
+
     items = RESULTS.get(city_id, [])
     to_verify = [i for i in items if not i.get("place_verified")]
     already_verified = [i for i in items if i.get("place_verified")]
