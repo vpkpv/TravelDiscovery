@@ -329,6 +329,18 @@ async def _grounded_items(
             # they differ so it's clear why an unrelated-looking result
             # showed up for what was typed.
             original = v.get("original_input", v["chef"])
+            if not v["chef"]:
+                # Gemini didn't recognize the original entry as a specific
+                # real chef/restaurant — only inferred a plausible cuisine
+                # style from its name (see chef_style.resolve_chef_style),
+                # so don't invent a chef identity that was never actually
+                # found; a small/local place like this is the common case,
+                # not the exception.
+                return (
+                    f"In the style of {original}",
+                    f"We don't have a specific match for \"{original}\" in {city_name}, but "
+                    f"this looks like a similar {v['style']} spot.",
+                )
             if original.lower() == v["chef"].lower():
                 return (
                     f"In the style of {v['chef']}",
