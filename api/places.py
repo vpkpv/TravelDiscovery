@@ -349,9 +349,17 @@ async def find_chef_venues(city: str, chefs: list, country: str = "") -> list:
         if not entry:
             return None
 
-        direct = await _search_one_restaurant(f"{entry} restaurant in {city}", country)
+        # find_place, not _search_one_restaurant, for the direct step: same
+        # "{name}, {city}" phrasing (not "{name} restaurant in {city}" —
+        # appending a generic word onto an already-specific proper name can
+        # throw off Google's fuzzy text search for a smaller/newer place)
+        # plus real name-similarity verification, the exact function that's
+        # reliably grounded every ingested venue all session. Confirmed
+        # live: a real, currently-open, well-reviewed SF restaurant ("The
+        # Happy Crane") found nothing under the old phrasing.
+        direct = await find_place(entry, city, country)
         if direct:
-            return {**direct, "chef": entry, "match_type": "own_restaurant"}
+            return {**direct, "name": entry, "chef": entry, "match_type": "own_restaurant"}
 
         # chef_style.resolve_chef_style makes a synchronous (blocking) Gemini
         # SDK call — run it off the event loop via to_thread so a slow
