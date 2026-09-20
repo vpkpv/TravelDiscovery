@@ -28,6 +28,13 @@ class VenueCandidate(BaseModel):
     why: str
 
 
+class WorldVenueCandidate(BaseModel):
+    name: str
+    city: str
+    country: str
+    why: str
+
+
 PROMPT_TEMPLATE = """You are extracting real restaurant/venue recommendations from a food \
 travel video transcript. The video is about food in {city}.
 
@@ -58,6 +65,33 @@ features — not generic dish names, not neighborhoods, only real business names
 For each one, write a short one-sentence "why" line explaining what makes it worth visiting, \
 grounded only in what the article actually says — never invent a detail that isn't in the \
 article.
+
+If no real restaurants are named, return an empty list.
+
+Article:
+{article_text}
+"""
+
+# Separate again from ARTICLE_PROMPT_TEMPLATE: a "World's 50 Best
+# Restaurants"-style list spans many cities and countries in one article,
+# not one fixed city — so city/country have to be extracted per venue
+# instead of supplied once for the whole piece (see WorldVenueCandidate
+# and pipeline.ingest_world_article).
+WORLD_ARTICLE_PROMPT_TEMPLATE = """You are extracting a ranked or curated list of top restaurants \
+from a prestigious food/travel publication's article — something like "The World's 50 Best \
+Restaurants" or "Top 100 Restaurants in the World," spanning many different cities and countries \
+at once, not just one.
+
+Read the article text below and extract every specific, named restaurant it lists — not generic \
+mentions, only real, individually named restaurants. For each one:
+- name: the restaurant's real name.
+- city: the city it's actually located in, as stated or clearly implied by the article.
+- country: the country it's located in.
+- why: a short one-sentence reason it's notable, grounded only in what the article actually says \
+— never invent a detail that isn't in the article.
+
+If you can't determine a specific city for an entry, skip it rather than guessing — a wrong city \
+would cause it to be searched for in the wrong place entirely.
 
 If no real restaurants are named, return an empty list.
 
@@ -120,3 +154,40 @@ def extract_venues_from_article(article_text: str, city: str) -> list:
     if not configured() or not article_text.strip():
         return []
     return _extract(ARTICLE_PROMPT_TEMPLATE.format(city=city, article_text=article_text[:60000]))
+
+
+def extract_world_venues(article_text: str) -> list:
+    """Returns [{"name", "city", "country", "why"}, ...] — each venue
+    carries its own city/country instead of one for the whole article, for
+    a multi-city "world's best restaurants" style list. Empty list if not
+    configured, the call fails, or no venues (with a determinable city)
+    are named. See WORLD_ARTICLE_PROMPT_TEMPLATE and
+    pipeline.ingest_world_article.
+    """
+    if not configured() or not article_text.strip():
+        return []
+
+    prompt = WORLD_ARTICLE_PROMPT_TEMPLATE.format(article_text=article_text[:60000])
+    try:
+        response = _get_client().models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=list[WorldVenueCandidate],
+            ),
+        )
+    except Exception as exc:
+        log.warning("Gemini world-article extraction request failed: %s", exc)
+        return []
+
+    candidates = response.parsed
+    if candidates is None:
+        log.warning("Gemini response didn't parse against the schema: %r", response.text)
+        return []
+
+    return [
+        {"name": c.name, "city": c.city, "country": c.country, "why": c.why}
+        for c in candidates
+        if c.name.strip() and c.city.strip()
+    ]

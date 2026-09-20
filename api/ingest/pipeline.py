@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # import places, sibling to ingest/
 
 import places
-from ingest.extract import extract_venues, extract_venues_from_article
+from ingest.extract import extract_venues, extract_venues_from_article, extract_world_venues
 from ingest.scrape_articles import scrape_url
 from ingest.transcripts import fetch_transcript
 
@@ -66,6 +66,40 @@ async def ingest_article(url: str, city: str, source_label: str, country: str = 
     grounded = []
     for candidate in candidates:
         ground = await places.find_place(candidate["name"], city, country)
+        if not ground:
+            continue
+        grounded.append({
+            "type": "food",
+            "name": candidate["name"],
+            "meta": source_label,
+            "rating": ground.get("rating"),
+            "addr": ground["addr"],
+            "why": candidate["why"],
+            "city": city,
+            "source_url": url,
+            "photo_ref": ground.get("photo_ref"),
+        })
+    return grounded
+
+
+async def ingest_world_article(url: str, source_label: str) -> list:
+    """Same idea as ingest_article(), but for a multi-city "World's 50 Best
+    Restaurants" style list — each extracted venue carries its own city
+    and country (see extract.extract_world_venues) instead of one city for
+    the whole article, since a list like this spans many places at once.
+    Results can span several different cities' worth of RESULTS entries
+    from a single call.
+    """
+    article_text = scrape_url(url)
+    if not article_text:
+        return []
+
+    candidates = extract_world_venues(article_text)
+
+    grounded = []
+    for candidate in candidates:
+        city = candidate["city"]
+        ground = await places.find_place(candidate["name"], city, candidate.get("country", ""))
         if not ground:
             continue
         grounded.append({

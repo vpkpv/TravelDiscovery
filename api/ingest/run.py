@@ -26,7 +26,7 @@ load_dotenv()
 import auth
 import places
 from ingest.extract import configured as gemini_configured
-from ingest.pipeline import ingest_article, ingest_video
+from ingest.pipeline import ingest_article, ingest_video, ingest_world_article
 
 # Real, verified videos from a small stable of reputable, broad-coverage
 # food-travel channels (Mark Wiens, Best Ever Food Review Show, The Food
@@ -211,6 +211,19 @@ ARTICLES = [
     # },
 ]
 
+# Same manual-vetting principle as ARTICLES above, but for a multi-city
+# "World's 50 Best Restaurants" / "Top 100 Restaurants in the World" style
+# list, spanning many cities and countries in one article — no `city`
+# field here, since each extracted venue carries its own (see
+# extract.extract_world_venues / pipeline.ingest_world_article). Empty
+# until the first one is added.
+WORLD_ARTICLES = [
+    # {
+    #     "url": "https://www.theworlds50best.com/list/1-50",
+    #     "source": "The World's 50 Best Restaurants",
+    # },
+]
+
 # city -> country, so places.find_place can reject a same-named result in
 # the wrong country entirely (confirmed live: a Tokyo candidate named "Le"
 # grounded to a result in India before this check existed). Keyed by city
@@ -281,6 +294,27 @@ async def main():
             except Exception as exc:
                 print(f"  Firestore write for {slug} failed (output.json still has it): {exc}", file=sys.stderr)
 
+    def _save_multi(items: list) -> None:
+        """Like _save(), but for a source whose results can each carry a
+        different city (see WORLD_ARTICLES / ingest_world_article) —
+        groups by each item's own "city" field instead of one city passed
+        in for the whole batch.
+        """
+        all_results.extend(items)
+        OUTPUT_FILE.write_text(json.dumps(all_results, indent=2))
+        if not items or db is None:
+            return
+        by_this_batch = {}
+        for item in items:
+            by_this_batch.setdefault(item["city"], []).append(item)
+        for city, city_items in by_this_batch.items():
+            slug = places._slugify(city)
+            by_city.setdefault(slug, {"city": city, "items": []})["items"].extend(city_items)
+            try:
+                db.collection("venues").document(slug).set(by_city[slug])
+            except Exception as exc:
+                print(f"  Firestore write for {slug} failed (output.json still has it): {exc}", file=sys.stderr)
+
     blocked_count = 0
     for i, v in enumerate(VIDEOS):
         print(f"Ingesting: {v['source']} ({v['video_id']})...", file=sys.stderr)
@@ -309,11 +343,25 @@ async def main():
         # just working around YouTube's.
         _save(a["city"], items)
 
-        if i < len(ARTICLES) - 1:
+        if i < len(ARTICLES) - 1 or WORLD_ARTICLES:
             await asyncio.sleep(DELAY_SECONDS)
 
-    total_sources = len(VIDEOS) + len(ARTICLES)
-    print(f"\nDone: {len(all_results)} venues from {len(VIDEOS)} videos and {len(ARTICLES)} articles "
+    for i, w in enumerate(WORLD_ARTICLES):
+        print(f"Scraping: {w['source']} ({w['url']})...", file=sys.stderr)
+        items = await ingest_world_article(w["url"], w["source"])
+        cities = sorted({item["city"] for item in items})
+        print(f"  -> {len(items)} grounded venue(s) across {len(cities)} cities: {', '.join(cities)}", file=sys.stderr)
+        if not items:
+            blocked_count += 1
+
+        _save_multi(items)
+
+        if i < len(WORLD_ARTICLES) - 1:
+            await asyncio.sleep(DELAY_SECONDS)
+
+    total_sources = len(VIDEOS) + len(ARTICLES) + len(WORLD_ARTICLES)
+    print(f"\nDone: {len(all_results)} venues from {len(VIDEOS)} videos, {len(ARTICLES)} articles, "
+          f"and {len(WORLD_ARTICLES)} world-list articles "
           f"({blocked_count} of {total_sources} sources produced zero venues — check the warnings "
           f"above for why).", file=sys.stderr)
     print(f"Full results written to {OUTPUT_FILE}", file=sys.stderr)
