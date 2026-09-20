@@ -204,11 +204,14 @@ VIDEOS = [
 # Francisco restaurant, wasn't findable any other way this app had until
 # this was added.
 ARTICLES = [
-    # {
-    #     "url": "https://www.eater.com/maps/best-new-restaurants-san-francisco",
-    #     "city": "San Francisco",
-    #     "source": "Eater SF — Best New Restaurants",
-    # },
+    # URL confirmed live by user in their own browser, 2026-09-20 (this
+    # sandbox's tools can't reach eater.com at all — see scrape_articles.py
+    # and this file's ARTICLES comment history for why).
+    {
+        "url": "https://sf.eater.com/maps/best-restaurants-san-francisco-38",
+        "city": "San Francisco",
+        "source": "Eater SF — 38 Essential Restaurants",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -241,6 +244,7 @@ CITY_COUNTRIES = {
     "Mexico City": "Mexico",
     "Bangkok": "Thailand",
     "Seoul": "South Korea",
+    "San Francisco": "USA",
 }
 
 
