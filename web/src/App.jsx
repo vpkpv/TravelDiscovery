@@ -222,7 +222,7 @@ export default function App() {
             else if (state.step === 'genres') set({ step: 'welcome' });
             else if (state.step === 'settings') set({ step: 'results' });
           }}
-          style={{ position: 'absolute', margin: '16px 0 0 16px', cursor: 'pointer', opacity: 0.5, fontSize: 13 }}
+          style={{ position: 'absolute', zIndex: 10, margin: '16px 0 0 16px', cursor: 'pointer', opacity: 0.5, fontSize: 13 }}
         >
           ← back
         </div>
