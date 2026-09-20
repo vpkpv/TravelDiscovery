@@ -5,7 +5,7 @@
 // safe to ship to the browser — Firebase's actual security boundary is
 // Firestore rules / the backend's approval check, not hiding this config.
 import { initializeApp } from 'firebase/app';
-import { GoogleAuthProvider, getAuth, getRedirectResult, onAuthStateChanged, signInWithRedirect, signOut } from 'firebase/auth';
+import { GoogleAuthProvider, getAuth, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth';
 
 const injected = window.__FIREBASE_CONFIG__ || {};
 
@@ -35,16 +35,35 @@ export function onAuthChange(callback) {
   return onAuthStateChanged(auth, callback);
 }
 
+// Firebase's authDomain (gen-lang-client-....firebaseapp.com) is a
+// different site than this app (travel-web-....run.app) — Safari's
+// Intelligent Tracking Prevention treats storage set during that
+// cross-domain hop as third-party and can silently drop it, on both
+// popup and redirect alike, bouncing the user back to signed-out with no
+// error. There's no code fix for that (the real fix is a custom auth
+// domain matching this app's own site, a bigger infra change); this is a
+// platform-by-platform heuristic instead. Mobile browsers were the
+// original popup failure (blocked/partitioned popups on Safari/Chrome
+// mobile — see git history), so they get redirect; desktop tends to
+// handle a same-tab-group popup more reliably, so it's tried first there,
+// falling back to redirect if the popup itself is blocked.
+function isMobile() {
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
 export async function signInWithGoogle() {
   if (!auth) return;
-  // A popup, not a redirect, was the original implementation — switched
-  // after real-world testing on mobile browsers kept re-showing the sign-in
-  // screen on every visit. Mobile Safari/Chrome popups are prone to being
-  // blocked or storage-partitioned from the opener page, so the sign-in can
-  // silently fail to persist even though it looked like it completed. A
-  // full-page redirect (Firebase's own recommendation for mobile web)
-  // doesn't have that failure mode.
-  await signInWithRedirect(auth, new GoogleAuthProvider());
+  const provider = new GoogleAuthProvider();
+  if (isMobile()) {
+    await signInWithRedirect(auth, provider);
+    return;
+  }
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (exc) {
+    console.warn('Popup sign-in failed, falling back to redirect:', exc);
+    await signInWithRedirect(auth, provider);
+  }
 }
 
 // Call once on load: after signInWithRedirect sends the browser back here,
