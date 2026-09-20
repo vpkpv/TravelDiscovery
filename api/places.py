@@ -56,6 +56,27 @@ def _looks_like_match(candidate: str, found: str) -> bool:
     return SequenceMatcher(None, c, f).ratio() >= MATCH_THRESHOLD
 
 
+# Google Places renders a US address ending in "USA" and a UK one often
+# just "UK" — but extract_world_venues' Gemini prompt (WORLD_ARTICLE_
+# PROMPT_TEMPLATE) naturally writes full country names instead ("United
+# States", "United Kingdom"), so a plain substring check between the two
+# rejects real matches — confirmed live: "Kol" (a real, well-known London
+# restaurant, from World's 50 Best) and "Kabawa" (a real NYC restaurant,
+# from Condé Nast Traveler's Hot List) were both wrongly dropped this way.
+_COUNTRY_ALIASES = {
+    "united states": ["usa", "united states", "united states of america", "us"],
+    "united kingdom": ["uk", "united kingdom", "great britain"],
+}
+
+
+def _country_variants(country: str) -> list:
+    normalized = _normalize(country)
+    for aliases in _COUNTRY_ALIASES.values():
+        if normalized in aliases:
+            return aliases
+    return [normalized]
+
+
 def _in_target_country(address: str, country: str) -> bool:
     """Text Search is fuzzy enough that a short/generic candidate name (e.g.
     "Le", "Kikuya") can match a same-named real place in a totally different
@@ -74,7 +95,8 @@ def _in_target_country(address: str, country: str) -> bool:
     """
     if not country:
         return True
-    return _normalize(country) in _normalize(address)
+    normalized_address = _normalize(address)
+    return any(variant in normalized_address for variant in _country_variants(country))
 
 
 async def _post(path: str, body: dict, field_mask: str = "") -> dict:
