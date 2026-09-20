@@ -26,7 +26,7 @@ load_dotenv()
 import auth
 import places
 from ingest.extract import configured as gemini_configured
-from ingest.pipeline import ingest_video
+from ingest.pipeline import ingest_article, ingest_video
 
 # Real, verified videos from a small stable of reputable, broad-coverage
 # food-travel channels (Mark Wiens, Best Ever Food Review Show, The Food
@@ -190,6 +190,27 @@ VIDEOS = [
     },
 ]
 
+# Real article URLs from reputable food/travel publications (Eater, Condé
+# Nast Traveler, local press, etc.) — same manual-vetting principle as
+# VIDEOS above: a human confirms each one is a real, currently-live
+# article from a real publication before it's added here, same as every
+# VIDEOS entry was manually verified against the channel's reputation.
+# There's no discover.py equivalent for these yet — find them by browsing
+# the publication directly. Empty until the first one is added.
+#
+# This exists to catch real, well-regarded, currently-open restaurants a
+# YouTube-food-influencer-only pipeline structurally can't — confirmed
+# live: "The Happy Crane," a real, highly-rated, hard-to-book San
+# Francisco restaurant, wasn't findable any other way this app had until
+# this was added.
+ARTICLES = [
+    # {
+    #     "url": "https://www.eater.com/maps/best-new-restaurants-san-francisco",
+    #     "city": "San Francisco",
+    #     "source": "Eater SF — Best New Restaurants",
+    # },
+]
+
 # city -> country, so places.find_place can reject a same-named result in
 # the wrong country entirely (confirmed live: a Tokyo candidate named "Le"
 # grounded to a result in India before this check existed). Keyed by city
@@ -245,6 +266,21 @@ async def main():
                   # everything fetched so far" reasoning that already applies
                   # to the local output.json below applies doubly to Firestore,
                   # since nothing else reads output.json back afterwards.
+    def _save(city: str, items: list) -> None:
+        """Shared by both loops below: incremental output.json + Firestore
+        save after every single source (video or article), not just at the
+        end — see the loops' own comments for why.
+        """
+        all_results.extend(items)
+        OUTPUT_FILE.write_text(json.dumps(all_results, indent=2))
+        if items and db is not None:
+            slug = places._slugify(city)
+            by_city.setdefault(slug, {"city": city, "items": []})["items"].extend(items)
+            try:
+                db.collection("venues").document(slug).set(by_city[slug])
+            except Exception as exc:
+                print(f"  Firestore write for {slug} failed (output.json still has it): {exc}", file=sys.stderr)
+
     blocked_count = 0
     for i, v in enumerate(VIDEOS):
         print(f"Ingesting: {v['source']} ({v['video_id']})...", file=sys.stderr)
@@ -252,29 +288,37 @@ async def main():
         print(f"  -> {len(items)} grounded venue(s)", file=sys.stderr)
         if not items:
             blocked_count += 1  # could be a real zero-venue video too, not just a block
-        all_results.extend(items)
 
         # Save after every video, not just at the end — a mid-run IP block
         # (YouTube's, not ours) shouldn't lose everything fetched so far.
-        OUTPUT_FILE.write_text(json.dumps(all_results, indent=2))
+        _save(v["city"], items)
 
-        if items and db is not None:
-            slug = places._slugify(v["city"])
-            by_city.setdefault(slug, {"city": v["city"], "items": []})["items"].extend(items)
-            try:
-                db.collection("venues").document(slug).set(by_city[slug])
-            except Exception as exc:
-                print(f"  Firestore write for {slug} failed (output.json still has it): {exc}", file=sys.stderr)
-
-        if i < len(VIDEOS) - 1:
+        if i < len(VIDEOS) - 1 or ARTICLES:
             await asyncio.sleep(DELAY_SECONDS)
 
-    print(f"\nDone: {len(all_results)} venues from {len(VIDEOS)} videos "
-          f"({blocked_count} videos produced zero venues — check the warnings above for why).",
-          file=sys.stderr)
+    for i, a in enumerate(ARTICLES):
+        print(f"Scraping: {a['source']} ({a['url']})...", file=sys.stderr)
+        items = await ingest_article(a["url"], a["city"], a["source"], CITY_COUNTRIES.get(a["city"], ""))
+        print(f"  -> {len(items)} grounded venue(s)", file=sys.stderr)
+        if not items:
+            blocked_count += 1
+
+        # Same reasoning as the video loop's save — a mid-run failure
+        # shouldn't lose articles already scraped, and this is also
+        # deliberately being polite to Supadata's own rate limits, not
+        # just working around YouTube's.
+        _save(a["city"], items)
+
+        if i < len(ARTICLES) - 1:
+            await asyncio.sleep(DELAY_SECONDS)
+
+    total_sources = len(VIDEOS) + len(ARTICLES)
+    print(f"\nDone: {len(all_results)} venues from {len(VIDEOS)} videos and {len(ARTICLES)} articles "
+          f"({blocked_count} of {total_sources} sources produced zero venues — check the warnings "
+          f"above for why).", file=sys.stderr)
     print(f"Full results written to {OUTPUT_FILE}", file=sys.stderr)
     if db is not None:
-        print(f"Wrote {len(by_city)} cities to Firestore (venues/{{slug}}), incrementally per video.", file=sys.stderr)
+        print(f"Wrote {len(by_city)} cities to Firestore (venues/{{slug}}), incrementally per source.", file=sys.stderr)
 
     print(json.dumps(all_results, indent=2))
 
