@@ -215,13 +215,15 @@ ARTICLES = [
 # "World's 50 Best Restaurants" / "Top 100 Restaurants in the World" style
 # list, spanning many cities and countries in one article — no `city`
 # field here, since each extracted venue carries its own (see
-# extract.extract_world_venues / pipeline.ingest_world_article). Empty
-# until the first one is added.
+# extract.extract_world_venues / pipeline.ingest_world_article).
 WORLD_ARTICLES = [
-    # {
-    #     "url": "https://www.theworlds50best.com/list/1-50",
-    #     "source": "The World's 50 Best Restaurants",
-    # },
+    # URL confirmed live via web search, 2026-09-20. Shows the current
+    # standing list — the 2026 rankings aren't announced until Nov 4 in
+    # Lima, so this is last year's edition until then, still real content.
+    {
+        "url": "https://www.theworlds50best.com/restaurants/best-in-the-world/list/1-50",
+        "source": "The World's 50 Best Restaurants",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
