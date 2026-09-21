@@ -8,7 +8,14 @@ export function CitySearch({ step, visitedCities, onPickCity }) {
   const [cities, setCities] = useState([]);
 
   useEffect(() => {
-    api.cities({ q: query, visited: visitedCities }).then((d) => setCities(d.cities));
+    // Debounced — without this, every keystroke fired its own request, each
+    // hitting Google's real Places Autocomplete API through the backend
+    // (confirmed live: typing "hong kong" fired ~9 network round-trips in a
+    // row, felt sluggish while typing).
+    const timeout = setTimeout(() => {
+      api.cities({ q: query, visited: visitedCities }).then((d) => setCities(d.cities));
+    }, 300);
+    return () => clearTimeout(timeout);
   }, [query, visitedCities]);
 
   return (
