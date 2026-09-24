@@ -14,11 +14,14 @@ import * as fb from './firebase.js';
 export function AuthGate({ children }) {
   const [status, setStatus] = useState(fb.configured() ? 'loading' : 'open');
   const [email, setEmail] = useState('');
+  const [redirectFailed, setRedirectFailed] = useState(false);
 
   useEffect(() => {
     if (!fb.configured()) return;
 
-    fb.checkRedirectResult();
+    fb.checkRedirectResult().then(({ attempted, succeeded }) => {
+      if (attempted && !succeeded) setRedirectFailed(true);
+    });
 
     return fb.onAuthChange(async (user) => {
       if (!user) {
@@ -26,6 +29,7 @@ export function AuthGate({ children }) {
         setEmail('');
         return;
       }
+      setRedirectFailed(false);
       setEmail(user.email || '');
       try {
         const me = await api.me();
@@ -48,9 +52,18 @@ export function AuthGate({ children }) {
       <PhoneShell>
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, textAlign: 'center', gap: 20 }}>
           <div style={{ fontFamily: theme.fontDisplay, fontSize: 32 }}>Travel<br />Discovery</div>
-          <div style={{ fontSize: 14, color: theme.textMuted, maxWidth: 280 }}>
-            This is a closed pilot — sign in to see if you've been approved.
-          </div>
+          {redirectFailed ? (
+            <div style={{ fontSize: 14, color: theme.textMuted, maxWidth: 280 }}>
+              Sign-in isn't completing — this looks like Safari's "Prevent Cross-Site Tracking"
+              privacy setting blocking it, not something wrong on your end. Try turning that off
+              in Settings → Safari → Advanced → Privacy, or make sure you're not in Private
+              Browsing, then try again.
+            </div>
+          ) : (
+            <div style={{ fontSize: 14, color: theme.textMuted, maxWidth: 280 }}>
+              This is a closed pilot — sign in to see if you've been approved.
+            </div>
+          )}
           <button
             onClick={fb.signInWithGoogle}
             style={{

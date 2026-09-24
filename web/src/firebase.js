@@ -51,10 +51,20 @@ function isMobile() {
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
 
+// Set right before signInWithRedirect() so checkRedirectResult() can tell
+// "we just attempted a redirect and it silently produced no user" (the ITP
+// case above) apart from "this is a normal fresh page load, no redirect was
+// ever in flight" — getRedirectResult() alone resolves to null in both
+// cases, with no error, so there'd be nothing else to distinguish them by.
+// sessionStorage survives a same-tab top-level redirect-and-back, unlike
+// the cross-domain storage ITP actually blocks.
+const REDIRECT_PENDING_KEY = 'td_redirect_pending';
+
 export async function signInWithGoogle() {
   if (!auth) return;
   const provider = new GoogleAuthProvider();
   if (isMobile()) {
+    sessionStorage.setItem(REDIRECT_PENDING_KEY, '1');
     await signInWithRedirect(auth, provider);
     return;
   }
@@ -62,6 +72,7 @@ export async function signInWithGoogle() {
     await signInWithPopup(auth, provider);
   } catch (exc) {
     console.warn('Popup sign-in failed, falling back to redirect:', exc);
+    sessionStorage.setItem(REDIRECT_PENDING_KEY, '1');
     await signInWithRedirect(auth, provider);
   }
 }
@@ -71,12 +82,21 @@ export async function signInWithGoogle() {
 // expired session, a blocked redirect, etc.) that would otherwise fail
 // silently — onAuthStateChanged alone won't report *why* a redirect sign-in
 // didn't go through, only that no user is signed in.
+//
+// Returns { attempted, succeeded } so the caller (AuthGate) can tell a
+// silently-failed redirect (attempted && !succeeded — confirmed live: an
+// iPhone Safari beta tester stuck bouncing back to the same sign-in button
+// with no feedback, over and over) apart from an ordinary signed-out state.
 export async function checkRedirectResult() {
-  if (!auth) return;
+  if (!auth) return { attempted: false, succeeded: false };
+  const attempted = sessionStorage.getItem(REDIRECT_PENDING_KEY) === '1';
+  sessionStorage.removeItem(REDIRECT_PENDING_KEY);
   try {
-    await getRedirectResult(auth);
+    const result = await getRedirectResult(auth);
+    return { attempted, succeeded: Boolean(result?.user) };
   } catch (exc) {
     console.warn('Google sign-in redirect failed:', exc);
+    return { attempted, succeeded: false };
   }
 }
 
