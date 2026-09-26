@@ -73,6 +73,16 @@ export function AuthGate({ children }) {
               privacy setting blocking it, not something wrong on your end. Try turning that off
               in Settings → Safari → Advanced → Privacy, or make sure you're not in Private
               Browsing, then try again.
+              {/* Temporary debug line — remove once this is root-caused. */}
+              <div style={{ marginTop: 12, fontSize: 11, color: theme.textFaint, wordBreak: 'break-word' }}>
+                {(() => {
+                  try {
+                    return localStorage.getItem('td_redirect_debug') || '(no debug info captured)';
+                  } catch {
+                    return '(could not read debug info)';
+                  }
+                })()}
+              </div>
             </div>
           ) : (
             <div style={{ fontSize: 14, color: theme.textMuted, maxWidth: 280 }}>

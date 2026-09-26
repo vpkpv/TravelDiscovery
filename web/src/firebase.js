@@ -102,8 +102,24 @@ export async function checkRedirectResult() {
   sessionStorage.removeItem(REDIRECT_PENDING_KEY);
   try {
     const result = await getRedirectResult(auth);
-    return { attempted, succeeded: Boolean(result?.user) };
+    const succeeded = Boolean(result?.user);
+    // Debug breadcrumb, temporary: remote-debugging a cross-domain redirect
+    // flow on a phone is unreliable (the console detaches across each
+    // navigation), so this persists the outcome to localStorage — which
+    // survives the navigation, unlike the console — for AuthGate to display
+    // directly on-screen instead of needing Web Inspector at all.
+    if (attempted) {
+      localStorage.setItem('td_redirect_debug', JSON.stringify({
+        succeeded, hasResult: result !== null, at: new Date().toISOString(),
+      }));
+    }
+    return { attempted, succeeded };
   } catch (exc) {
+    if (attempted) {
+      localStorage.setItem('td_redirect_debug', JSON.stringify({
+        succeeded: false, error: String(exc?.code || exc?.message || exc), at: new Date().toISOString(),
+      }));
+    }
     console.warn('Google sign-in redirect failed:', exc);
     return { attempted, succeeded: false };
   }
