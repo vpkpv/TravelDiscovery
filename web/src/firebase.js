@@ -35,18 +35,27 @@ export function onAuthChange(callback) {
   return onAuthStateChanged(auth, callback);
 }
 
-// Firebase's authDomain (gen-lang-client-....firebaseapp.com) is a
-// different site than this app (travel-web-....run.app) — Safari's
-// Intelligent Tracking Prevention treats storage set during that
+// Firebase's default authDomain (<project>.firebaseapp.com) is a
+// different site than this app (travel-web/app.traveldiscoveries.app) —
+// Safari's Intelligent Tracking Prevention treats storage set during that
 // cross-domain hop as third-party and can silently drop it, on both
 // popup and redirect alike, bouncing the user back to signed-out with no
-// error. There's no code fix for that (the real fix is a custom auth
-// domain matching this app's own site, a bigger infra change); this is a
-// platform-by-platform heuristic instead. Mobile browsers were the
-// original popup failure (blocked/partitioned popups on Safari/Chrome
-// mobile — see git history), so they get redirect; desktop tends to
-// handle a same-tab-group popup more reliably, so it's tried first there,
-// falling back to redirect if the popup itself is blocked.
+// error (confirmed live with a beta tester stuck looping on iPhone
+// Safari). Fixed for real by setting FIREBASE_AUTH_DOMAIN to
+// auth.traveldiscoveries.app — a Firebase Hosting custom domain sharing
+// the app's own registrable domain, so the redirect never leaves the
+// app's own site and ITP has nothing cross-domain to block. See
+// deploy-env.sh.example. checkRedirectResult()'s attempted/succeeded
+// return value (below) stays regardless, as a safety net for anyone
+// still landing on the old firebaseapp.com domain (e.g. a stale cached
+// config.js) or any other future cross-domain edge case.
+//
+// The mobile-vs-desktop popup/redirect heuristic below is unrelated to
+// that and still applies: mobile browsers were the original popup
+// failure (blocked/partitioned popups on Safari/Chrome mobile — see git
+// history), so they get redirect; desktop tends to handle a
+// same-tab-group popup more reliably, so it's tried first there, falling
+// back to redirect if the popup itself is blocked.
 function isMobile() {
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }

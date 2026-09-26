@@ -24,7 +24,14 @@ export SPOTIFY_CLIENT_SECRET=
 
 export AUTH_ENABLED=true
 export FIREBASE_API_KEY=
-export FIREBASE_AUTH_DOMAIN=gen-lang-client-0529555554.firebaseapp.com
+# Default is gen-lang-client-0529555554.firebaseapp.com, but that's a
+# different site than travel-web's own domain, so Safari's Intelligent
+# Tracking Prevention can silently drop the sign-in state after a redirect
+# completes — confirmed live with a beta tester stuck bouncing back to the
+# sign-in screen on iPhone Safari, no error shown. Fixed by pointing this at
+# a custom domain (Firebase Hosting, same registrable domain as the app)
+# instead, so the redirect never leaves the app's own site. See firebase.js.
+export FIREBASE_AUTH_DOMAIN=auth.traveldiscoveries.app
 export FIREBASE_PROJECT_ID=gen-lang-client-0529555554
 export FIREBASE_APP_ID=1:911993008582:web:c76d903f67cb173a0902c7
 
