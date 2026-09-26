@@ -17,7 +17,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # import data, 
 
 from google import genai
 from google.genai import types
-from pydantic import BaseModel
 
 from data import CUISINES
 
@@ -34,11 +33,6 @@ _client = None
 BATCH_SIZE = 40
 
 
-class CuisineTag(BaseModel):
-    name: str
-    cuisine: str
-
-
 def configured() -> bool:
     return bool(GEMINI_API_KEY)
 
@@ -51,12 +45,23 @@ def _get_client() -> genai.Client:
 
 
 def _classify_one_batch(venues: list) -> dict:
-    listing = "\n".join(f"- {v['name']} ({v.get('city', '')}): {v.get('why', '')}" for v in venues)
+    """Matches results back to venues by position, not by name — asking
+    Gemini to echo back each restaurant's exact original name (matching by
+    name) turned out unreliable in practice: every single batch came back
+    as an unusable, empty match on a real backfill run, most likely
+    because Gemini didn't reproduce names character-for-character. A flat,
+    ordered list of cuisine labels avoids that failure mode entirely, at
+    the cost of the whole batch being unusable if Gemini doesn't return
+    exactly one entry per venue in order — checked below and safe to
+    retry, since the backfill script is idempotent.
+    """
+    listing = "\n".join(f"{i + 1}. {v['name']} ({v.get('city', '')}): {v.get('why', '')}" for i, v in enumerate(venues))
     prompt = (
-        f"For each restaurant below, pick the single cuisine that best describes it from "
-        f"this exact list: {', '.join(CUISINES)}. If genuinely none fit, answer \"Other\" "
-        f"instead of guessing. Return one entry per restaurant, using its exact name as given "
-        f"below.\n\n{listing}"
+        f"For each of the {len(venues)} numbered restaurants below, pick the single cuisine "
+        f"that best describes it from this exact list: {', '.join(CUISINES)}. If genuinely "
+        f"none fit, answer \"Other\" instead of guessing. Return exactly {len(venues)} entries, "
+        f"one per restaurant, in the same order as given — never skip, merge, or reorder any.\n\n"
+        f"{listing}"
     )
     try:
         response = _get_client().models.generate_content(
@@ -64,18 +69,25 @@ def _classify_one_batch(venues: list) -> dict:
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=list[CuisineTag],
+                response_schema=list[str],
             ),
         )
     except Exception as exc:
         log.warning("cuisine classification request failed for a batch of %d: %s", len(venues), exc)
         return {}
 
-    tags = response.parsed
-    if tags is None:
+    cuisines = response.parsed
+    if cuisines is None:
         log.warning("cuisine classification response didn't parse against the schema: %r", response.text)
         return {}
-    return {t.name: t.cuisine for t in tags if t.name.strip()}
+    if len(cuisines) != len(venues):
+        log.warning(
+            "cuisine classification returned %d entries for %d venues — order can't be "
+            "trusted, skipping this batch (will retry on the next backfill run)",
+            len(cuisines), len(venues),
+        )
+        return {}
+    return {v["name"]: c for v, c in zip(venues, cuisines)}
 
 
 def classify_batch(venues: list) -> dict:
