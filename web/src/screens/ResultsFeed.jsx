@@ -85,15 +85,22 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
   const [surprise, setSurprise] = useState(null); // null = browsing, {items, seed} = surprise mode
   const [cityPhotoRef, setCityPhotoRef] = useState(null);
   const [heroFailed, setHeroFailed] = useState(false);
+  // Without this, items/totalCount's empty initial state ("[]"/0) rendered
+  // identically to a genuine zero-result city for however long the request
+  // took — confirmed live: "0 picks matched to your taste" / "No picks yet"
+  // flashing for a few seconds on every city before real results arrived.
+  const [loading, setLoading] = useState(true);
 
   const citySlug = city.slug || city.id; // slug: groups a real Places result with our curated content
 
   useEffect(() => {
     setHeroFailed(false);
+    setLoading(true);
     api.results({ city: citySlug, filter, musicGenre, chefs: favoriteChefs, cuisines }).then((d) => {
       setItems(d.items);
       setTotalCount(d.count);
       setCityPhotoRef(d.city_photo_ref || null);
+      setLoading(false);
     });
   }, [citySlug, filter, musicGenre, favoriteChefs, cuisines]);
 
@@ -121,7 +128,7 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
           <div style={{ position: 'absolute', left: 24, right: 24, bottom: 18 }}>
             <div style={{ fontFamily: theme.fontDisplay, fontWeight: 600, fontSize: 32, lineHeight: 1, color: '#FFFFFF' }}>{city.name}</div>
             <div style={{ marginTop: 6, fontSize: 14, color: 'rgba(255,255,255,0.88)' }}>
-              {surprise ? 'One perfect pairing, chosen for you' : `${totalCount} picks matched to your taste`}
+              {surprise ? 'One perfect pairing, chosen for you' : loading ? 'Finding your picks…' : `${totalCount} picks matched to your taste`}
             </div>
           </div>
         </div>
@@ -132,7 +139,7 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
             <div>
               <div style={{ fontFamily: theme.fontDisplay, fontWeight: 600, fontSize: 32, lineHeight: 1 }}>{city.name}</div>
               <div style={{ marginTop: 6, fontSize: 14, color: theme.textMuted }}>
-                {surprise ? 'One perfect pairing, chosen for you' : `${totalCount} picks matched to your taste`}
+                {surprise ? 'One perfect pairing, chosen for you' : loading ? 'Finding your picks…' : `${totalCount} picks matched to your taste`}
               </div>
             </div>
           )}
