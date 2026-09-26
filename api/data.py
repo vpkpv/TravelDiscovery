@@ -52,7 +52,7 @@ CITIES = [
         "return_pitch": "New spots since your last trip",
     },
     {
-        "id": "new-york-city", "name": "New York City", "country": "USA",
+        "id": "new-york", "name": "New York", "country": "USA",
         "first_time_pitch": "Great for: Delis, pizza slices & late-night bites",
         "return_pitch": "New spots since your last trip",
     },

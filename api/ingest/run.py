@@ -71,11 +71,17 @@ VIDEOS = [
         "city": "Mumbai",
         "source": "The Food Ranger — Street Food Tour, Best Curry",
     },
-    # New York City (US) — Mark Wiens x National Geographic co-production,
-    # still his content/voice, just cross-posted rather than his own channel.
+    # New York (US) — Mark Wiens x National Geographic co-production, still
+    # his content/voice, just cross-posted rather than his own channel.
+    # City string is "New York", not "New York City" — matches both Google
+    # Places' own naming and how Gemini independently tagged NYC venues
+    # from World's 50 Best/CNT Hot List, so all NYC content lands in one
+    # Firestore doc instead of splitting across two differently-slugged
+    # ones (confirmed live: a user filtering to Indian cuisine only saw
+    # the smaller of the two buckets, missing everything in the other).
     {
         "video_id": "CE6Y8tqhO4A",
-        "city": "New York City",
+        "city": "New York",
         "source": "Mark Wiens x Nat Geo — NYC's Most Iconic Foods in 24 Hours",
     },
     # Paris (Europe)
@@ -243,7 +249,7 @@ WORLD_ARTICLES = [
 CITY_COUNTRIES = {
     "Lisbon": "Portugal",
     "Mumbai": "India",
-    "New York City": "USA",
+    "New York": "USA",
     "Paris": "France",
     "Rome": "Italy",
     "Chicago": "USA",
