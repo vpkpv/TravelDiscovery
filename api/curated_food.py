@@ -19,6 +19,8 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel
 
+from data import CUISINES
+
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 # `or` on top of .get(), not just a .get() default: Cloud Run can have this
 # var explicitly set to "" (deploy.sh always passes it, even when left
@@ -35,6 +37,7 @@ _client = None
 class VenueSuggestion(BaseModel):
     name: str
     why: str
+    cuisine: str
 
 
 def configured() -> bool:
@@ -49,10 +52,10 @@ def _get_client() -> genai.Client:
 
 
 def suggest_venues(city: str, cuisines: list, limit: int = 6) -> list:
-    """Returns [{"name": ..., "why": ...}, ...] — real-name candidates per
-    the prompt below, but still unverified until the caller grounds each
-    one against Places. Empty list on any failure, same convention as
-    everything else here.
+    """Returns [{"name": ..., "why": ..., "cuisine": ...}, ...] — real-name
+    candidates per the prompt below, but still unverified until the caller
+    grounds each one against Places. Empty list on any failure, same
+    convention as everything else here.
     """
     if not configured():
         return []
@@ -64,7 +67,9 @@ def suggest_venues(city: str, cuisines: list, limit: int = 6) -> list:
         f"well-loved local spots and a couple of buzzy newer places, not just the single "
         f"most famous tourist stop.{cuisine_hint} Only name real restaurants you are "
         f"confident actually exist and are currently open — never invent a name. For each, "
-        f"write a one-sentence reason it's worth visiting."
+        f"provide a one-sentence reason it's worth visiting, and its cuisine as the single "
+        f"closest match from this exact list: {', '.join(CUISINES)} (use \"Other\" if "
+        f"genuinely none fit)."
     )
     try:
         response = _get_client().models.generate_content(
@@ -83,4 +88,4 @@ def suggest_venues(city: str, cuisines: list, limit: int = 6) -> list:
     if suggestions is None:
         log.warning("curated_food response didn't parse against the schema: %r", response.text)
         return []
-    return [{"name": s.name, "why": s.why} for s in suggestions if s.name.strip()]
+    return [{"name": s.name, "why": s.why, "cuisine": s.cuisine} for s in suggestions if s.name.strip()]

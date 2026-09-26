@@ -265,6 +265,16 @@ async def _grounded_items(
     duplicates an existing pick by name is skipped). `cuisines` (the
     onboarding quick-pick) biases what it suggests. This only *adds*, never
     replaces — real curated/ingested picks are always kept as-is.
+
+    `cuisines`, when given, also actually filters the final food list down
+    to items tagged with one of those cuisines (every extraction path
+    tags cuisine at ingestion time — see ingest/extract.py, curated_food.py)
+    — confirmed live: before this filter existed, picking "Indian" still
+    showed non-Indian restaurants, since the quick-pick only ever biased
+    suggestions rather than filtering anything. A favorite-chef match
+    (`chef_match`) is exempt from this filter: an explicit favorite is a
+    stronger signal than the cuisine quick-pick and shouldn't be hidden by
+    it. Music items are never affected either way.
     """
     _ensure_ingested_results_loaded()
 
@@ -362,6 +372,12 @@ async def _grounded_items(
                 "addr": v["addr"],
                 "why": _chef_meta_why(v)[1],
                 "place_verified": True,
+                # Exempts this from the cuisine filter below — an explicit
+                # favorite (a named chef/restaurant) is a stronger signal
+                # than the cuisine quick-pick, so it shouldn't get hidden
+                # just because it happens to be a different cuisine than
+                # what was picked.
+                "chef_match": True,
                 **({"rating": v["rating"]} if v.get("rating") is not None else {}),
                 **({"photo_ref": v["photo_ref"]} if v.get("photo_ref") else {}),
             }
@@ -387,12 +403,27 @@ async def _grounded_items(
                 "meta": "Suggested pick",
                 "addr": ground["addr"],
                 "why": s["why"],
+                "cuisine": s.get("cuisine", ""),
                 "place_verified": True,
                 **({"rating": ground["rating"]} if ground.get("rating") is not None else {}),
                 **({"photo_ref": ground["photo_ref"]} if ground.get("photo_ref") else {}),
             }
             for i, (s, ground) in enumerate(zip(suggestions, grounded))
             if ground and s["name"].lower() not in existing_names
+        ]
+
+    if cuisines:
+        # Only food items are subject to this — music is untouched, and a
+        # chef_match (an explicit favorite) is exempt (see where it's set,
+        # above) since it's a stronger signal than this quick-pick. Any
+        # food item with no cuisine tag at all (a venue ingested before
+        # this field existed and not yet backfilled) is treated the same
+        # as "Other" — excluded once a specific cuisine is selected, same
+        # as anything else that doesn't match.
+        wanted = {c.strip().lower() for c in cuisines}
+        items = [
+            i for i in items
+            if i["type"] != "food" or i.get("chef_match") or (i.get("cuisine") or "").strip().lower() in wanted
         ]
 
     return items

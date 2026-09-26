@@ -76,7 +76,7 @@ RESULTS = {
         {
             "id": "ramiro", "type": "food", "name": "Cervejaria Ramiro",
             "meta": "Alfama · Seafood tavern", "rating": 4.8,
-            "addr": "Av. Almirante Reis 1",
+            "addr": "Av. Almirante Reis 1", "cuisine": "Mediterranean",
             "why": "Because you picked Mediterranean & seafood-forward cuisines",
         },
         {
@@ -88,7 +88,7 @@ RESULTS = {
         {
             "id": "timeout", "type": "food", "name": "Time Out Market",
             "meta": "24 kitchens, small plates", "rating": 4.6,
-            "addr": "Av. 24 de Julho 49",
+            "addr": "Av. 24 de Julho 49", "cuisine": "Other",
             "why": "Because you like exploring variety over one cuisine",
         },
         {
@@ -100,7 +100,7 @@ RESULTS = {
         {
             "id": "cevicheria", "type": "food", "name": "A Cevicheria",
             "meta": "Peruvian ceviche bar", "rating": 4.7,
-            "addr": "R. Dom Pedro V 129",
+            "addr": "R. Dom Pedro V 129", "cuisine": "Peruvian",
             "why": "Because you picked Peruvian cuisine",
         },
         {

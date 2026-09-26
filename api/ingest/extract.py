@@ -8,10 +8,16 @@ raises rather than silently passing bad data downstream.
 
 import logging
 import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # import data, sibling to ingest/
 
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
+
+from data import CUISINES
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 # See api/curated_food.py's identical line for why this is `or`, not just
@@ -22,10 +28,21 @@ log = logging.getLogger("extract")
 
 _client = None
 
+# Every extracted food candidate below also gets a cuisine tag — from this
+# exact list (same one Settings/onboarding shows), or "Other" — so main.py's
+# _grounded_items can actually filter by the cuisine quick-pick instead of
+# only using it as a suggestion bias. Confirmed live: a user picked "Indian"
+# and still saw non-Indian restaurants, since nothing was tagged at all.
+_CUISINE_INSTRUCTION = (
+    f"cuisine: the single closest match from this exact list: {', '.join(CUISINES)}. "
+    f"If genuinely none fit, use \"Other\" instead of guessing."
+)
+
 
 class VenueCandidate(BaseModel):
     name: str
     why: str
+    cuisine: str
 
 
 class WorldVenueCandidate(BaseModel):
@@ -33,6 +50,7 @@ class WorldVenueCandidate(BaseModel):
     city: str
     country: str
     why: str
+    cuisine: str
 
 
 PROMPT_TEMPLATE = """You are extracting real restaurant/venue recommendations from a food \
@@ -42,9 +60,10 @@ Read the transcript below and extract every specific, named restaurant, market, 
 venue the host actually visits or recommends by name — not generic dish names, not \
 neighborhoods, only real business names.
 
-For each one, write a short one-sentence "why" line explaining what makes it worth \
-visiting, grounded only in what the transcript actually says — never invent a detail \
-that isn't in the transcript.
+For each one, provide:
+- why: a short one-sentence line explaining what makes it worth visiting, grounded only in \
+what the transcript actually says — never invent a detail that isn't in the transcript.
+- {cuisine_instruction}
 
 If no real venues are named, return an empty list.
 
@@ -62,9 +81,10 @@ travel publication's article. The article is about food in {city}.
 Read the article text below and extract every specific, named restaurant it recommends or \
 features — not generic dish names, not neighborhoods, only real business names.
 
-For each one, write a short one-sentence "why" line explaining what makes it worth visiting, \
-grounded only in what the article actually says — never invent a detail that isn't in the \
-article.
+For each one, provide:
+- why: a short one-sentence line explaining what makes it worth visiting, grounded only in \
+what the article actually says — never invent a detail that isn't in the article.
+- {cuisine_instruction}
 
 If no real restaurants are named, return an empty list.
 
@@ -89,6 +109,7 @@ mentions, only real, individually named restaurants. For each one:
 - country: the country it's located in.
 - why: a short one-sentence reason it's notable, grounded only in what the article actually says \
 — never invent a detail that isn't in the article.
+- {cuisine_instruction}
 
 If you can't determine a specific city for an entry, skip it rather than guessing — a wrong city \
 would cause it to be searched for in the wrong place entirely.
@@ -134,16 +155,19 @@ def _extract(prompt: str) -> list:
         log.warning("Gemini response didn't parse against the schema: %r", response.text)
         return []
 
-    return [{"name": c.name, "why": c.why} for c in candidates if c.name.strip()]
+    return [{"name": c.name, "why": c.why, "cuisine": c.cuisine} for c in candidates if c.name.strip()]
 
 
 def extract_venues(transcript: str, city: str) -> list:
-    """Returns [{"name": ..., "why": ...}, ...]. Empty list if not
-    configured, the call fails, or no venues are named in the transcript.
+    """Returns [{"name": ..., "why": ..., "cuisine": ...}, ...]. Empty list
+    if not configured, the call fails, or no venues are named in the
+    transcript.
     """
     if not configured() or not transcript.strip():
         return []
-    return _extract(PROMPT_TEMPLATE.format(city=city, transcript=transcript[:60000]))
+    return _extract(PROMPT_TEMPLATE.format(
+        city=city, transcript=transcript[:60000], cuisine_instruction=_CUISINE_INSTRUCTION,
+    ))
 
 
 def extract_venues_from_article(article_text: str, city: str) -> list:
@@ -153,11 +177,13 @@ def extract_venues_from_article(article_text: str, city: str) -> list:
     """
     if not configured() or not article_text.strip():
         return []
-    return _extract(ARTICLE_PROMPT_TEMPLATE.format(city=city, article_text=article_text[:60000]))
+    return _extract(ARTICLE_PROMPT_TEMPLATE.format(
+        city=city, article_text=article_text[:60000], cuisine_instruction=_CUISINE_INSTRUCTION,
+    ))
 
 
 def extract_world_venues(article_text: str) -> list:
-    """Returns [{"name", "city", "country", "why"}, ...] — each venue
+    """Returns [{"name", "city", "country", "why", "cuisine"}, ...] — each venue
     carries its own city/country instead of one for the whole article, for
     a multi-city "world's best restaurants" style list. Empty list if not
     configured, the call fails, or no venues (with a determinable city)
@@ -167,7 +193,9 @@ def extract_world_venues(article_text: str) -> list:
     if not configured() or not article_text.strip():
         return []
 
-    prompt = WORLD_ARTICLE_PROMPT_TEMPLATE.format(article_text=article_text[:60000])
+    prompt = WORLD_ARTICLE_PROMPT_TEMPLATE.format(
+        article_text=article_text[:60000], cuisine_instruction=_CUISINE_INSTRUCTION,
+    )
     try:
         response = _get_client().models.generate_content(
             model=GEMINI_MODEL,
@@ -187,7 +215,7 @@ def extract_world_venues(article_text: str) -> list:
         return []
 
     return [
-        {"name": c.name, "city": c.city, "country": c.country, "why": c.why}
+        {"name": c.name, "city": c.city, "country": c.country, "why": c.why, "cuisine": c.cuisine}
         for c in candidates
         if c.name.strip() and c.city.strip()
     ]
