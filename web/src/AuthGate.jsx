@@ -19,8 +19,22 @@ export function AuthGate({ children }) {
   useEffect(() => {
     if (!fb.configured()) return;
 
-    fb.checkRedirectResult().then(({ attempted, succeeded }) => {
-      if (attempted && !succeeded) setRedirectFailed(true);
+    let signedInAfterRedirect = false;
+
+    fb.checkRedirectResult().then(({ attempted }) => {
+      if (!attempted) return;
+      // Give onAuthStateChanged a few seconds to reflect the real outcome
+      // before concluding the redirect failed — getRedirectResult() can
+      // report nothing even after a genuinely successful sign-in, if
+      // Firebase's SDK already processed the pending redirect internally
+      // before this explicit call ran. onAuthStateChanged catching a real
+      // user shortly after is the more reliable signal — confirmed live: a
+      // user who completed Google's sign-in screen still saw the "failed"
+      // message once, even though they were, in fact, signed in underneath
+      // it (a reload showed the correct signed-in/pending state).
+      setTimeout(() => {
+        if (!signedInAfterRedirect) setRedirectFailed(true);
+      }, 2500);
     });
 
     return fb.onAuthChange(async (user) => {
@@ -29,6 +43,7 @@ export function AuthGate({ children }) {
         setEmail('');
         return;
       }
+      signedInAfterRedirect = true;
       setRedirectFailed(false);
       setEmail(user.email || '');
       try {
