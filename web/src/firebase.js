@@ -56,10 +56,6 @@ export function onAuthChange(callback) {
 // history), so they get redirect; desktop tends to handle a
 // same-tab-group popup more reliably, so it's tried first there, falling
 // back to redirect if the popup itself is blocked.
-function isMobile() {
-  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-}
-
 // Set right before signInWithRedirect() so checkRedirectResult() can tell
 // "we just attempted a redirect and it silently produced no user" (the ITP
 // case above) apart from "this is a normal fresh page load, no redirect was
@@ -69,14 +65,20 @@ function isMobile() {
 // the cross-domain storage ITP actually blocks.
 const REDIRECT_PENDING_KEY = 'td_redirect_pending';
 
+// Mobile used to be forced straight to signInWithRedirect (skipping popup
+// entirely), because mobile Safari/Chrome used to block or partition
+// popups outright. That reasoning predates the auth.traveldiscoveries.app
+// custom domain, and doesn't hold up against what's actually failing now:
+// confirmed live, on a real iPhone, getRedirectResult() genuinely finds no
+// pending redirect to resolve after the full round trip (no thrown error —
+// {"succeeded":false,"hasResult":false}), pointing at the redirect flow's
+// own cross-origin handoff, not ITP. Popup-based sign-in uses a completely
+// different mechanism (a window reference + postMessage, not that fragile
+// storage handoff), so it's worth trying everywhere now, falling back to
+// redirect only if the popup itself is actually blocked.
 export async function signInWithGoogle() {
   if (!auth) return;
   const provider = new GoogleAuthProvider();
-  if (isMobile()) {
-    sessionStorage.setItem(REDIRECT_PENDING_KEY, '1');
-    await signInWithRedirect(auth, provider);
-    return;
-  }
   try {
     await signInWithPopup(auth, provider);
   } catch (exc) {
