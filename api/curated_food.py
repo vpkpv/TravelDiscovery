@@ -60,7 +60,24 @@ def suggest_venues(city: str, cuisines: list, limit: int = 10) -> list:
     if not configured():
         return []
 
-    cuisine_hint = f" This person especially enjoys: {', '.join(cuisines)}." if cuisines else ""
+    # A soft "especially enjoys" hint used to just bias suggestions rather
+    # than require them — confirmed live: picking "Indian" for New York (a
+    # city with plenty of real Indian restaurants) still surfaced only a
+    # handful, because main.py's cuisine filter runs afterward and silently
+    # drops any suggestion Gemini didn't itself tag as Indian, and a mere
+    # hint let plenty of non-Indian suggestions through. Made into a hard
+    # requirement instead, so what's generated already matches what the
+    # filter downstream will keep.
+    if cuisines:
+        cuisine_list = ", ".join(cuisines)
+        cuisine_hint = (
+            f" Every single suggestion must genuinely be {cuisine_list} cuisine — not "
+            f"fusion, not merely influenced by it, not a place that only sometimes serves "
+            f"it alongside other cuisines. If {city} genuinely doesn't have {limit} such "
+            f"restaurants, return fewer rather than padding with off-cuisine picks."
+        )
+    else:
+        cuisine_hint = ""
     prompt = (
         f"You are a well-traveled local food guide for {city}. Suggest {limit} genuinely "
         f"interesting, currently-operating restaurants there for a visitor — a mix of "

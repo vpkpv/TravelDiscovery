@@ -4,6 +4,7 @@ import logging
 import os
 import random
 import secrets
+import time
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlencode
@@ -15,6 +16,7 @@ load_dotenv()  # picks up api/.env for local dev — see .env.example
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, Response
+from firebase_admin import firestore
 from pydantic import BaseModel
 
 import auth
@@ -174,46 +176,81 @@ app.add_middleware(
 WEB_URL = os.environ.get("WEB_URL", "http://localhost:5173").rstrip("/")
 
 
+def _popup_result_response(payload: dict):
+    """Renders a tiny page that hands the Spotify connect result back to the
+    app via postMessage and closes itself — used instead of a redirect when
+    /auth/spotify/login was opened in a popup window (see below). `<` is
+    escaped throughout the embedded JSON so nothing in it (an artist name,
+    in particular) can break out of the <script> block.
+    """
+    safe_json = json.dumps(payload).replace("<", "\\u003c")
+    html = (
+        "<!doctype html><html><body><script>"
+        f"window.opener && window.opener.postMessage({safe_json}, {json.dumps(WEB_URL)});"
+        "window.close();"
+        "</script></body></html>"
+    )
+    return Response(content=html, media_type="text/html")
+
+
 @app.get("/auth/spotify/login")
-def spotify_login():
+def spotify_login(popup: bool = Query(default=False)):
     """Kicks off the OAuth flow: a full browser redirect to Spotify's
     consent screen, not a fetch — Spotify won't authorize inside an XHR.
 
-    No user-session store exists yet (that's Firebase+Firestore, tracked
-    separately), so `state` is a CSRF nonce only, not verified against
-    anything stored server-side. Acceptable for now: worth revisiting once
-    real user accounts exist.
+    `popup=1` marks this as opened in a popup window rather than navigating
+    the main app tab — see App.jsx's connectSpotify. That distinction rides
+    along in `state` (echoed back verbatim by Spotify) since there's nowhere
+    server-side to stash it between these two requests. No user-session
+    store exists yet (that's Firebase+Firestore, tracked separately), so the
+    rest of `state` is a CSRF nonce only, not verified against anything
+    stored server-side. Acceptable for now: worth revisiting once real user
+    accounts exist.
     """
     if not spotify.configured():
         return RedirectResponse(f"{WEB_URL}/?spotify_error=not_configured")
-    state = secrets.token_urlsafe(16)
+    nonce = secrets.token_urlsafe(16)
+    state = f"popup:{nonce}" if popup else f"redirect:{nonce}"
     return RedirectResponse(spotify.authorize_url(state))
 
 
 @app.get("/auth/spotify/callback")
-async def spotify_callback(code: str = "", error: str = ""):
+async def spotify_callback(code: str = "", error: str = "", state: str = ""):
     """Spotify redirects here after the user approves/denies. Exchanges the
-    code, reads top artists, and redirects back to the web app with the
-    result in the query string — there's no session to store it in yet, so
-    the frontend picks it up directly from the URL.
+    code, reads top artists, and hands the result back to the web app —
+    via postMessage if this came from a popup (see spotify_login), else the
+    original full-redirect-with-query-string handoff, for callers that
+    predate the popup flow or whose popup got blocked. There's no session
+    to store the result in yet, so it's passed through directly either way.
 
     Artist names, not a genre bucket: Spotify's Web API returns an empty
     `genres` field on essentially every artist in practice, so there's no
     genre data to map onto our fixed vocabulary. Names are always present.
     """
+    is_popup = state.startswith("popup:")
+
+    def _finish(*, artists: Optional[list] = None, error_code: str = ""):
+        if is_popup:
+            payload = {"source": "traveldiscovery-spotify"}
+            payload.update({"error": error_code} if error_code else {"artists": artists})
+            return _popup_result_response(payload)
+        if error_code:
+            return RedirectResponse(f"{WEB_URL}/?spotify_error={error_code}")
+        return RedirectResponse(f"{WEB_URL}/?{urlencode({'spotify_artists': json.dumps(artists)})}")
+
     if error or not code:
-        return RedirectResponse(f"{WEB_URL}/?spotify_error=denied")
+        return _finish(error_code="denied")
 
     token = await spotify.exchange_code(code)
     if not token:
-        return RedirectResponse(f"{WEB_URL}/?spotify_error=token_exchange_failed")
+        return _finish(error_code="token_exchange_failed")
 
     artists = await spotify.top_artists(token)
     if not artists:
         log.warning("Spotify auth succeeded but no top artists were returned")
-        return RedirectResponse(f"{WEB_URL}/?spotify_error=no_artists_found")
+        return _finish(error_code="no_artists_found")
 
-    return RedirectResponse(f"{WEB_URL}/?{urlencode({'spotify_artists': json.dumps(artists)})}")
+    return _finish(artists=artists)
 
 _CITY_BY_ID = {c["id"]: c for c in CITIES}
 
@@ -410,7 +447,13 @@ async def _grounded_items(
         # suggest_venues makes a synchronous (blocking) Gemini SDK call —
         # run it off the event loop so a slow Gemini response doesn't
         # freeze every other concurrent request this server is handling.
-        suggestions = await asyncio.to_thread(curated_food.suggest_venues, city_name, cuisines or [])
+        # Ask for more than MIN_FOOD_ITEMS when a cuisine filter is active:
+        # the filter below only keeps suggestions genuinely tagged with a
+        # wanted cuisine, and grounding drops some outright — asking for
+        # only MIN_FOOD_ITEMS-worth here reliably left the final count well
+        # under it once both of those losses were accounted for.
+        suggestion_limit = 16 if cuisines else 10
+        suggestions = await asyncio.to_thread(curated_food.suggest_venues, city_name, cuisines or [], suggestion_limit)
         grounded = await asyncio.gather(*(places.find_place(s["name"], city_name, country) for s in suggestions))
         items = items + [
             {
@@ -444,6 +487,46 @@ async def _grounded_items(
         ]
 
     return items
+
+
+# _grounded_items does several sequential network round trips per call
+# (Places grounding, a live-music search, a chef search, and — often, since
+# MIN_FOOD_ITEMS was raised — a Gemini top-up call plus grounding for each
+# of its suggestions), and none of that changes between one request for a
+# city/filter combo and the next one moments later — content only changes
+# when `python -m ingest.run` runs, at most a few times a day. Confirmed
+# live: this was the main driver behind "performance is still a big issue"
+# reports, since every single page load re-did all of it from scratch, per
+# instance, with nothing to show for the repeat work. A short in-memory TTL
+# turns every request after the first (per Cloud Run instance) into a
+# straight dict lookup instead. Per-instance and lost on redeploy/restart is
+# fine here — it's a speed optimization, not a source of truth.
+_RESULTS_CACHE_TTL = 900  # seconds
+_results_cache: dict = {}
+_city_photo_cache: dict = {}
+
+
+async def _cached_grounded_items(
+    city_id: str, music_genre: str = "", chefs: Optional[list] = None, cuisines: Optional[list] = None
+) -> list:
+    key = (city_id, music_genre, tuple(sorted(chefs or [])), tuple(sorted(cuisines or [])))
+    now = time.monotonic()
+    cached = _results_cache.get(key)
+    if cached and now - cached[0] < _RESULTS_CACHE_TTL:
+        return cached[1]
+    items = await _grounded_items(city_id, music_genre, chefs, cuisines)
+    _results_cache[key] = (now, items)
+    return items
+
+
+async def _cached_city_photo(city_id: str) -> Optional[str]:
+    now = time.monotonic()
+    cached = _city_photo_cache.get(city_id)
+    if cached and now - cached[0] < _RESULTS_CACHE_TTL:
+        return cached[1]
+    ref = await places.find_city_photo(_city_display_name(city_id), _city_country(city_id))
+    _city_photo_cache[city_id] = (now, ref)
+    return ref
 
 
 @app.get("/api/me")
@@ -511,6 +594,49 @@ async def save_prefs(body: PrefsBody, user: dict = Depends(auth.current_user)):
     if not auth.configured():
         raise HTTPException(status_code=404, detail="auth not enabled")
     auth.firestore_client().collection("user_prefs").document(user["uid"]).set(body.prefs)
+    return {"ok": True}
+
+
+class SavedItemBody(BaseModel):
+    item: dict
+
+
+@app.get("/api/saved")
+async def get_saved(user: dict = Depends(auth.current_user)):
+    """Cross-device/session persistence for saved picks — a browsable
+    history across cities and trips, not the in-page-only toggle that
+    used to vanish the moment the tab closed (see ResultsFeed.jsx). Same
+    auth-required reasoning as /api/prefs: with no real uid to key on,
+    there's no meaningful way to scope this per-account.
+    """
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    doc = auth.firestore_client().collection("saved_picks").document(user["uid"]).get()
+    return {"items": doc.to_dict().get("items", {}) if doc.exists else {}}
+
+
+@app.put("/api/saved/{item_id}")
+async def save_item(item_id: str, body: SavedItemBody, user: dict = Depends(auth.current_user)):
+    """Upserts one saved item, keyed by its own id within the user's single
+    saved_picks doc — merge=True so this never touches any other saved
+    item, only ever adding/replacing this one key.
+    """
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    ref = auth.firestore_client().collection("saved_picks").document(user["uid"])
+    ref.set({"items": {item_id: body.item}}, merge=True)
+    return {"ok": True}
+
+
+@app.delete("/api/saved/{item_id}")
+async def unsave_item(item_id: str, user: dict = Depends(auth.current_user)):
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    ref = auth.firestore_client().collection("saved_picks").document(user["uid"])
+    try:
+        ref.update({f"items.{item_id}": firestore.DELETE_FIELD})
+    except Exception:
+        pass  # nothing to delete (no doc yet) — same end state either way
     return {"ok": True}
 
 
@@ -614,8 +740,8 @@ async def get_results(
     # venues get returned, just an extra Places lookup for ResultsFeed's
     # header banner (see places.find_city_photo).
     items, city_photo_ref = await asyncio.gather(
-        _grounded_items(city, music_genre, list(_split(chefs)), list(_split(cuisines))),
-        places.find_city_photo(_city_display_name(city), _city_country(city)),
+        _cached_grounded_items(city, music_genre, list(_split(chefs)), list(_split(cuisines))),
+        _cached_city_photo(city),
     )
     if filter in ("food", "music"):
         items = [i for i in items if i["type"] == filter]
@@ -627,7 +753,7 @@ async def get_surprise(
     city: str, seed: int = 0, music_genre: str = "", chefs: str = "", cuisines: str = "",
     _user: dict = Depends(auth.current_user),
 ):
-    items = await _grounded_items(city, music_genre, list(_split(chefs)), list(_split(cuisines)))
+    items = await _cached_grounded_items(city, music_genre, list(_split(chefs)), list(_split(cuisines)))
     food = [i for i in items if i["type"] == "food"]
     music = [i for i in items if i["type"] == "music"]
     if not food or not music:

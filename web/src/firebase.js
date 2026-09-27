@@ -5,7 +5,7 @@
 // safe to ship to the browser — Firebase's actual security boundary is
 // Firestore rules / the backend's approval check, not hiding this config.
 import { initializeApp } from 'firebase/app';
-import { GoogleAuthProvider, getAuth, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth';
+import { GoogleAuthProvider, getAuth, onAuthStateChanged, signInWithRedirect, signOut } from 'firebase/auth';
 
 const injected = window.__FIREBASE_CONFIG__ || {};
 
@@ -35,31 +35,23 @@ export function onAuthChange(callback) {
   return onAuthStateChanged(auth, callback);
 }
 
-// Plain signInWithPopup — matches FfAdvisor's sign-in (same author, same
-// GCP/Cloud Run hosting pattern), which has no mobile/desktop branching, no
-// redirect-result bookkeeping, and just works. TravelDiscovery used to have
-// a lot more here: a mobile-forced signInWithRedirect path, sessionStorage
-// markers, a checkRedirectResult() with a timing-based grace period, and a
-// localStorage debug breadcrumb — all built up while chasing what turned
-// out to be a red herring (a beta tester's genuinely broken redirect flow
-// against the *default* firebaseapp.com auth domain, which a custom
-// same-site auth domain, auth.traveldiscoveries.app, fixed at the
-// infrastructure level — see deploy-env.sh.example). Once that was fixed
-// and popup-based sign-in was already succeeding, none of that extra
-// machinery was doing anything useful anymore, so it's gone. onAuthChange
-// (above) alone reacts once sign-in actually resolves, same as FfAdvisor.
-// Falls back to signInWithRedirect only if the popup itself is outright
-// blocked (a thrown error) — rare, and doesn't need special handling
-// beyond letting onAuthChange pick up whatever it eventually resolves to.
+// signInWithRedirect, not signInWithPopup — confirmed live: even after the
+// custom same-site auth domain fixed the *cross-site* problems a popup
+// flow used to work around, popup sign-in still needed 2-3 attempts to
+// actually stick (a known class of flakiness independent of that fix —
+// Firebase's popup flow depends on a same-origin-with-opener check and a
+// same-window postMessage handshake that various browsers/extensions
+// interfere with in ways a full-page redirect just doesn't hit). Now that
+// redirect doesn't need the cross-site workaround it used to (the whole
+// reason popup was chosen over it originally), it's the simpler, more
+// reliable default: one navigation, no popup-blocker/COOP/postMessage
+// surface at all. onAuthChange (above) picks up the result once Firebase
+// finishes processing the redirect on the way back in, same as it did for
+// popup — no separate getRedirectResult() bookkeeping needed here.
 export async function signInWithGoogle() {
   if (!auth) return;
   const provider = new GoogleAuthProvider();
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (exc) {
-    console.warn('Popup sign-in failed, falling back to redirect:', exc);
-    await signInWithRedirect(auth, provider);
-  }
+  await signInWithRedirect(auth, provider);
 }
 
 export async function signOutUser() {

@@ -103,12 +103,54 @@ export default function App() {
 
   const set = (patch) => setState((s) => ({ ...s, ...patch }));
 
+  // Opens Spotify's OAuth consent in a popup instead of navigating the main
+  // tab there and back — confirmed live: the full-page round trip through
+  // spotify.com was landing users back at the Google sign-in screen despite
+  // just having signed in, on top of the earlier "0 picks"/redirect issues
+  // this session already chased. The suspected cause is Safari's
+  // cross-site "bounce" protections, which can treat our own app's
+  // navigate-away-then-straight-back as tracker-style bouncing and clear
+  // its storage — including the just-established Firebase session —
+  // exactly what a full navigation does here but a popup never touches. A
+  // popup keeps the main tab's origin and session untouched throughout, so
+  // there's nothing for that protection to react to. Falls back to the old
+  // full-navigation flow if the popup itself gets blocked.
+  const connectSpotify = () => {
+    const popup = window.open(`${spotifyLoginUrl}?popup=1`, 'spotify-connect', 'width=480,height=720');
+    if (!popup) {
+      window.location.href = spotifyLoginUrl;
+      return;
+    }
+    const onMessage = (event) => {
+      if (event.origin !== window.location.origin || event.data?.source !== 'traveldiscovery-spotify') return;
+      window.removeEventListener('message', onMessage);
+      clearInterval(closedCheck);
+      const { artists, error } = event.data;
+      if (!error && artists && artists.length) {
+        set({ tasteMethod: 'spotify', musicArtists: artists, step: 'spotify-confirm' });
+      } else {
+        set({ tasteMethod: 'spotify', spotifyFailed: true, step: 'genres' });
+      }
+    };
+    window.addEventListener('message', onMessage);
+    // The popup can also just be closed by hand with no message ever sent
+    // (consent denied via the X button, not Spotify's own "cancel") —
+    // without this, the listener would sit there forever waiting for a
+    // message that's never coming.
+    const closedCheck = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(closedCheck);
+        window.removeEventListener('message', onMessage);
+      }
+    }, 500);
+  };
+
   let screen;
   switch (state.step) {
     case 'welcome':
       screen = (
         <Welcome
-          onChooseSpotify={() => { window.location.href = spotifyLoginUrl; }}
+          onChooseSpotify={connectSpotify}
           onChooseManual={() => set({ tasteMethod: 'manual', step: 'genres' })}
         />
       );
