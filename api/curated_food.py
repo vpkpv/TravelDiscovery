@@ -51,7 +51,7 @@ def _get_client() -> genai.Client:
     return _client
 
 
-def suggest_venues(city: str, cuisines: list, limit: int = 6) -> list:
+def suggest_venues(city: str, cuisines: list, limit: int = 10) -> list:
     """Returns [{"name": ..., "why": ..., "cuisine": ...}, ...] — real-name
     candidates per the prompt below, but still unverified until the caller
     grounds each one against Places. Empty list on any failure, same

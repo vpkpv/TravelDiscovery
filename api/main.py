@@ -31,7 +31,7 @@ app = FastAPI(title="TravelDiscovery API (dev)")
 # suggestions (see _grounded_items) — a city with exactly one chef-matched
 # pick is still too thin to feel like "matched to your taste", not just a
 # city with literally zero.
-MIN_FOOD_ITEMS = 4
+MIN_FOOD_ITEMS = 8
 
 
 def _merge_ingested_items(items: list, city_lookup: dict) -> None:
