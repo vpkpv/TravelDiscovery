@@ -275,6 +275,12 @@ WORLD_ARTICLES = [
         "url": "https://www.foodandwine.com/top-international-restaurants-2026-11916852",
         "source": "Food & Wine — Top International Restaurants 2026",
     },
+    # URL confirmed live by user directly, 2026-09-27 — the US-focused
+    # sibling list to Top International Restaurants above, same publication.
+    {
+        "url": "https://www.foodandwine.com/top-united-states-restaurants-2026-11919583",
+        "source": "Food & Wine — Top United States Restaurants 2026",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
