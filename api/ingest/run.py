@@ -251,6 +251,16 @@ WORLD_ARTICLES = [
         "url": "https://www.laliste.com/lists/top-1000-restaurants",
         "source": "La Liste — Top 1000 Restaurants",
     },
+    # URL confirmed live by user directly, 2026-09-27, found browsing Food &
+    # Wine's Global Tastemakers hub. Small (3 restaurants) but a strong fit:
+    # Padma Lakshmi is already one of this app's own real favorite-chef
+    # picks (see FavoriteChefs.jsx), and this is a multi-city Indian-food
+    # list from her personally — directly relevant to the Indian-cuisine
+    # thinness already found and fixed once for New York specifically.
+    {
+        "url": "https://www.foodandwine.com/padma-lakshmi-favorite-indian-restaurants-11958093",
+        "source": "Food & Wine — Padma Lakshmi's Favorite Indian Restaurants",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
