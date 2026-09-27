@@ -240,6 +240,17 @@ WORLD_ARTICLES = [
         "url": "https://www.cntraveler.com/story/best-new-restaurants-in-the-world-hot-list-2026",
         "source": "Condé Nast Traveler — The Hot List 2026",
     },
+    # URL surfaced directly in web search results (not a guess, unlike the
+    # Eater/CNT entries above) and confirmed live by user in their own
+    # browser, 2026-09-27 — this sandbox's tools can't reach laliste.com
+    # either. La Liste ranks its Top 1000 by analyzing 1,100+ international
+    # press/guide/platform sources, distinct methodology from World's 50
+    # Best's own panel voting and CNT's editorial picks — a third real,
+    # independent source, not a repeat of the same two lists' restaurants.
+    {
+        "url": "https://www.laliste.com/lists/top-1000-restaurants",
+        "source": "La Liste — Top 1000 Restaurants",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
