@@ -268,6 +268,13 @@ WORLD_ARTICLES = [
         "url": "https://www.foodandwine.com/bnc-chefs-11723569/",
         "source": "Food & Wine — Best New Chefs",
     },
+    # URL confirmed live by user directly, 2026-09-27 — a direct-fit
+    # multi-city "world's best" style list, same pattern as World's 50
+    # Best/CNT Hot List/La Liste above, just a different publication's take.
+    {
+        "url": "https://www.foodandwine.com/top-international-restaurants-2026-11916852",
+        "source": "Food & Wine — Top International Restaurants 2026",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
