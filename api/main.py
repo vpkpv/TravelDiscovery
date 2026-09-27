@@ -385,7 +385,24 @@ async def _grounded_items(
             if v["name"].lower() not in existing_names
         ]
 
-    food_count = sum(1 for i in items if i["type"] == "food")
+    # Counts only what would actually survive the cuisine filter below (a
+    # chef_match always would; anything else needs a matching cuisine tag),
+    # not the city's total food count — confirmed live: New York had ~9
+    # total food items, well above MIN_FOOD_ITEMS, so this top-up never
+    # fired even though only 1 of those 9 happened to be tagged Indian and
+    # the user had picked only Indian. Same wanted-set logic as the filter
+    # itself, so a suggestion generated here (already biased toward the
+    # selected cuisines) reliably passes it afterward.
+    if cuisines:
+        wanted_cuisines = {c.strip().lower() for c in cuisines}
+        food_count = sum(
+            1 for i in items
+            if i["type"] == "food"
+            and (i.get("chef_match") or (i.get("cuisine") or "").strip().lower() in wanted_cuisines)
+        )
+    else:
+        food_count = sum(1 for i in items if i["type"] == "food")
+
     if places.configured() and curated_food.configured() and food_count < MIN_FOOD_ITEMS:
         city_name = _city_display_name(city_id)
         country = _city_country(city_id)
@@ -420,10 +437,10 @@ async def _grounded_items(
         # this field existed and not yet backfilled) is treated the same
         # as "Other" — excluded once a specific cuisine is selected, same
         # as anything else that doesn't match.
-        wanted = {c.strip().lower() for c in cuisines}
+        wanted_cuisines = {c.strip().lower() for c in cuisines}
         items = [
             i for i in items
-            if i["type"] != "food" or i.get("chef_match") or (i.get("cuisine") or "").strip().lower() in wanted
+            if i["type"] != "food" or i.get("chef_match") or (i.get("cuisine") or "").strip().lower() in wanted_cuisines
         ]
 
     return items
