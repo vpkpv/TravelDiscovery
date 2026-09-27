@@ -261,6 +261,13 @@ WORLD_ARTICLES = [
         "url": "https://www.foodandwine.com/padma-lakshmi-favorite-indian-restaurants-11958093",
         "source": "Food & Wine — Padma Lakshmi's Favorite Indian Restaurants",
     },
+    # URL confirmed live by user directly, 2026-09-27. Food & Wine's annual
+    # "Best New Chefs" — profiles span chefs across different US cities, so
+    # this is multi-city like the others above, not single-city.
+    {
+        "url": "https://www.foodandwine.com/bnc-chefs-11723569/",
+        "source": "Food & Wine — Best New Chefs",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
