@@ -5,7 +5,7 @@
 // safe to ship to the browser — Firebase's actual security boundary is
 // Firestore rules / the backend's approval check, not hiding this config.
 import { initializeApp } from 'firebase/app';
-import { GoogleAuthProvider, getAuth, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth';
+import { GoogleAuthProvider, getAuth, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth';
 
 const injected = window.__FIREBASE_CONFIG__ || {};
 
@@ -35,47 +35,22 @@ export function onAuthChange(callback) {
   return onAuthStateChanged(auth, callback);
 }
 
-// Firebase's default authDomain (<project>.firebaseapp.com) is a
-// different site than this app (travel-web/app.traveldiscoveries.app) —
-// Safari's Intelligent Tracking Prevention treats storage set during that
-// cross-domain hop as third-party and can silently drop it, on both
-// popup and redirect alike, bouncing the user back to signed-out with no
-// error (confirmed live with a beta tester stuck looping on iPhone
-// Safari). Fixed for real by setting FIREBASE_AUTH_DOMAIN to
-// auth.traveldiscoveries.app — a Firebase Hosting custom domain sharing
-// the app's own registrable domain, so the redirect never leaves the
-// app's own site and ITP has nothing cross-domain to block. See
-// deploy-env.sh.example. checkRedirectResult()'s attempted/succeeded
-// return value (below) stays regardless, as a safety net for anyone
-// still landing on the old firebaseapp.com domain (e.g. a stale cached
-// config.js) or any other future cross-domain edge case.
-//
-// The mobile-vs-desktop popup/redirect heuristic below is unrelated to
-// that and still applies: mobile browsers were the original popup
-// failure (blocked/partitioned popups on Safari/Chrome mobile — see git
-// history), so they get redirect; desktop tends to handle a
-// same-tab-group popup more reliably, so it's tried first there, falling
-// back to redirect if the popup itself is blocked.
-// Set right before signInWithRedirect() so checkRedirectResult() can tell
-// "we just attempted a redirect and it silently produced no user" (the ITP
-// case above) apart from "this is a normal fresh page load, no redirect was
-// ever in flight" — getRedirectResult() alone resolves to null in both
-// cases, with no error, so there'd be nothing else to distinguish them by.
-// sessionStorage survives a same-tab top-level redirect-and-back, unlike
-// the cross-domain storage ITP actually blocks.
-const REDIRECT_PENDING_KEY = 'td_redirect_pending';
-
-// Mobile used to be forced straight to signInWithRedirect (skipping popup
-// entirely), because mobile Safari/Chrome used to block or partition
-// popups outright. That reasoning predates the auth.traveldiscoveries.app
-// custom domain, and doesn't hold up against what's actually failing now:
-// confirmed live, on a real iPhone, getRedirectResult() genuinely finds no
-// pending redirect to resolve after the full round trip (no thrown error —
-// {"succeeded":false,"hasResult":false}), pointing at the redirect flow's
-// own cross-origin handoff, not ITP. Popup-based sign-in uses a completely
-// different mechanism (a window reference + postMessage, not that fragile
-// storage handoff), so it's worth trying everywhere now, falling back to
-// redirect only if the popup itself is actually blocked.
+// Plain signInWithPopup — matches FfAdvisor's sign-in (same author, same
+// GCP/Cloud Run hosting pattern), which has no mobile/desktop branching, no
+// redirect-result bookkeeping, and just works. TravelDiscovery used to have
+// a lot more here: a mobile-forced signInWithRedirect path, sessionStorage
+// markers, a checkRedirectResult() with a timing-based grace period, and a
+// localStorage debug breadcrumb — all built up while chasing what turned
+// out to be a red herring (a beta tester's genuinely broken redirect flow
+// against the *default* firebaseapp.com auth domain, which a custom
+// same-site auth domain, auth.traveldiscoveries.app, fixed at the
+// infrastructure level — see deploy-env.sh.example). Once that was fixed
+// and popup-based sign-in was already succeeding, none of that extra
+// machinery was doing anything useful anymore, so it's gone. onAuthChange
+// (above) alone reacts once sign-in actually resolves, same as FfAdvisor.
+// Falls back to signInWithRedirect only if the popup itself is outright
+// blocked (a thrown error) — rare, and doesn't need special handling
+// beyond letting onAuthChange pick up whatever it eventually resolves to.
 export async function signInWithGoogle() {
   if (!auth) return;
   const provider = new GoogleAuthProvider();
@@ -83,47 +58,7 @@ export async function signInWithGoogle() {
     await signInWithPopup(auth, provider);
   } catch (exc) {
     console.warn('Popup sign-in failed, falling back to redirect:', exc);
-    sessionStorage.setItem(REDIRECT_PENDING_KEY, '1');
     await signInWithRedirect(auth, provider);
-  }
-}
-
-// Call once on load: after signInWithRedirect sends the browser back here,
-// this is what actually completes the sign-in and surfaces any error (an
-// expired session, a blocked redirect, etc.) that would otherwise fail
-// silently — onAuthStateChanged alone won't report *why* a redirect sign-in
-// didn't go through, only that no user is signed in.
-//
-// Returns { attempted, succeeded } so the caller (AuthGate) can tell a
-// silently-failed redirect (attempted && !succeeded — confirmed live: an
-// iPhone Safari beta tester stuck bouncing back to the same sign-in button
-// with no feedback, over and over) apart from an ordinary signed-out state.
-export async function checkRedirectResult() {
-  if (!auth) return { attempted: false, succeeded: false };
-  const attempted = sessionStorage.getItem(REDIRECT_PENDING_KEY) === '1';
-  sessionStorage.removeItem(REDIRECT_PENDING_KEY);
-  try {
-    const result = await getRedirectResult(auth);
-    const succeeded = Boolean(result?.user);
-    // Debug breadcrumb, temporary: remote-debugging a cross-domain redirect
-    // flow on a phone is unreliable (the console detaches across each
-    // navigation), so this persists the outcome to localStorage — which
-    // survives the navigation, unlike the console — for AuthGate to display
-    // directly on-screen instead of needing Web Inspector at all.
-    if (attempted) {
-      localStorage.setItem('td_redirect_debug', JSON.stringify({
-        succeeded, hasResult: result !== null, at: new Date().toISOString(),
-      }));
-    }
-    return { attempted, succeeded };
-  } catch (exc) {
-    if (attempted) {
-      localStorage.setItem('td_redirect_debug', JSON.stringify({
-        succeeded: false, error: String(exc?.code || exc?.message || exc), at: new Date().toISOString(),
-      }));
-    }
-    console.warn('Google sign-in redirect failed:', exc);
-    return { attempted, succeeded: false };
   }
 }
 

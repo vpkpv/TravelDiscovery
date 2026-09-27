@@ -11,31 +11,21 @@ import * as fb from './firebase.js';
 // but not yet approved (closed-pilot manual approval gate — see
 // api/auth.py and CLAUDE.md's "Access control is manual Firestore
 // approval").
+//
+// This used to also track a redirect-specific failure state (a "sign-in
+// isn't completing" message with debug output), built up while chasing a
+// broken signInWithRedirect flow against the default firebaseapp.com auth
+// domain. That's fixed at the infrastructure level now (a custom, same-site
+// auth domain — see firebase.js), and sign-in goes through signInWithPopup
+// in practice, so onAuthChange alone is the reliable signal again, same as
+// it is in FfAdvisor (see git history if the redirect-tracking is ever
+// needed again).
 export function AuthGate({ children }) {
   const [status, setStatus] = useState(fb.configured() ? 'loading' : 'open');
   const [email, setEmail] = useState('');
-  const [redirectFailed, setRedirectFailed] = useState(false);
 
   useEffect(() => {
     if (!fb.configured()) return;
-
-    let signedInAfterRedirect = false;
-
-    fb.checkRedirectResult().then(({ attempted }) => {
-      if (!attempted) return;
-      // Give onAuthStateChanged a few seconds to reflect the real outcome
-      // before concluding the redirect failed — getRedirectResult() can
-      // report nothing even after a genuinely successful sign-in, if
-      // Firebase's SDK already processed the pending redirect internally
-      // before this explicit call ran. onAuthStateChanged catching a real
-      // user shortly after is the more reliable signal — confirmed live: a
-      // user who completed Google's sign-in screen still saw the "failed"
-      // message once, even though they were, in fact, signed in underneath
-      // it (a reload showed the correct signed-in/pending state).
-      setTimeout(() => {
-        if (!signedInAfterRedirect) setRedirectFailed(true);
-      }, 2500);
-    });
 
     return fb.onAuthChange(async (user) => {
       if (!user) {
@@ -43,8 +33,6 @@ export function AuthGate({ children }) {
         setEmail('');
         return;
       }
-      signedInAfterRedirect = true;
-      setRedirectFailed(false);
       setEmail(user.email || '');
       try {
         const me = await api.me();
@@ -67,28 +55,9 @@ export function AuthGate({ children }) {
       <PhoneShell>
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, textAlign: 'center', gap: 20 }}>
           <div style={{ fontFamily: theme.fontDisplay, fontSize: 32 }}>Travel<br />Discovery</div>
-          {redirectFailed ? (
-            <div style={{ fontSize: 14, color: theme.textMuted, maxWidth: 280 }}>
-              Sign-in isn't completing — this looks like Safari's "Prevent Cross-Site Tracking"
-              privacy setting blocking it, not something wrong on your end. Try turning that off
-              in Settings → Safari → Advanced → Privacy, or make sure you're not in Private
-              Browsing, then try again.
-              {/* Temporary debug line — remove once this is root-caused. */}
-              <div style={{ marginTop: 12, fontSize: 11, color: theme.textFaint, wordBreak: 'break-word' }}>
-                {(() => {
-                  try {
-                    return localStorage.getItem('td_redirect_debug') || '(no debug info captured)';
-                  } catch {
-                    return '(could not read debug info)';
-                  }
-                })()}
-              </div>
-            </div>
-          ) : (
-            <div style={{ fontSize: 14, color: theme.textMuted, maxWidth: 280 }}>
-              This is a closed pilot — sign in to see if you've been approved.
-            </div>
-          )}
+          <div style={{ fontSize: 14, color: theme.textMuted, maxWidth: 280 }}>
+            This is a closed pilot — sign in to see if you've been approved.
+          </div>
           <button
             onClick={fb.signInWithGoogle}
             style={{
