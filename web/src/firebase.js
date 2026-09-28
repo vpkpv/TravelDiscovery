@@ -5,7 +5,7 @@
 // safe to ship to the browser — Firebase's actual security boundary is
 // Firestore rules / the backend's approval check, not hiding this config.
 import { initializeApp } from 'firebase/app';
-import { GoogleAuthProvider, getAuth, onAuthStateChanged, signInWithRedirect, signOut } from 'firebase/auth';
+import { GoogleAuthProvider, getAuth, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 
 const injected = window.__FIREBASE_CONFIG__ || {};
 
@@ -35,23 +35,23 @@ export function onAuthChange(callback) {
   return onAuthStateChanged(auth, callback);
 }
 
-// signInWithRedirect, not signInWithPopup — confirmed live: even after the
-// custom same-site auth domain fixed the *cross-site* problems a popup
-// flow used to work around, popup sign-in still needed 2-3 attempts to
-// actually stick (a known class of flakiness independent of that fix —
-// Firebase's popup flow depends on a same-origin-with-opener check and a
-// same-window postMessage handshake that various browsers/extensions
-// interfere with in ways a full-page redirect just doesn't hit). Now that
-// redirect doesn't need the cross-site workaround it used to (the whole
-// reason popup was chosen over it originally), it's the simpler, more
-// reliable default: one navigation, no popup-blocker/COOP/postMessage
-// surface at all. onAuthChange (above) picks up the result once Firebase
-// finishes processing the redirect on the way back in, same as it did for
-// popup — no separate getRedirectResult() bookkeeping needed here.
+// Tried switching this to signInWithRedirect (reasoning: the custom
+// same-site auth domain should make redirect reliable, and popup has known
+// multi-attempt flakiness) — made things strictly worse, an infinite
+// redirect loop, confirmed live. Root cause: signInWithRedirect's own
+// result-polling on the way back in uses a hidden iframe pointing at
+// auth.traveldiscoveries.app, embedded on app.traveldiscoveries.app's page
+// — still a cross-*origin* iframe even though the two share a registrable
+// domain, so it's still subject to third-party storage partitioning. When
+// that iframe can't see what the top-level authDomain context wrote
+// moments earlier, the app never sees a signed-in user and is back to
+// showing the sign-in screen — which looks like, and functionally is, an
+// endless retry loop. So: back to signInWithPopup, same as FfAdvisor, which
+// doesn't have that iframe-polling step at all.
 export async function signInWithGoogle() {
   if (!auth) return;
   const provider = new GoogleAuthProvider();
-  await signInWithRedirect(auth, provider);
+  await signInWithPopup(auth, provider);
 }
 
 export async function signOutUser() {

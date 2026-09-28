@@ -15,11 +15,11 @@ import * as fb from './firebase.js';
 // This used to also track a redirect-specific failure state (a "sign-in
 // isn't completing" message with debug output), built up while chasing a
 // broken signInWithRedirect flow against the default firebaseapp.com auth
-// domain. That's fixed at the infrastructure level now (a custom, same-site
-// auth domain — see firebase.js), so plain signInWithRedirect is back and
-// onAuthChange alone is the reliable signal again, same as it is in
-// FfAdvisor (see git history if the redirect-tracking is ever needed
-// again).
+// domain. A custom same-site auth domain (see firebase.js) fixed the
+// original cross-site problem, but redirect turned out to have a second,
+// independent one (see firebase.js's signInWithGoogle) — so sign-in goes
+// through signInWithPopup, and onAuthChange alone is the reliable signal,
+// same as it is in FfAdvisor.
 export function AuthGate({ children }) {
   const [status, setStatus] = useState(fb.configured() ? 'loading' : 'open');
   const [email, setEmail] = useState('');
