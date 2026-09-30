@@ -176,23 +176,6 @@ app.add_middleware(
 WEB_URL = os.environ.get("WEB_URL", "http://localhost:5173").rstrip("/")
 
 
-def _popup_result_response(payload: dict):
-    """Renders a tiny page that hands the Spotify connect result back to the
-    app via postMessage and closes itself — used instead of a redirect when
-    /auth/spotify/login was opened in a popup window (see below). `<` is
-    escaped throughout the embedded JSON so nothing in it (an artist name,
-    in particular) can break out of the <script> block.
-    """
-    safe_json = json.dumps(payload).replace("<", "\\u003c")
-    html = (
-        "<!doctype html><html><body><script>"
-        f"window.opener && window.opener.postMessage({safe_json}, {json.dumps(WEB_URL)});"
-        "window.close();"
-        "</script></body></html>"
-    )
-    return Response(content=html, media_type="text/html")
-
-
 @app.get("/auth/spotify/login")
 def spotify_login(popup: bool = Query(default=False)):
     """Kicks off the OAuth flow: a full browser redirect to Spotify's
@@ -218,10 +201,24 @@ def spotify_login(popup: bool = Query(default=False)):
 async def spotify_callback(code: str = "", error: str = "", state: str = ""):
     """Spotify redirects here after the user approves/denies. Exchanges the
     code, reads top artists, and hands the result back to the web app —
-    via postMessage if this came from a popup (see spotify_login), else the
-    original full-redirect-with-query-string handoff, for callers that
-    predate the popup flow or whose popup got blocked. There's no session
-    to store the result in yet, so it's passed through directly either way.
+    redirected to a tiny static handoff page (spotify-popup-done.html,
+    served by the web app itself) if this came from a popup (see
+    spotify_login), else the original full-redirect-with-query-string
+    handoff, for callers that predate the popup flow or whose popup got
+    blocked. There's no session to store the result in yet, so it's passed
+    through directly either way.
+
+    Popup mode used to render an inline page here that called
+    window.opener.postMessage() directly from the API's own origin —
+    confirmed live: on iOS Safari, window.open() often produces a plain new
+    tab rather than a true child popup window, and window.opener on that
+    tab wasn't reliable for messaging back (the app tab just sat frozen,
+    never advancing past "Connect Spotify"). Redirecting to a page on the
+    web app's own origin instead lets that page use localStorage + the
+    'storage' event to hand the result to the app tab — same-origin
+    browser tabs can always see each other's storage, with no dependency on
+    the opener relationship surviving the popup's multi-hop navigation
+    (our domain -> spotify.com -> our domain again).
 
     Artist names, not a genre bucket: Spotify's Web API returns an empty
     `genres` field on essentially every artist in practice, so there's no
@@ -231,9 +228,8 @@ async def spotify_callback(code: str = "", error: str = "", state: str = ""):
 
     def _finish(*, artists: Optional[list] = None, error_code: str = ""):
         if is_popup:
-            payload = {"source": "traveldiscovery-spotify"}
-            payload.update({"error": error_code} if error_code else {"artists": artists})
-            return _popup_result_response(payload)
+            query = {"error": error_code} if error_code else {"artists": json.dumps(artists)}
+            return RedirectResponse(f"{WEB_URL}/spotify-popup-done.html?{urlencode(query)}")
         if error_code:
             return RedirectResponse(f"{WEB_URL}/?spotify_error={error_code}")
         return RedirectResponse(f"{WEB_URL}/?{urlencode({'spotify_artists': json.dumps(artists)})}")

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connecting Spotify…</title>
+</head>
+<body style="background:#0B0B0C;color:#EDEDED;font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;padding:24px;text-align:center;">
+  <div id="msg">Connecting your Spotify account…</div>
+  <script>
+    // Hands the Spotify connect result (api/main.py's /auth/spotify/callback,
+    // popup mode) back to the main app tab. Deliberately NOT via
+    // window.opener.postMessage as the primary channel — confirmed live on
+    // iOS Safari: window.open() there often opens a plain new tab rather
+    // than a true child popup window, and window.opener on that tab turned
+    // out not to be usable for messaging back (the app tab just sat frozen
+    // on "Connect Spotify", never advancing). localStorage + the 'storage'
+    // event work across same-origin tabs regardless of any opener
+    // relationship, so that's the primary channel here; postMessage is
+    // still attempted too, as a harmless bonus if opener does work.
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var result = { source: 'traveldiscovery-spotify' };
+      var artistsRaw = params.get('artists');
+      var error = params.get('error');
+      if (artistsRaw) {
+        try {
+          result.artists = JSON.parse(artistsRaw);
+        } catch (e) {
+          result.error = 'denied';
+        }
+      } else {
+        result.error = error || 'denied';
+      }
+      try {
+        localStorage.setItem('td-spotify-result', JSON.stringify(result) + '|' + Date.now());
+      } catch (e) {
+        // Storage unavailable (private mode, blocked cookies, ...) — the
+        // opener tab's poll will just keep waiting; nothing more to do here.
+      }
+      if (window.opener) {
+        try {
+          window.opener.postMessage(result, window.location.origin);
+        } catch (e) {}
+      }
+      window.close();
+      // window.close() is a silent no-op on a tab the browser doesn't
+      // consider script-opened (common on iOS when window.open() produced
+      // a plain tab) — the main app tab still picks up the result via
+      // localStorage either way, but leave this tab in a sane state
+      // instead of a blank page if it doesn't actually close.
+      setTimeout(function () {
+        document.getElementById('msg').textContent = 'Connected — you can close this tab and return to TravelDiscovery.';
+      }, 500);
+    })();
+  </script>
+</body>
+</html>

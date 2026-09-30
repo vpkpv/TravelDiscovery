@@ -115,32 +115,81 @@ export default function App() {
   // popup keeps the main tab's origin and session untouched throughout, so
   // there's nothing for that protection to react to. Falls back to the old
   // full-navigation flow if the popup itself gets blocked.
+  //
+  // Picks up the result via localStorage (written by spotify-popup-
+  // done.html, the page the popup ends up on) rather than window.opener.
+  // postMessage — confirmed live: on iOS Safari, window.open() here often
+  // produces a plain new tab rather than a true child popup, and
+  // window.opener on that tab wasn't reliable for messaging back (the app
+  // tab just sat frozen on "Connect Spotify", never advancing). Same-origin
+  // tabs can always see each other's localStorage regardless of any opener
+  // relationship, so that's the primary channel; a 'storage' event fires
+  // in this tab the moment the popup tab writes it, backed up by a poll in
+  // case that event doesn't fire (it's had Safari-specific reliability
+  // issues historically).
   const connectSpotify = () => {
     const popup = window.open(`${spotifyLoginUrl}?popup=1`, 'spotify-connect', 'width=480,height=720');
     if (!popup) {
       window.location.href = spotifyLoginUrl;
       return;
     }
-    const onMessage = (event) => {
-      if (event.origin !== window.location.origin || event.data?.source !== 'traveldiscovery-spotify') return;
-      window.removeEventListener('message', onMessage);
-      clearInterval(closedCheck);
-      const { artists, error } = event.data;
+
+    const RESULT_KEY = 'td-spotify-result';
+    let done = false;
+
+    const readResult = () => {
+      let raw;
+      try {
+        raw = localStorage.getItem(RESULT_KEY);
+      } catch {
+        return null;
+      }
+      if (!raw) return null;
+      try {
+        // Written as "<json>|<timestamp>" — the timestamp isn't read back,
+        // it's there only so two identical results in a row still count as
+        // a distinct localStorage write and reliably fire a 'storage' event.
+        const result = JSON.parse(raw.slice(0, raw.lastIndexOf('|')));
+        localStorage.removeItem(RESULT_KEY);
+        return result;
+      } catch {
+        return null;
+      }
+    };
+
+    const finish = (result) => {
+      if (done) return;
+      done = true;
+      clearInterval(poll);
+      window.removeEventListener('storage', onStorage);
+      const { artists, error } = result;
       if (!error && artists && artists.length) {
         set({ tasteMethod: 'spotify', musicArtists: artists, step: 'spotify-confirm' });
       } else {
         set({ tasteMethod: 'spotify', spotifyFailed: true, step: 'genres' });
       }
     };
-    window.addEventListener('message', onMessage);
-    // The popup can also just be closed by hand with no message ever sent
-    // (consent denied via the X button, not Spotify's own "cancel") —
-    // without this, the listener would sit there forever waiting for a
-    // message that's never coming.
-    const closedCheck = setInterval(() => {
+
+    const onStorage = (event) => {
+      if (event.key !== RESULT_KEY || !event.newValue) return;
+      const result = readResult();
+      if (result) finish(result);
+    };
+    window.addEventListener('storage', onStorage);
+
+    // Also covers the popup being closed by hand with no result ever
+    // written (consent denied via the tab's own close button, not
+    // Spotify's "cancel") — without this, polling would run forever
+    // waiting for a result that's never coming.
+    const poll = setInterval(() => {
+      const result = readResult();
+      if (result) {
+        finish(result);
+        return;
+      }
       if (popup.closed) {
-        clearInterval(closedCheck);
-        window.removeEventListener('message', onMessage);
+        clearInterval(poll);
+        window.removeEventListener('storage', onStorage);
       }
     }, 500);
   };
