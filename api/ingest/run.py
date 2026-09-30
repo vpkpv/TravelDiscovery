@@ -218,6 +218,24 @@ ARTICLES = [
         "city": "San Francisco",
         "source": "Eater SF — 38 Essential Restaurants",
     },
+    # Both URLs confirmed live by user in their own browser, 2026-09-30
+    # (this sandbox's WebFetch is blocked for dmagazine.com, same as
+    # eater.com/cntraveler.com/laliste.com — see this file's other ARTICLES
+    # comments). Added after a live report that Sanjh and Jashan — two
+    # real, recently-opened (2024, Nov 2025) Dallas Indian restaurants —
+    # weren't showing up: Dallas has no curated/ingested content of its
+    # own, so results there depend entirely on curated_food.py's live
+    # Gemini suggestions, which predictably missed both for being too new.
+    {
+        "url": "https://www.dmagazine.com/guides/these-are-the-best-indian-restaurants-in-dallas-fort-worth/",
+        "city": "Dallas",
+        "source": "D Magazine — Best Indian Restaurants in Dallas",
+    },
+    {
+        "url": "https://www.dmagazine.com/guides/best-dallas-restaurants-right-now/",
+        "city": "Dallas",
+        "source": "D Magazine — The 50 Best Restaurants in Dallas",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -299,6 +317,7 @@ CITY_COUNTRIES = {
     "Bangkok": "Thailand",
     "Seoul": "South Korea",
     "San Francisco": "USA",
+    "Dallas": "USA",
 }
 
 
