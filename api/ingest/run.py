@@ -236,6 +236,30 @@ ARTICLES = [
         "city": "Dallas",
         "source": "D Magazine — The 50 Best Restaurants in Dallas",
     },
+    # All four URLs below confirmed live by user in their own browser,
+    # 2026-10-03 — single-city guides for cities already covered elsewhere
+    # in this file (Paris, Tokyo, Rome, Chicago), adding depth rather than
+    # new geographic coverage.
+    {
+        "url": "https://www.timeout.com/paris/en/restaurants/best-restaurants-in-paris",
+        "city": "Paris",
+        "source": "Time Out Paris — Best Restaurants in Paris",
+    },
+    {
+        "url": "https://www.timeout.com/tokyo/restaurants/best-restaurants-tokyo",
+        "city": "Tokyo",
+        "source": "Time Out Tokyo — Best Restaurants",
+    },
+    {
+        "url": "https://www.timeout.com/rome/restaurants/best-restaurants-in-rome",
+        "city": "Rome",
+        "source": "Time Out Rome — Best Restaurants",
+    },
+    {
+        "url": "https://www.timeout.com/chicago/restaurants/best-new-restaurants-chicago",
+        "city": "Chicago",
+        "source": "Time Out Chicago — Best New Restaurants",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
