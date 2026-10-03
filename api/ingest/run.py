@@ -260,6 +260,14 @@ ARTICLES = [
         "city": "Chicago",
         "source": "Time Out Chicago — Best New Restaurants",
     },
+    # URL confirmed live by user in their own browser, 2026-10-03 (this
+    # sandbox's WebFetch is blocked for guide.michelin.com too). Single-city
+    # — Tokyo is already covered elsewhere in this file.
+    {
+        "url": "https://guide.michelin.com/en/article/michelin-guide-ceremony/michelin-guide-tokyo-2026-stars-reveal",
+        "city": "Tokyo",
+        "source": "MICHELIN Guide — Tokyo 2026 Stars Reveal",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -322,6 +330,24 @@ WORLD_ARTICLES = [
     {
         "url": "https://www.foodandwine.com/top-united-states-restaurants-2026-11919583",
         "source": "Food & Wine — Top United States Restaurants 2026",
+    },
+    # All three URLs below confirmed live by user in their own browser,
+    # 2026-10-03 (this sandbox's WebFetch is blocked for jamesbeard.org and
+    # guide.michelin.com too). Added at the user's explicit request to pull
+    # in Michelin-starred/recognized and James Beard winners specifically —
+    # a different, independent-expert-panel kind of signal than the
+    # critic/editorial "best of" lists already in this file.
+    {
+        "url": "https://www.jamesbeard.org/stories/james-beard-award-winners-2026",
+        "source": "James Beard Foundation — 2026 Award Winners",
+    },
+    {
+        "url": "https://guide.michelin.com/us/en/article/michelin-guide-ceremony/guide-michelin-california",
+        "source": "MICHELIN Guide — California 2026 (83 Starred Restaurants)",
+    },
+    {
+        "url": "https://guide.michelin.com/gb/en/article/michelin-guide-ceremony/every-michelin-star-restaurant-in-great-britain-ireland",
+        "source": "MICHELIN Guide — Great Britain & Ireland 2026",
     },
 ]
 
