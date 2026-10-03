@@ -22,6 +22,15 @@ export SUPADATA_API_KEY=      # optional — improves ingest transcript reliabil
 export SPOTIFY_CLIENT_ID=
 export SPOTIFY_CLIENT_SECRET=
 
+# Without this, deploy.sh points every redirect it builds (notably the
+# Spotify connect flow's final handoff) at travel-web's auto-generated
+# *.run.app URL instead of the real custom domain the app is actually
+# served from — a different origin, which silently broke the Spotify
+# connect flow (confirmed live: reached Spotify's consent screen fine,
+# but never advanced past it back in the app). Leave blank if travel-web
+# has no custom domain mapped yet.
+export WEB_PUBLIC_URL=https://app.traveldiscoveries.app
+
 export AUTH_ENABLED=true
 export FIREBASE_API_KEY=
 # Default is gen-lang-client-0529555554.firebaseapp.com, but that's a

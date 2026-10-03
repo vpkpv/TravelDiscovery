@@ -67,7 +67,16 @@ gcloud run deploy travel-web \
   --allow-unauthenticated \
   --set-env-vars "API_URL=${API_URL},FIREBASE_API_KEY=${FIREBASE_API_KEY:-},FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN:-},FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-},FIREBASE_APP_ID=${FIREBASE_APP_ID:-}"
 
-WEB_URL=$(gcloud run services describe travel-web --region "$REGION" --format='value(status.url)')
+# WEB_PUBLIC_URL overrides the auto-detected Cloud Run URL below — needed
+# once a custom domain (e.g. app.traveldiscoveries.app) fronts travel-web.
+# Without this, every redirect built from WEB_URL (notably the Spotify
+# popup connect flow's final handoff page) pointed at the *.run.app URL
+# instead — a different origin than the one the user's browser tab is
+# actually on, so localStorage writes there were invisible to the real app
+# tab. Confirmed live: the Spotify popup reached Spotify's consent screen
+# and back fine, but the main tab never advanced past "Connect Spotify" —
+# it was waiting on a signal that arrived on the wrong origin entirely.
+WEB_URL="${WEB_PUBLIC_URL:-$(gcloud run services describe travel-web --region "$REGION" --format='value(status.url)')}"
 
 # SPOTIFY_REDIRECT_URI/WEB_URL depend on URLs only known after both services
 # exist, so wire them onto travel-api now via --update-env-vars (merges,
