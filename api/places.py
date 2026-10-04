@@ -15,11 +15,25 @@ ungrounded, same as a zero-result response.
 Every function returns None (or an empty list) on any failure — missing
 key, network error, no close-enough match — so callers can fall back to
 mock data without extra try/except noise at each call site.
+
+Every billed call below (Text Search, Autocomplete, Photo Media) is
+wrapped in an in-process, long-TTL cache — confirmed live: Places billing
+was a real, significant cost, and main.py's own cache (which wraps the
+*whole* computed result list per city/filter combo, for 15 minutes) only
+dedupes identical combos over a short window. It can't help two different
+users asking about the same restaurant, or the same request five minutes
+after its own TTL expired. Keying on the actual venue/photo/query being
+looked up, with a much longer TTL (a venue's address and rating, or a
+city's photo, barely change week to week), catches that sharing. A
+transient failure is never cached — only a genuine answer (including a
+genuine "nothing found") is, so a temporary Places outage doesn't get
+pinned in place for a week.
 """
 
 import asyncio
 import logging
 import os
+import time
 import unicodedata
 from difflib import SequenceMatcher
 from typing import Optional
@@ -33,7 +47,61 @@ BASE = "https://places.googleapis.com/v1"
 CLOSED_STATUSES = {"CLOSED_PERMANENTLY", "CLOSED_TEMPORARILY"}
 MATCH_THRESHOLD = 0.5
 
+GROUNDING_TTL = 7 * 24 * 3600  # a venue's address/rating/open-status barely changes week to week
+AUTOCOMPLETE_TTL = 24 * 3600  # a city query's suggestions essentially never change
+PHOTO_TTL = 7 * 24 * 3600
+PHOTO_CACHE_MAX_ENTRIES = 300  # bounds memory — images are real payload, not a few bytes each
+
 log = logging.getLogger("places")
+
+
+class _TTLCache:
+    """key -> (expires_at, asyncio.Task). Storing the in-flight task, not
+    just its eventual result, means concurrent callers for the same key
+    share one real request instead of each firing their own — relevant
+    right after a cold start, when several requests can race to ground the
+    same popular venue at once.
+
+    `fetch` must return None to mean "the request itself failed" (network
+    error, API error) — that's evicted immediately so the next call retries
+    fresh rather than pinning a failure in place for the full TTL. Any
+    other value, including an empty dict/list/string, is treated as a real,
+    stable answer (e.g. "this candidate name genuinely has no match") and
+    stays cached for the full TTL.
+    """
+
+    def __init__(self, ttl: float, max_entries: int = 5000):
+        self.ttl = ttl
+        self.max_entries = max_entries
+        self._entries: dict = {}
+
+    async def get_or_fetch(self, key, fetch):
+        now = time.monotonic()
+        hit = self._entries.get(key)
+        if hit and hit[0] > now:
+            task = hit[1]
+        else:
+            if len(self._entries) >= self.max_entries:
+                self._entries = {k: v for k, v in self._entries.items() if v[0] > now}
+                if len(self._entries) >= self.max_entries:
+                    self._entries.clear()
+            task = asyncio.ensure_future(fetch())
+            self._entries[key] = (now + self.ttl, task)
+        try:
+            result = await asyncio.shield(task)
+        except Exception:
+            self._entries.pop(key, None)
+            raise
+        if result is None and self._entries.get(key, (None, None))[1] is task:
+            self._entries.pop(key, None)
+        return result
+
+
+_autocomplete_cache = _TTLCache(AUTOCOMPLETE_TTL)
+_grounding_cache = _TTLCache(GROUNDING_TTL)
+_music_cache = _TTLCache(GROUNDING_TTL)
+_restaurant_search_cache = _TTLCache(GROUNDING_TTL)
+_photo_cache = _TTLCache(PHOTO_TTL, max_entries=PHOTO_CACHE_MAX_ENTRIES)
 
 
 def configured() -> bool:
@@ -122,7 +190,11 @@ def _in_target_country(address: str, country: str) -> bool:
     return any(variant in normalized_address for variant in _country_variants(country))
 
 
-async def _post(path: str, body: dict, field_mask: str = "") -> dict:
+async def _post(path: str, body: dict, field_mask: str = "") -> Optional[dict]:
+    """None on any transport or API error — distinct from a valid response
+    with an empty `places` list, which means "no error, genuinely nothing
+    found" and is safe for a caller to cache as a real answer.
+    """
     headers = {"Content-Type": "application/json", "X-Goog-Api-Key": API_KEY}
     if field_mask:
         headers["X-Goog-FieldMask"] = field_mask
@@ -132,7 +204,7 @@ async def _post(path: str, body: dict, field_mask: str = "") -> dict:
             data = resp.json()
     except (httpx.HTTPError, ValueError) as exc:
         log.warning("%s request failed: %s", path, exc)
-        return {}
+        return None
 
     if "error" in data:
         err = data["error"]
@@ -141,7 +213,7 @@ async def _post(path: str, body: dict, field_mask: str = "") -> dict:
             "the Places API (New) is enabled",
             path, err.get("status"), err.get("message"),
         )
-        return {}
+        return None
     return data
 
 
@@ -149,11 +221,17 @@ async def autocomplete_cities(query: str) -> list:
     """Real-world city search. Returns [{id, name, country}, ...]."""
     if not configured() or not query.strip():
         return []
+    result = await _autocomplete_cache.get_or_fetch(_normalize(query), lambda: _fetch_autocomplete(query))
+    return result if result is not None else []
 
+
+async def _fetch_autocomplete(query: str) -> Optional[list]:
     data = await _post("places:autocomplete", {
         "input": query,
         "includedPrimaryTypes": ["locality"],
     })
+    if data is None:
+        return None
 
     out = []
     for suggestion in data.get("suggestions", []):
@@ -183,12 +261,21 @@ async def find_place(name: str, city: str, country: str = "") -> dict:
     """
     if not configured():
         return {}
+    key = (_normalize(name), _normalize(city), _normalize(country))
+    result = await _grounding_cache.get_or_fetch(key, lambda: _fetch_place(name, city, country))
+    return result if result is not None else {}
 
+
+async def _fetch_place(name: str, city: str, country: str) -> Optional[dict]:
     data = await _post(
         "places:searchText",
-        {"textQuery": f"{name}, {city}"},
+        # Only the top result is ever used; Text Search bills per request,
+        # not per result, so this trims payload rather than cost.
+        {"textQuery": f"{name}, {city}", "pageSize": 1},
         field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos",
     )
+    if data is None:
+        return None
 
     places_found = data.get("places", [])
     if not places_found:
@@ -244,9 +331,21 @@ async def photo_media(photo_ref: str, max_width: int = 400) -> Optional[tuple]:
     Returns (content_bytes, content_type), or None on any failure — the
     caller (an <img> tag) just gets a missing image, same as a venue with
     no photo at all.
+
+    Cached — confirmed live: this was the single biggest driver of Places
+    billing, since every photo rendered anywhere in the app hit this with
+    zero server-side caching. The Cache-Control header main.py's /api/photo
+    sends only helps a repeat view from the *same* browser; every other
+    user looking at the same popular venue re-fetched the same bytes from
+    Google fresh. Capped entry count (not just TTL) since these are real
+    image payloads, not small JSON blobs.
     """
     if not configured() or not photo_ref:
         return None
+    return await _photo_cache.get_or_fetch((photo_ref, max_width), lambda: _fetch_photo_media(photo_ref, max_width))
+
+
+async def _fetch_photo_media(photo_ref: str, max_width: int) -> Optional[tuple]:
     url = f"{BASE}/{photo_ref}/media"
     try:
         async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
@@ -291,13 +390,23 @@ async def find_music_venues(city: str, genre_hint: str = "", limit: int = 4, cou
     """
     if not configured():
         return []
+    key = (_normalize(city), genre_hint, _normalize(country))
+    result = await _music_cache.get_or_fetch(key, lambda: _fetch_music_venues(city, genre_hint, country))
+    return (result or [])[:limit]
 
+
+async def _fetch_music_venues(city: str, genre_hint: str, country: str) -> Optional[list]:
+    # Deliberately not truncated to any particular limit here — this is the
+    # cached fetch, shared by every caller regardless of the `limit` they
+    # asked for; find_music_venues slices it after the cache lookup.
     query = _MUSIC_SEARCH_TERMS.get(genre_hint, "live music venue")
     data = await _post(
         "places:searchText",
         {"textQuery": f"{query} in {city}"},
         field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos",
     )
+    if data is None:
+        return None
 
     out = []
     for place in data.get("places", []):
@@ -316,8 +425,6 @@ async def find_music_venues(city: str, genre_hint: str = "", limit: int = 4, cou
             "genre": genre_hint or "Live music",
             "photo_ref": _first_photo_ref(place),
         })
-        if len(out) >= limit:
-            break
     return out
 
 
@@ -326,23 +433,31 @@ async def _search_one_restaurant(text_query: str, country: str) -> Optional[dict
     Text Search and returns the first result that passes the same
     open/real-address checks as everywhere else in this module, or None.
     """
+    key = (_normalize(text_query), _normalize(country))
+    result = await _restaurant_search_cache.get_or_fetch(key, lambda: _fetch_one_restaurant(text_query, country))
+    return result or None
+
+
+async def _fetch_one_restaurant(text_query: str, country: str) -> Optional[dict]:
     data = await _post(
         "places:searchText",
-        {"textQuery": text_query},
+        {"textQuery": text_query, "pageSize": 1},
         field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos",
     )
+    if data is None:
+        return None
     found = data.get("places", [])
     if not found:
-        return None
+        return {}  # genuinely no match — a stable, cacheable negative, not a failure
     place = found[0]
     if place.get("businessStatus") in CLOSED_STATUSES:
-        return None
+        return {}
     name = place.get("displayName", {}).get("text", "")
     if not name:
-        return None
+        return {}
     address = place.get("formattedAddress", "")
     if not _in_target_country(address, country):
-        return None
+        return {}
     return {
         "place_id": place.get("id"),
         "name": name,
@@ -442,6 +557,8 @@ async def find_city_photo(city: str, country: str = "") -> Optional[str]:
         {"textQuery": f"{city} skyline landmark"},
         field_mask="places.formattedAddress,places.photos",
     )
+    if data is None:
+        return None
     for place in data.get("places", []):
         if not _in_target_country(place.get("formattedAddress", ""), country):
             continue
