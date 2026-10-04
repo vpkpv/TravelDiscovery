@@ -81,10 +81,17 @@ WEB_URL="${WEB_PUBLIC_URL:-$(gcloud run services describe travel-web --region "$
 # SPOTIFY_REDIRECT_URI/WEB_URL depend on URLs only known after both services
 # exist, so wire them onto travel-api now via --update-env-vars (merges,
 # unlike --set-env-vars above which would wipe the vars just set).
+#
+# ALLOWED_ORIGINS locks CORS down to the web app's own origin by default —
+# previously this was left unset (main.py then defaults to "*", any origin)
+# with a manual gcloud command suggested at the end of this script instead,
+# which was never actually run. Now automatic; override by setting
+# ALLOWED_ORIGINS yourself before calling this script if you need more than
+# one origin (comma-separated — see main.py).
 SPOTIFY_REDIRECT_URI="${API_URL}/auth/spotify/callback"
 gcloud run services update travel-api \
   --region "$REGION" \
-  --update-env-vars "WEB_URL=${WEB_URL},SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI}" \
+  --update-env-vars "WEB_URL=${WEB_URL},SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI},ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-$WEB_URL}" \
   >/dev/null
 
 if [ -n "${SPOTIFY_CLIENT_ID:-}" ]; then
@@ -218,8 +225,3 @@ fi
 echo "======================================================"
 echo
 echo "Open the web URL above — that's the app."
-echo
-echo "Optional hardening: lock the API down to only accept requests from the"
-echo "web app's origin (right now it accepts any origin):"
-echo "  gcloud run services update travel-api --region $REGION \\"
-echo "    --update-env-vars ALLOWED_ORIGINS=$WEB_URL"

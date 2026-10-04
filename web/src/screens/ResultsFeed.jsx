@@ -45,7 +45,7 @@ function ResultCard({ item, saved, onToggleSave }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
           <div style={{ fontSize: 16.5, fontWeight: 600, lineHeight: 1.3 }}>{item.name}</div>
-          <div onClick={() => onToggleSave(item.id)} style={{ flexShrink: 0, padding: 2, cursor: 'pointer' }}>
+          <div onClick={() => onToggleSave(item)} style={{ flexShrink: 0, padding: 2, cursor: 'pointer' }}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill={saved ? theme.accentFood : 'none'} stroke={saved ? theme.accentFood : theme.textFaint} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
               <path d="M6 3h12a1 1 0 011 1v17l-7-4-7 4V4a1 1 0 011-1z" />
             </svg>
@@ -93,6 +93,19 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
 
   const citySlug = city.slug || city.id; // slug: groups a real Places result with our curated content
 
+  // One-time hydration of which items are already saved, from the
+  // account-level store (see api/main.py's /api/saved) — not scoped to
+  // this city, since a save persists across cities/trips. Silently stays
+  // empty on any failure (auth not configured, signed out, network) — same
+  // graceful-degradation stance as savePrefs in App.jsx.
+  useEffect(() => {
+    api.getSaved().then((d) => {
+      const ids = {};
+      Object.keys(d.items || {}).forEach((id) => { ids[id] = true; });
+      setSaved(ids);
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     setHeroFailed(false);
     setLoading(true);
@@ -106,7 +119,20 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
 
   const showHero = Boolean(cityPhotoRef) && !heroFailed;
 
-  const toggleSave = (id) => setSaved((s) => ({ ...s, [id]: !s[id] }));
+  // Takes the full item, not just its id — needed to PUT real display data
+  // (name, addr, why, ...) to /api/saved, not just a bare id with nothing
+  // to show on a future "saved picks" browse screen. Optimistic locally;
+  // the server call's own failure is silent (same stance as above) so a
+  // transient network blip doesn't flip the heart back on its own.
+  const toggleSave = (item) => {
+    const nowSaved = !saved[item.id];
+    setSaved((s) => ({ ...s, [item.id]: nowSaved }));
+    if (nowSaved) {
+      api.saveItem(item.id, { ...item, city: citySlug }).catch(() => {});
+    } else {
+      api.deleteItem(item.id).catch(() => {});
+    }
+  };
 
   const rollSurprise = (seed) => {
     api.surprise({ city: citySlug, seed, musicGenre, chefs: favoriteChefs, cuisines }).then((d) => setSurprise({ items: d.items, seed }));

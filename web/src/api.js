@@ -22,6 +22,22 @@ async function post(path, body) {
   return res.json();
 }
 
+async function put(path, body) {
+  const token = await getIdToken();
+  const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  const res = await fetch(`${BASE}${path}`, { method: 'PUT', headers, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`${path} -> ${res.status}`);
+  return res.json();
+}
+
+async function del(path) {
+  const token = await getIdToken();
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const res = await fetch(`${BASE}${path}`, { method: 'DELETE', headers });
+  if (!res.ok) throw new Error(`${path} -> ${res.status}`);
+  return res.json();
+}
+
 export const spotifyLoginUrl = `${BASE}/auth/spotify/login`;
 
 // /api/photo proxies Places photos server-side (see main.py) so the
@@ -42,4 +58,10 @@ export const api = {
     get(`/api/results?city=${encodeURIComponent(city)}&filter=${filter}&music_genre=${encodeURIComponent(musicGenre)}&chefs=${encodeURIComponent(chefs.join(','))}&cuisines=${encodeURIComponent(cuisines.join(','))}`),
   surprise: ({ city, seed = 0, musicGenre = '', chefs = [], cuisines = [] }) =>
     get(`/api/results/surprise?city=${encodeURIComponent(city)}&seed=${seed}&music_genre=${encodeURIComponent(musicGenre)}&chefs=${encodeURIComponent(chefs.join(','))}&cuisines=${encodeURIComponent(cuisines.join(','))}`),
+  // Cross-device saved picks (see api/main.py's /api/saved) — a browsable
+  // history across cities/trips, not the purely-local toggle this used to
+  // be (see ResultsFeed.jsx).
+  getSaved: () => get('/api/saved'),
+  saveItem: (id, item) => put(`/api/saved/${encodeURIComponent(id)}`, { item }),
+  deleteItem: (id) => del(`/api/saved/${encodeURIComponent(id)}`),
 };
