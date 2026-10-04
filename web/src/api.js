@@ -64,4 +64,10 @@ export const api = {
   getSaved: () => get('/api/saved'),
   saveItem: (id, item) => put(`/api/saved/${encodeURIComponent(id)}`, { item }),
   deleteItem: (id) => del(`/api/saved/${encodeURIComponent(id)}`),
+  // Trip planning (see api/main.py's /api/trips, users/{uid}/trips).
+  getTrips: () => get('/api/trips'),
+  createTrip: (trip) => post('/api/trips', trip),
+  getTrip: (id) => get(`/api/trips/${encodeURIComponent(id)}`),
+  updateTrip: (id, trip) => put(`/api/trips/${encodeURIComponent(id)}`, trip),
+  deleteTrip: (id) => del(`/api/trips/${encodeURIComponent(id)}`),
 };

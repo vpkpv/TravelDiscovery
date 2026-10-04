@@ -6,6 +6,7 @@ import { CuisinePick } from './screens/CuisinePick.jsx';
 import { FavoriteChefs } from './screens/FavoriteChefs.jsx';
 import { CitiesVisited } from './screens/CitiesVisited.jsx';
 import { CitySearch } from './screens/CitySearch.jsx';
+import { TripSetup } from './screens/TripSetup.jsx';
 import { ResultsFeed } from './screens/ResultsFeed.jsx';
 import { SpotifyConfirm } from './screens/SpotifyConfirm.jsx';
 import { Settings } from './screens/Settings.jsx';
@@ -33,6 +34,7 @@ const DEFAULT_STATE = {
   favoriteChefs: [], // manual, typed names — see FavoriteChefs.jsx's docstring on why this isn't Instagram-sourced
   visitedCities: [],
   city: null,
+  trip: null, // the created trip record ({id, city, start_date, end_date, base_address, party_size}), or null if skipped
 };
 
 // Merged, not `loadState() || DEFAULT_STATE`: a device with progress saved
@@ -266,7 +268,17 @@ export default function App() {
         <CitySearch
           step={5}
           visitedCities={state.visitedCities}
-          onPickCity={(city) => set({ city, step: 'results' })}
+          onPickCity={(city) => set({ city, trip: null, step: 'trip-setup' })}
+        />
+      );
+      break;
+
+    case 'trip-setup':
+      screen = (
+        <TripSetup
+          city={state.city}
+          onContinue={(trip) => set({ trip, step: 'results' })}
+          onSkip={() => set({ step: 'results' })}
         />
       );
       break;
@@ -299,7 +311,8 @@ export default function App() {
       {state.step !== 'welcome' && (
         <div
           onClick={() => {
-            if (state.step === 'results') set({ step: 'search' });
+            if (state.step === 'results') set({ step: state.trip ? 'trip-setup' : 'search' });
+            else if (state.step === 'trip-setup') set({ step: 'search' });
             else if (state.step === 'search') set({ step: 'visited' });
             else if (state.step === 'visited') set({ step: 'chefs' });
             else if (state.step === 'chefs') set({ step: 'cuisines' });

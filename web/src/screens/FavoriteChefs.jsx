@@ -26,7 +26,7 @@ export function FavoriteChefs({ step, chefs = [], onChange, onContinue, onSkip }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <StepHeader
-        step={step} total={5}
+        step={step} total={6}
         title="Follow any chefs, or have a favorite restaurant?"
         subtitle="Add a few names — a chef, a foodie account, or a restaurant you love. We'll check for a real match in every city you search."
       />

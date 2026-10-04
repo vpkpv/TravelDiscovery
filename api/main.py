@@ -636,6 +636,71 @@ async def unsave_item(item_id: str, user: dict = Depends(auth.current_user)):
     return {"ok": True}
 
 
+class TripBody(BaseModel):
+    city: str
+    start_date: str  # "YYYY-MM-DD" — plain date, no time/timezone needed for a trip
+    end_date: str
+    base_address: str
+    party_size: int = 1
+
+
+def _trips_collection(uid: str):
+    return auth.firestore_client().collection("users").document(uid).collection("trips")
+
+
+@app.get("/api/trips")
+async def list_trips(user: dict = Depends(auth.current_user)):
+    """A user's saved trips — trip planning's foundational story (see the
+    Product Backlog artifact's "Trips" epic). Stored under
+    users/{uid}/trips, the target per-user subcollection shape (see
+    CLAUDE.md's Current scope section), not bolted onto the flat
+    user_prefs doc the onboarding quick-picks use — a trip needs its own
+    id to hang anchor events, time slots, and scores off of later.
+    """
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    docs = _trips_collection(user["uid"]).order_by("start_date").stream()
+    return {"trips": [{"id": d.id, **d.to_dict()} for d in docs]}
+
+
+@app.post("/api/trips")
+async def create_trip(body: TripBody, user: dict = Depends(auth.current_user)):
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    ref = _trips_collection(user["uid"]).document()
+    ref.set(body.model_dump())
+    return {"id": ref.id, **body.model_dump()}
+
+
+@app.get("/api/trips/{trip_id}")
+async def get_trip(trip_id: str, user: dict = Depends(auth.current_user)):
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    doc = _trips_collection(user["uid"]).document(trip_id).get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="trip not found")
+    return {"id": doc.id, **doc.to_dict()}
+
+
+@app.put("/api/trips/{trip_id}")
+async def update_trip(trip_id: str, body: TripBody, user: dict = Depends(auth.current_user)):
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    ref = _trips_collection(user["uid"]).document(trip_id)
+    if not ref.get().exists:
+        raise HTTPException(status_code=404, detail="trip not found")
+    ref.set(body.model_dump())
+    return {"id": trip_id, **body.model_dump()}
+
+
+@app.delete("/api/trips/{trip_id}")
+async def delete_trip(trip_id: str, user: dict = Depends(auth.current_user)):
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    _trips_collection(user["uid"]).document(trip_id).delete()
+    return {"ok": True}
+
+
 @app.get("/api/cuisines")
 def get_cuisines():
     return {"cuisines": CUISINES}
