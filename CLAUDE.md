@@ -13,11 +13,25 @@ extraction *pattern* but shares no code or infra.
 **`docs/2026-08-20-taste-matched-discovery-design.md`** is the MVP design doc — read it
 before re-deriving product scope or architecture from the codebase.
 
-## Current scope: discovery only
+## Current scope: discovery + trip planning (Phase 1). Budgeting is still deferred.
 
-The long-term product has three subsystems (discovery, planning, budgeting). MVP is
-**discovery only** — planning and budgeting are explicitly out of scope until discovery is
-validated with real users.
+The long-term product has three subsystems (discovery, planning, budgeting). Originally MVP
+was discovery-only, with planning and budgeting deferred until discovery was validated with
+real users. That's since changed: trip planning is now active Phase 1 scope, not deferred —
+trip structure (city, dates, base address, party size), an anchor event, open time slots,
+distance/slot-aware ranking, a shareable trip page, and before/after-trip scorecards are all
+Phase 1 stories, alongside discovery itself. Budgeting remains out of scope.
+
+**The "TravelDiscovery: Product Backlog" artifact** (linked from this repo's Claude Code
+session history) is the authoritative story list and phase/priority/status tracker — read it
+before re-deriving scope from the codebase or this file. It cross-checks its "Done" statuses
+against this branch directly, so it's generally more current than a quick read of the code.
+
+Per-user storage underlies all of Phase 1: every choice (genres, cuisines, visited cities,
+trips, saves, scores) is stored against the signed-in account, not just locally — see the
+backlog's "Per-user data model" section for the Firestore shape (`user_prefs/{uid}`,
+`saved_picks/{uid}` today; a `users/{uid}` subcollection shape is the target once trips and
+scores actually land, not before).
 
 ## Durable do's and don'ts
 
