@@ -268,6 +268,18 @@ ARTICLES = [
         "city": "Tokyo",
         "source": "MICHELIN Guide — Tokyo 2026 Stars Reveal",
     },
+    # All three URLs below confirmed live by user in their own browser,
+    # 2026-10-04.
+    {
+        "url": "https://www.timeout.com/bangkok/restaurants/the-50-best-restaurants-in-bangkok",
+        "city": "Bangkok",
+        "source": "Time Out Bangkok — The 50 Best Restaurants",
+    },
+    {
+        "url": "https://guide.michelin.com/en/article/travel/michelin-starred-restaurants-paris",
+        "city": "Paris",
+        "source": "MICHELIN Guide — Starred Restaurants in Paris",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -348,6 +360,12 @@ WORLD_ARTICLES = [
     {
         "url": "https://guide.michelin.com/gb/en/article/michelin-guide-ceremony/every-michelin-star-restaurant-in-great-britain-ireland",
         "source": "MICHELIN Guide — Great Britain & Ireland 2026",
+    },
+    # URL confirmed live by user in their own browser, 2026-10-04. Multi-city
+    # — 62 new stars across France (Paris, Reims, Langres, Savoie, etc.).
+    {
+        "url": "https://guide.michelin.com/us/en/article/news-and-views/michelin-starred-restaurants-france-new",
+        "source": "MICHELIN Guide — New Starred Restaurants in France 2026",
     },
 ]
 
