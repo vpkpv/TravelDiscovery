@@ -36,6 +36,7 @@ async def ingest_video(video_id: str, city: str, source_label: str) -> list:
             "meta": source_label,
             "rating": ground.get("rating"),
             "addr": ground["addr"],
+            "place_id": ground.get("place_id"),
             "why": candidate["why"],
             "city": city,
             "source_video_id": video_id,

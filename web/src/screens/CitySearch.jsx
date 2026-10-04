@@ -8,7 +8,18 @@ export function CitySearch({ step, visitedCities, onPickCity }) {
   const [cities, setCities] = useState([]);
 
   useEffect(() => {
-    api.cities({ q: query, visited: visitedCities }).then((d) => setCities(d.cities));
+    // Debounced: each typed query is a billed Places autocomplete call on
+    // the API side, so wait for a pause in typing instead of firing per key.
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      api.cities({ q: query, visited: visitedCities }).then((d) => {
+        if (!cancelled) setCities(d.cities);
+      });
+    }, query.trim() ? 300 : 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [query, visitedCities]);
 
   return (

@@ -62,7 +62,13 @@ def _load_ingested_results() -> None:
             "meta": item["meta"],
             "addr": item["addr"],
             "why": item["why"],
+            # Already grounded against Places by the ingest pipeline (which
+            # drops anything that didn't resolve), so _grounded_items skips
+            # re-checking it on every request.
+            "place_verified": True,
         }
+        if item.get("place_id"):
+            entry["place_id"] = item["place_id"]
         if item.get("rating") is not None:
             entry["rating"] = item["rating"]
         existing.append(entry)
@@ -103,16 +109,26 @@ async def _grounded_items(city_id: str) -> list:
 
     Falls back to the raw mock data untouched when no API key is set, so the
     scaffold keeps working for anyone who hasn't configured Places yet.
+
+    Items from ingest/output.json were grounded at ingest time and pass
+    through as-is; the curated ones are looked up via places.find_place,
+    which caches, so filter toggles and surprise re-rolls don't re-bill.
     """
     items = RESULTS.get(city_id, [])
     if not items or not places.configured():
         return items
 
     city_name = _city_display_name(city_id)
-    grounded = await asyncio.gather(*(places.find_place(i["name"], city_name) for i in items))
+    to_ground = [i for i in items if not i.get("place_verified")]
+    grounded = await asyncio.gather(*(places.find_place(i["name"], city_name) for i in to_ground))
+    ground_by_id = {i["id"]: g for i, g in zip(to_ground, grounded)}
 
     out = []
-    for item, ground in zip(items, grounded):
+    for item in items:
+        if item.get("place_verified"):
+            out.append(item)
+            continue
+        ground = ground_by_id[item["id"]]
         if not ground:
             continue  # didn't resolve to a real place — drop it
         merged = {**item, "addr": ground["addr"], "place_verified": True}
@@ -163,7 +179,9 @@ async def get_cities(
     # and the resulting pitch are matched on `slug`, not `id` — a real Places
     # result's `id` is an opaque place_id, but its `slug` (from the city name)
     # is what lines up with our curated visited-city ids and RESULTS data.
-    if places.configured():
+    # Single characters are too broad to be useful and each Places
+    # autocomplete call is billed, so they stay on the curated filter.
+    if places.configured() and len(q_stripped) >= 2:
         results = await places.autocomplete_cities(q_stripped)
         return {
             "cities": [
