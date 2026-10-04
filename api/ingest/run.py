@@ -475,7 +475,7 @@ async def main():
     blocked_count = 0
     for i, v in enumerate(VIDEOS):
         print(f"Ingesting: {v['source']} ({v['video_id']})...", file=sys.stderr)
-        items = await ingest_video(v["video_id"], v["city"], v["source"], CITY_COUNTRIES.get(v["city"], ""))
+        items = await ingest_video(v["video_id"], v["city"], v["source"], CITY_COUNTRIES.get(v["city"], ""), db=db)
         print(f"  -> {len(items)} grounded venue(s)", file=sys.stderr)
         if not items:
             blocked_count += 1  # could be a real zero-venue video too, not just a block
@@ -489,7 +489,7 @@ async def main():
 
     for i, a in enumerate(ARTICLES):
         print(f"Scraping: {a['source']} ({a['url']})...", file=sys.stderr)
-        items = await ingest_article(a["url"], a["city"], a["source"], CITY_COUNTRIES.get(a["city"], ""))
+        items = await ingest_article(a["url"], a["city"], a["source"], CITY_COUNTRIES.get(a["city"], ""), db=db)
         print(f"  -> {len(items)} grounded venue(s)", file=sys.stderr)
         if not items:
             blocked_count += 1
@@ -505,7 +505,7 @@ async def main():
 
     for i, w in enumerate(WORLD_ARTICLES):
         print(f"Scraping: {w['source']} ({w['url']})...", file=sys.stderr)
-        items = await ingest_world_article(w["url"], w["source"])
+        items = await ingest_world_article(w["url"], w["source"], db=db)
         cities = sorted({item["city"] for item in items})
         print(f"  -> {len(items)} grounded venue(s) across {len(cities)} cities: {', '.join(cities)}", file=sys.stderr)
         if not items:
