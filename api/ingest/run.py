@@ -280,6 +280,15 @@ ARTICLES = [
         "city": "Paris",
         "source": "MICHELIN Guide — Starred Restaurants in Paris",
     },
+    # URL provided directly by user, 2026-10-04 — added alongside making Los
+    # Angeles a fully curated city (see CITIES in data.py and
+    # CITY_COUNTRIES below), not just a live-top-up-only destination, ahead
+    # of an actual trip there.
+    {
+        "url": "https://guide.michelin.com/us/en/california/us-los-angeles/restaurants",
+        "city": "Los Angeles",
+        "source": "MICHELIN Guide — Los Angeles Restaurants",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -380,6 +389,7 @@ CITY_COUNTRIES = {
     "Paris": "France",
     "Rome": "Italy",
     "Chicago": "USA",
+    "Los Angeles": "USA",
     "Tokyo": "Japan",
     "Mexico City": "Mexico",
     "Bangkok": "Thailand",

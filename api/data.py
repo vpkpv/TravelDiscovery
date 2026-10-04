@@ -66,6 +66,11 @@ CITIES = [
         "first_time_pitch": "Great for: Deep dish & tavern-style pizza tours",
         "return_pitch": "New spots since your last trip",
     },
+    {
+        "id": "los-angeles", "name": "Los Angeles", "country": "USA",
+        "first_time_pitch": "Great for: Taco trucks & backyard DJ sets",
+        "return_pitch": "New spots since your last trip",
+    },
 ]
 
 # city_id -> list of picks. Each pick's "why" is written as if generated from a taste
