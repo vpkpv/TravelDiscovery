@@ -466,11 +466,17 @@ async def _fetch_music_venues(city: str, genre_hint: str, country: str) -> Optio
     return out
 
 
-async def find_bars_venues(city: str, limit: int = 4, country: str = "") -> list:
+async def find_bars_venues(city: str, limit: int = 8, country: str = "") -> list:
     """Real, Places-sourced bars/speakeasies for a city — same mechanism as
     find_music_venues (no ingest content pipeline for this yet, so every
     city gets these live rather than only the ones with hand-curated
     picks). See find_music_venues's docstring re: the `country` guard.
+
+    `limit` defaults to MIN_FOOD_ITEMS's value (see main.py) rather than
+    music's 4 — confirmed live: capping at 4 made the Bars tab look sparse
+    next to Food's guaranteed-at-least-8, even though Places' own Text
+    Search already returns up to ~20 candidates per call (the cap here was
+    the only thing trimming it down).
     """
     if not configured():
         return []
@@ -481,10 +487,12 @@ async def find_bars_venues(city: str, limit: int = 4, country: str = "") -> list
 
 async def _fetch_bar_venues(city: str, country: str) -> Optional[list]:
     # Not truncated here — see find_music_venues's _fetch counterpart for why.
+    # Requests places.location (unlike find_music_venues) so bars can be
+    # included in _rank_by_trip_distance the same as food — see main.py.
     data = await _post(
         "places:searchText",
         {"textQuery": f"best bars and speakeasies in {city}"},
-        field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos",
+        field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos,places.location",
     )
     if data is None:
         return None
@@ -498,12 +506,15 @@ async def _fetch_bar_venues(city: str, country: str) -> Optional[list]:
             continue
         if not _in_target_country(place.get("formattedAddress", ""), country):
             continue
+        location = place.get("location") or {}
         out.append({
             "place_id": place.get("id"),
             "name": name,
             "addr": place.get("formattedAddress", ""),
             "rating": place.get("rating"),
             "photo_ref": _first_photo_ref(place),
+            "lat": location.get("latitude"),
+            "lng": location.get("longitude"),
         })
     return out
 

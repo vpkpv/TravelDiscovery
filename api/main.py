@@ -379,6 +379,7 @@ async def _grounded_items(
                 "why": f"A real, Google-verified bar/speakeasy pick in {city_name}",
                 "place_verified": True,
                 **({"photo_ref": b["photo_ref"]} if b.get("photo_ref") else {}),
+                **({"lat": b["lat"], "lng": b["lng"]} if b.get("lat") is not None and b.get("lng") is not None else {}),
             }
             for i, b in enumerate(bars)
         ]
@@ -560,12 +561,17 @@ def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
+_DISTANCE_RANKED_TYPES = {"food", "bar"}
+
+
 async def _rank_by_trip_distance(items: list, trip_id: str, uid: str) -> list:
-    """Orders food picks by distance from the trip's base address (the
-    hotel) — "a restaurant itinerary around where the hotel booking is."
+    """Orders food and bar picks by distance from the trip's base address
+    (the hotel) — "a restaurant itinerary around where the hotel booking
+    is," with bars brought up to the same treatment (confirmed live: bars
+    were passing through unranked, a second-class citizen next to food).
     Combines the backlog's distance-ranking story with the base address
-    captured at trip setup. Picks missing lat/lng (chef/music-venue
-    matches never carry it, and an ingested venue only gets it once
+    captured at trip setup. Picks missing lat/lng (chef-venue matches
+    never carry it, and an ingested food venue only gets it once
     re-grounded after this field was added — see pipeline.py's
     GROUNDING_REFRESH_DAYS) sort after every measured pick rather than
     being dropped — an unmeasured distance isn't evidence it's far away.
@@ -579,10 +585,10 @@ async def _rank_by_trip_distance(items: list, trip_id: str, uid: str) -> list:
     if base_lat is None or base_lng is None:
         return items
 
-    other = [i for i in items if i["type"] != "food"]
+    other = [i for i in items if i["type"] not in _DISTANCE_RANKED_TYPES]
     measured, unmeasured = [], []
     for i in items:
-        if i["type"] != "food":
+        if i["type"] not in _DISTANCE_RANKED_TYPES:
             continue
         if i.get("lat") is None or i.get("lng") is None:
             unmeasured.append(i)
@@ -590,8 +596,8 @@ async def _rank_by_trip_distance(items: list, trip_id: str, uid: str) -> list:
             measured.append((_haversine_km(base_lat, base_lng, i["lat"], i["lng"]), i))
     measured.sort(key=lambda pair: pair[0])
 
-    ranked_food = [{**i, "distance_km": round(d, 2)} for d, i in measured] + unmeasured
-    return ranked_food + other
+    ranked = [{**i, "distance_km": round(d, 2)} for d, i in measured] + unmeasured
+    return ranked + other
 
 
 @app.get("/api/me")
@@ -960,11 +966,13 @@ async def get_surprise(
     _user: dict = Depends(auth.current_user),
 ):
     items = await _cached_grounded_items(city, music_genre, list(_split(chefs)), list(_split(cuisines)))
-    food = [i for i in items if i["type"] == "food"]
+    # Bars are an equally valid "main pick" alongside food now, not a
+    # second-class category only food got to be — see _DISTANCE_RANKED_TYPES.
+    food_or_bar = [i for i in items if i["type"] in _DISTANCE_RANKED_TYPES]
     music = [i for i in items if i["type"] == "music"]
-    if not food or not music:
+    if not food_or_bar or not music:
         return {"city": city, "items": []}
     rnd = random.Random(seed)
-    pick_food = food[seed % len(food)] if seed else rnd.choice(food)
+    pick_main = food_or_bar[seed % len(food_or_bar)] if seed else rnd.choice(food_or_bar)
     pick_music = music[(seed * 2 + 1) % len(music)] if seed else rnd.choice(music)
-    return {"city": city, "items": [pick_food, pick_music]}
+    return {"city": city, "items": [pick_main, pick_music]}

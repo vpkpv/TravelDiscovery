@@ -282,7 +282,9 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
         ))}
         {surprise && showing.length > 0 && (
           <div style={{ textAlign: 'center', fontSize: 13, color: theme.textFaint, marginTop: 4 }}>
-            Dinner, then a short walk to the show — that's your pairing for tonight.
+            {showing.some((i) => i.type === 'bar')
+              ? 'Drinks, then a short walk to the show — that\'s your pairing for tonight.'
+              : 'Dinner, then a short walk to the show — that\'s your pairing for tonight.'}
           </div>
         )}
       </div>
