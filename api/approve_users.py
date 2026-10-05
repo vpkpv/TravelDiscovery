@@ -100,6 +100,13 @@ def main():
         print("AUTH_ENABLED not set — nothing to approve against (no approval gate configured).", file=sys.stderr)
         sys.exit(1)
 
+    # auth.py only initializes the Firebase Admin app lazily, inside
+    # firestore_client() — every cmd_* function below calls firebase_auth.*
+    # directly first, which needs that same app already initialized.
+    # Confirmed live: skipping this raised "The default Firebase app does
+    # not exist" from inside firebase_admin.auth.get_user_by_email.
+    auth.firestore_client()
+
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
 
