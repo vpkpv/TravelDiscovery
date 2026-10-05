@@ -289,6 +289,14 @@ ARTICLES = [
         "city": "Los Angeles",
         "source": "MICHELIN Guide — Los Angeles Restaurants",
     },
+    # URL confirmed live by user in their own browser, 2026-10-05. London
+    # had no dedicated source before — only reachable via the multi-city
+    # MICHELIN Guide Great Britain & Ireland list below.
+    {
+        "url": "https://www.timeout.com/london/news/best-london-restaurants-2026-mapped-061726",
+        "city": "London",
+        "source": "Time Out — Mapped: 50 Best Restaurants in London 2026",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -376,6 +384,13 @@ WORLD_ARTICLES = [
         "url": "https://guide.michelin.com/us/en/article/news-and-views/michelin-starred-restaurants-france-new",
         "source": "MICHELIN Guide — New Starred Restaurants in France 2026",
     },
+    # URL confirmed live by user in their own browser, 2026-10-05. A new
+    # country, not just depth on an existing one — multi-city (Barcelona,
+    # Madrid, Málaga, San Sebastián, and more), 307 starred restaurants.
+    {
+        "url": "https://guide.michelin.com/us/en/article/michelin-guide-ceremony/all-michelin-star-restaurants-in-spain-2026-the-full-list",
+        "source": "MICHELIN Guide — All Starred Restaurants in Spain 2026",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
@@ -390,6 +405,7 @@ CITY_COUNTRIES = {
     "Rome": "Italy",
     "Chicago": "USA",
     "Los Angeles": "USA",
+    "London": "United Kingdom",
     "Tokyo": "Japan",
     "Mexico City": "Mexico",
     "Bangkok": "Thailand",
