@@ -18,6 +18,8 @@ export const theme = {
   accentFoodSoft: '#EFA179',
   accentMusic: '#3E7F86',
   accentMusicSoft: '#6FA7AE',
+  accentBar: '#6B4A7A',
+  accentBarSoft: '#9B7BAA',
   chipBg: '#F3EDE1',
   spotifyGreen: '#1DB954',
   fontDisplay: "'Fraunces', Georgia, serif",

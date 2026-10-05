@@ -16,13 +16,36 @@ function MusicIcon({ color = '#FFFFFF' }) {
     </svg>
   );
 }
+function BarIcon({ color = '#FFFFFF' }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 4h16l-8 9-8-9z" /><path d="M12 13v6M8 19h8" />
+    </svg>
+  );
+}
+
+// Opens the venue in Google Maps by name + its Places-verified address —
+// works for every item regardless of type (ingested venues don't carry a
+// real place_id — see main.py's _merge_ingested_items — so this can't key
+// off place_id uniformly; a text query against the verified address is
+// reliable enough without needing one).
+function mapsUrl(item) {
+  const q = item.addr ? `${item.name}, ${item.addr}` : item.name;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+}
 
 function ResultCard({ item, saved, onToggleSave }) {
   const isFood = item.type === 'food';
+  const isBar = item.type === 'bar';
   const [photoFailed, setPhotoFailed] = useState(false);
   const showPhoto = item.photo_ref && !photoFailed;
+  const accent = isFood ? theme.accentFood : isBar ? theme.accentBar : theme.accentMusic;
+  const accentSoft = isFood ? theme.accentFoodSoft : isBar ? theme.accentBarSoft : theme.accentMusicSoft;
   return (
-    <div style={{ background: theme.card, borderRadius: 18, padding: 16, display: 'flex', gap: 14, boxShadow: '0 6px 16px rgba(43,36,32,0.06)' }}>
+    <div
+      onClick={() => window.open(mapsUrl(item), '_blank', 'noopener,noreferrer')}
+      style={{ background: theme.card, borderRadius: 18, padding: 16, display: 'flex', gap: 14, boxShadow: '0 6px 16px rgba(43,36,32,0.06)', cursor: 'pointer' }}
+    >
       {showPhoto ? (
         <img
           src={photoUrl(item.photo_ref, 200)}
@@ -34,18 +57,16 @@ function ResultCard({ item, saved, onToggleSave }) {
         <div
           style={{
             width: 84, height: 84, borderRadius: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: isFood
-              ? `linear-gradient(135deg, ${theme.accentFoodSoft}, ${theme.accentFood})`
-              : `linear-gradient(135deg, ${theme.accentMusicSoft}, ${theme.accentMusic})`,
+            background: `linear-gradient(135deg, ${accentSoft}, ${accent})`,
           }}
         >
-          {isFood ? <FoodIcon /> : <MusicIcon />}
+          {isFood ? <FoodIcon /> : isBar ? <BarIcon /> : <MusicIcon />}
         </div>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
           <div style={{ fontSize: 16.5, fontWeight: 600, lineHeight: 1.3 }}>{item.name}</div>
-          <div onClick={() => onToggleSave(item)} style={{ flexShrink: 0, padding: 2, cursor: 'pointer' }}>
+          <div onClick={(e) => { e.stopPropagation(); onToggleSave(item); }} style={{ flexShrink: 0, padding: 2, cursor: 'pointer' }}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill={saved ? theme.accentFood : 'none'} stroke={saved ? theme.accentFood : theme.textFaint} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
               <path d="M6 3h12a1 1 0 011 1v17l-7-4-7 4V4a1 1 0 011-1z" />
             </svg>
@@ -53,9 +74,9 @@ function ResultCard({ item, saved, onToggleSave }) {
         </div>
         <div style={{ fontSize: 13.5, color: theme.textMuted, marginTop: 4 }}>{item.meta}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 13 }}>
-          {isFood ? (
+          {isFood || isBar ? (
             <>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill={theme.accentFood} stroke="none"><path d="M12 2l2.9 6.4 6.9.8-5.1 4.8 1.4 6.9L12 17.7l-6.1 3.2 1.4-6.9-5.1-4.8 6.9-.8z" /></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill={accent} stroke="none"><path d="M12 2l2.9 6.4 6.9.8-5.1 4.8 1.4 6.9L12 17.7l-6.1 3.2 1.4-6.9-5.1-4.8 6.9-.8z" /></svg>
               <span style={{ fontWeight: 500 }}>{item.rating}</span>
               <span style={{ color: theme.textFaint }}>· {item.addr}</span>
               {item.distance_km != null && (
@@ -207,18 +228,18 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
 
         {!surprise ? (
           <div style={{ display: 'flex', gap: 10, marginTop: 18, alignItems: 'center' }}>
-            {['all', 'food', 'music'].map((f) => (
+            {['all', 'food', 'music', 'bar'].map((f) => (
               <div
                 key={f}
                 onClick={() => setFilter(f)}
                 style={{
-                  padding: '9px 16px', borderRadius: 16, fontSize: 14, fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize',
-                  background: filter === f ? (f === 'food' ? theme.accentFood : f === 'music' ? theme.accentMusic : theme.text) : theme.card,
+                  padding: '9px 16px', borderRadius: 16, fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                  background: filter === f ? (f === 'food' ? theme.accentFood : f === 'music' ? theme.accentMusic : f === 'bar' ? theme.accentBar : theme.text) : theme.card,
                   color: filter === f ? '#FFFFFF' : theme.text,
                   border: filter === f ? 'none' : `1px solid ${theme.border}`,
                 }}
               >
-                {f}
+                {f === 'bar' ? 'Bars' : f === 'all' ? 'All' : f === 'food' ? 'Food' : 'Music'}
               </div>
             ))}
             <div
@@ -251,6 +272,8 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
               ? `No music picks yet for ${city.name}.`
               : filter === 'food'
               ? `No food picks yet for ${city.name}.`
+              : filter === 'bar'
+              ? `No bar picks yet for ${city.name}.`
               : `No picks yet for ${city.name}.`}
           </div>
         )}

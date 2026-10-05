@@ -102,6 +102,7 @@ _grounding_cache = _TTLCache(GROUNDING_TTL)
 _music_cache = _TTLCache(GROUNDING_TTL)
 _restaurant_search_cache = _TTLCache(GROUNDING_TTL)
 _geocode_cache = _TTLCache(GROUNDING_TTL)
+_bar_cache = _TTLCache(GROUNDING_TTL)
 _photo_cache = _TTLCache(PHOTO_TTL, max_entries=PHOTO_CACHE_MAX_ENTRIES)
 
 
@@ -460,6 +461,48 @@ async def _fetch_music_venues(city: str, genre_hint: str, country: str) -> Optio
             "addr": place.get("formattedAddress", ""),
             "rating": place.get("rating"),
             "genre": genre_hint or "Live music",
+            "photo_ref": _first_photo_ref(place),
+        })
+    return out
+
+
+async def find_bars_venues(city: str, limit: int = 4, country: str = "") -> list:
+    """Real, Places-sourced bars/speakeasies for a city — same mechanism as
+    find_music_venues (no ingest content pipeline for this yet, so every
+    city gets these live rather than only the ones with hand-curated
+    picks). See find_music_venues's docstring re: the `country` guard.
+    """
+    if not configured():
+        return []
+    key = (_normalize(city), _normalize(country))
+    result = await _bar_cache.get_or_fetch(key, lambda: _fetch_bar_venues(city, country))
+    return (result or [])[:limit]
+
+
+async def _fetch_bar_venues(city: str, country: str) -> Optional[list]:
+    # Not truncated here — see find_music_venues's _fetch counterpart for why.
+    data = await _post(
+        "places:searchText",
+        {"textQuery": f"best bars and speakeasies in {city}"},
+        field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos",
+    )
+    if data is None:
+        return None
+
+    out = []
+    for place in data.get("places", []):
+        if place.get("businessStatus") in CLOSED_STATUSES:
+            continue
+        name = place.get("displayName", {}).get("text", "")
+        if not name:
+            continue
+        if not _in_target_country(place.get("formattedAddress", ""), country):
+            continue
+        out.append({
+            "place_id": place.get("id"),
+            "name": name,
+            "addr": place.get("formattedAddress", ""),
+            "rating": place.get("rating"),
             "photo_ref": _first_photo_ref(place),
         })
     return out

@@ -363,6 +363,26 @@ async def _grounded_items(
             for i, v in enumerate(venues)
         ]
 
+    # Bars/speakeasies — same live-Places top-up as music above, since
+    # there's no ingest content pipeline for this category either.
+    if places.configured() and not any(i["type"] == "bar" for i in items):
+        city_name = _city_display_name(city_id)
+        bars = await places.find_bars_venues(city_name, country=_city_country(city_id))
+        items = items + [
+            {
+                "id": b["place_id"] or f"places-bar-{city_id}-{i}",
+                "type": "bar",
+                "name": b["name"],
+                "meta": "Bar",
+                "addr": b["addr"],
+                "rating": b["rating"],
+                "why": f"A real, Google-verified bar/speakeasy pick in {city_name}",
+                "place_verified": True,
+                **({"photo_ref": b["photo_ref"]} if b.get("photo_ref") else {}),
+            }
+            for i, b in enumerate(bars)
+        ]
+
     if places.configured() and chefs:
         city_name = _city_display_name(city_id)
         chef_venues = await places.find_chef_venues(city_name, chefs, country=_city_country(city_id))
@@ -929,7 +949,7 @@ async def get_results(
     # the filter below so "food only" and "all" both reflect the same order.
     if trip_id and auth.configured():
         items = await _rank_by_trip_distance(items, trip_id, user["uid"])
-    if filter in ("food", "music"):
+    if filter in ("food", "music", "bar"):
         items = [i for i in items if i["type"] == filter]
     return {"city": city, "count": len(items), "items": items, "city_photo_ref": city_photo_ref}
 
