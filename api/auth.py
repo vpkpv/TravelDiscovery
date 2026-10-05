@@ -68,6 +68,20 @@ def is_approved(uid: str) -> bool:
     return doc.exists
 
 
+def touch_last_active(uid: str) -> None:
+    """Bumps last_active on an already-approved user's approved_users doc —
+    a lightweight usage signal (when was each pilot user last seen), not a
+    way to grant access: uses update() rather than set(merge=True), so it
+    only ever modifies a doc that already exists and can't accidentally
+    satisfy is_approved()'s plain existence check for someone who isn't.
+    Best-effort — a failed write here shouldn't block anyone's request.
+    """
+    try:
+        firestore_client().collection("approved_users").document(uid).update({"last_active": time.time()})
+    except Exception as exc:
+        log.warning("couldn't bump last_active for %s: %s", uid, exc)
+
+
 async def current_user(authorization: str = Header(default="")) -> dict:
     """FastAPI dependency: returns {"uid", "email"} for a valid, approved
     user. Raises 401 for a missing/invalid token, 403 for a valid-but-

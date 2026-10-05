@@ -11,9 +11,10 @@ CREDENTIALS, or `gcloud auth application-default login` against the
 right project) plus AUTH_ENABLED=1 in api/.env.
 
 Usage (from api/):
-    python approve_users.py list                  # signed in, waiting on approval
-    python approve_users.py approve a@b.com ...    # grant access
-    python approve_users.py revoke a@b.com ...     # remove access
+    python approve_users.py list                 # signed in, waiting on approval
+    python approve_users.py status                # approved users, last seen
+    python approve_users.py approve a@b.com ...   # grant access
+    python approve_users.py revoke a@b.com ...    # remove access
 
 A "not found" on approve/revoke means that email hasn't signed in with
 Google yet — Firebase only knows about an account once it's done that at
@@ -22,6 +23,7 @@ in first, then re-run.
 """
 
 import argparse
+import datetime
 import sys
 import time
 
@@ -48,6 +50,27 @@ def cmd_list(_args):
     print(f"{len(pending)} pending:")
     for user in pending:
         print(f"  {user.email or '(no email)'}  uid={user.uid}")
+
+
+def cmd_status(_args):
+    """Approved users and when they were last seen (main.py's /api/me
+    bumps last_active once per sign-in — see auth.touch_last_active) —
+    missing for anyone approved before that existed, or who hasn't
+    opened the app since.
+    """
+    docs = list(auth.firestore_client().collection("approved_users").stream())
+    if not docs:
+        print("No approved users yet.")
+        return
+
+    def _fmt(ts):
+        return datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M") if ts else "never seen"
+
+    rows = sorted(docs, key=lambda d: (d.to_dict() or {}).get("last_active", 0), reverse=True)
+    print(f"{len(rows)} approved:")
+    for d in rows:
+        data = d.to_dict() or {}
+        print(f"  {data.get('email') or f'(no email, uid={d.id})'}  last active: {_fmt(data.get('last_active'))}")
 
 
 def cmd_approve(args):
@@ -81,6 +104,7 @@ def main():
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("list", help="show signed-in users waiting on approval").set_defaults(func=cmd_list)
+    sub.add_parser("status", help="show approved users and when each was last seen").set_defaults(func=cmd_status)
 
     p_approve = sub.add_parser("approve", help="grant access to one or more emails")
     p_approve.add_argument("emails", nargs="+")
