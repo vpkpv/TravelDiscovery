@@ -59,7 +59,12 @@ function ResultCard({ item, saved, onToggleSave }) {
               <span style={{ fontWeight: 500 }}>{item.rating}</span>
               <span style={{ color: theme.textFaint }}>· {item.addr}</span>
               {item.distance_km != null && (
-                <span style={{ color: theme.textFaint }}>· {item.distance_km < 1 ? `${Math.round(item.distance_km * 1000)}m` : `${item.distance_km.toFixed(1)}km`} from hotel</span>
+                <span style={{ color: theme.textFaint }}>
+                  · {(() => {
+                    const miles = item.distance_km * 0.621371;
+                    return miles < 0.1 ? `${Math.round(miles * 5280)}ft` : `${miles.toFixed(1)}mi`;
+                  })()} from hotel
+                </span>
               )}
             </>
           ) : (
