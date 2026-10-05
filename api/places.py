@@ -101,6 +101,7 @@ _autocomplete_cache = _TTLCache(AUTOCOMPLETE_TTL)
 _grounding_cache = _TTLCache(GROUNDING_TTL)
 _music_cache = _TTLCache(GROUNDING_TTL)
 _restaurant_search_cache = _TTLCache(GROUNDING_TTL)
+_geocode_cache = _TTLCache(GROUNDING_TTL)
 _photo_cache = _TTLCache(PHOTO_TTL, max_entries=PHOTO_CACHE_MAX_ENTRIES)
 
 
@@ -272,7 +273,7 @@ async def _fetch_place(name: str, city: str, country: str) -> Optional[dict]:
         # Only the top result is ever used; Text Search bills per request,
         # not per result, so this trims payload rather than cost.
         {"textQuery": f"{name}, {city}", "pageSize": 1},
-        field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos",
+        field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos,places.location",
     )
     if data is None:
         return None
@@ -303,12 +304,48 @@ async def _fetch_place(name: str, city: str, country: str) -> Optional[dict]:
     if place.get("businessStatus") in CLOSED_STATUSES:
         return {}
 
+    location = place.get("location") or {}
     return {
         "addr": place.get("formattedAddress", ""),
         "rating": place.get("rating"),
         "place_id": place.get("id"),
         "photo_ref": _first_photo_ref(place),
+        "lat": location.get("latitude"),
+        "lng": location.get("longitude"),
     }
+
+
+async def geocode_address(address: str) -> Optional[dict]:
+    """Best-effort lat/lng for a free-text address — a trip's base address
+    or an anchor event's venue, typed by the user, not a venue candidate to
+    verify against a name. Unlike find_place(), there's no candidate name
+    to fuzzy-match against here, just an address string to resolve to a
+    point on the map, so this accepts whatever Places' top result is.
+    Returns None on failure/no match — callers should treat a trip/anchor
+    with no resolved location as "can't rank by distance for this one yet,"
+    not as an error.
+    """
+    if not configured() or not address.strip():
+        return None
+    result = await _geocode_cache.get_or_fetch(_normalize(address), lambda: _fetch_geocode(address))
+    return result or None
+
+
+async def _fetch_geocode(address: str) -> Optional[dict]:
+    data = await _post(
+        "places:searchText",
+        {"textQuery": address, "pageSize": 1},
+        field_mask="places.formattedAddress,places.location",
+    )
+    if data is None:
+        return None
+    found = data.get("places", [])
+    if not found:
+        return {}
+    location = found[0].get("location") or {}
+    if location.get("latitude") is None or location.get("longitude") is None:
+        return {}
+    return {"lat": location["latitude"], "lng": location["longitude"], "addr": found[0].get("formattedAddress", "")}
 
 
 def _first_photo_ref(place: dict):

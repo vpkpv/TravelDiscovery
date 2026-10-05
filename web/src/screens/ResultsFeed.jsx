@@ -58,6 +58,9 @@ function ResultCard({ item, saved, onToggleSave }) {
               <svg width="13" height="13" viewBox="0 0 24 24" fill={theme.accentFood} stroke="none"><path d="M12 2l2.9 6.4 6.9.8-5.1 4.8 1.4 6.9L12 17.7l-6.1 3.2 1.4-6.9-5.1-4.8 6.9-.8z" /></svg>
               <span style={{ fontWeight: 500 }}>{item.rating}</span>
               <span style={{ color: theme.textFaint }}>· {item.addr}</span>
+              {item.distance_km != null && (
+                <span style={{ color: theme.textFaint }}>· {item.distance_km < 1 ? `${Math.round(item.distance_km * 1000)}m` : `${item.distance_km.toFixed(1)}km`} from hotel</span>
+              )}
             </>
           ) : (
             <>
@@ -125,13 +128,13 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
   useEffect(() => {
     setHeroFailed(false);
     setLoading(true);
-    api.results({ city: citySlug, filter, musicGenre, chefs: favoriteChefs, cuisines }).then((d) => {
+    api.results({ city: citySlug, filter, musicGenre, chefs: favoriteChefs, cuisines, tripId: trip?.id || '' }).then((d) => {
       setItems(d.items);
       setTotalCount(d.count);
       setCityPhotoRef(d.city_photo_ref || null);
       setLoading(false);
     });
-  }, [citySlug, filter, musicGenre, favoriteChefs, cuisines]);
+  }, [citySlug, filter, musicGenre, favoriteChefs, cuisines, trip]);
 
   const showHero = Boolean(cityPhotoRef) && !heroFailed;
 

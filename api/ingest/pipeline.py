@@ -108,6 +108,8 @@ async def ingest_video(video_id: str, city: str, source_label: str, country: str
             "city": city,
             "source_video_id": video_id,
             "photo_ref": ground.get("photo_ref"),
+            "lat": ground.get("lat"),
+            "lng": ground.get("lng"),
             "grounded_at": time.time(),
         })
     return grounded
@@ -152,6 +154,8 @@ async def ingest_article(url: str, city: str, source_label: str, country: str = 
             "city": city,
             "source_url": url,
             "photo_ref": ground.get("photo_ref"),
+            "lat": ground.get("lat"),
+            "lng": ground.get("lng"),
             "grounded_at": time.time(),
         })
     return grounded
@@ -199,6 +203,8 @@ async def ingest_world_article(url: str, source_label: str, db=None) -> list:
             "city": city,
             "source_url": url,
             "photo_ref": ground.get("photo_ref"),
+            "lat": ground.get("lat"),
+            "lng": ground.get("lng"),
             "grounded_at": time.time(),
         })
     return grounded

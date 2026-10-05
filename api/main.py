@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import math
 import os
 import random
 import secrets
@@ -68,6 +69,11 @@ def _merge_ingested_items(items: list, city_lookup: dict) -> None:
             entry["rating"] = item["rating"]
         if item.get("photo_ref"):
             entry["photo_ref"] = item["photo_ref"]
+        if item.get("cuisine"):
+            entry["cuisine"] = item["cuisine"]
+        if item.get("lat") is not None and item.get("lng") is not None:
+            entry["lat"] = item["lat"]
+            entry["lng"] = item["lng"]
         existing.append(entry)
 
 
@@ -463,6 +469,7 @@ async def _grounded_items(
                 "place_verified": True,
                 **({"rating": ground["rating"]} if ground.get("rating") is not None else {}),
                 **({"photo_ref": ground["photo_ref"]} if ground.get("photo_ref") else {}),
+                **({"lat": ground["lat"], "lng": ground["lng"]} if ground.get("lat") is not None and ground.get("lng") is not None else {}),
             }
             for i, (s, ground) in enumerate(zip(suggestions, grounded))
             if ground and s["name"].lower() not in existing_names
@@ -523,6 +530,48 @@ async def _cached_city_photo(city_id: str) -> Optional[str]:
     ref = await places.find_city_photo(_city_display_name(city_id), _city_country(city_id))
     _city_photo_cache[city_id] = (now, ref)
     return ref
+
+
+def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    r = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlng = math.radians(lng2 - lng1)
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlng / 2) ** 2
+    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+async def _rank_by_trip_distance(items: list, trip_id: str, uid: str) -> list:
+    """Orders food picks by distance from the trip's base address (the
+    hotel) — "a restaurant itinerary around where the hotel booking is."
+    Combines the backlog's distance-ranking story with the base address
+    captured at trip setup. Picks missing lat/lng (chef/music-venue
+    matches never carry it, and an ingested venue only gets it once
+    re-grounded after this field was added — see pipeline.py's
+    GROUNDING_REFRESH_DAYS) sort after every measured pick rather than
+    being dropped — an unmeasured distance isn't evidence it's far away.
+    Music items and an unknown/base-address-less trip are left untouched.
+    """
+    doc = _trips_collection(uid).document(trip_id).get()
+    if not doc.exists:
+        return items
+    trip = doc.to_dict()
+    base_lat, base_lng = trip.get("base_lat"), trip.get("base_lng")
+    if base_lat is None or base_lng is None:
+        return items
+
+    other = [i for i in items if i["type"] != "food"]
+    measured, unmeasured = [], []
+    for i in items:
+        if i["type"] != "food":
+            continue
+        if i.get("lat") is None or i.get("lng") is None:
+            unmeasured.append(i)
+        else:
+            measured.append((_haversine_km(base_lat, base_lng, i["lat"], i["lng"]), i))
+    measured.sort(key=lambda pair: pair[0])
+
+    ranked_food = [{**i, "distance_km": round(d, 2)} for d, i in measured] + unmeasured
+    return ranked_food + other
 
 
 @app.get("/api/me")
@@ -663,13 +712,31 @@ async def list_trips(user: dict = Depends(auth.current_user)):
     return {"trips": [{"id": d.id, **d.to_dict()} for d in docs]}
 
 
+async def _geocoded_trip_data(body: TripBody) -> dict:
+    """body's fields plus base_lat/base_lng when the base address resolves
+    — the distance-ranking story (_rank_by_trip_distance) needs real
+    coordinates for the hotel, not just the free-text address the user
+    typed. Best-effort: an address that doesn't geocode just means
+    distance ranking falls back to showing everything unranked, same as
+    a Places-not-configured dev setup.
+    """
+    data = body.model_dump()
+    if places.configured():
+        geo = await places.geocode_address(body.base_address)
+        if geo:
+            data["base_lat"] = geo["lat"]
+            data["base_lng"] = geo["lng"]
+    return data
+
+
 @app.post("/api/trips")
 async def create_trip(body: TripBody, user: dict = Depends(auth.current_user)):
     if not auth.configured():
         raise HTTPException(status_code=404, detail="auth not enabled")
+    data = await _geocoded_trip_data(body)
     ref = _trips_collection(user["uid"]).document()
-    ref.set(body.model_dump())
-    return {"id": ref.id, **body.model_dump()}
+    ref.set(data)
+    return {"id": ref.id, **data}
 
 
 @app.get("/api/trips/{trip_id}")
@@ -689,8 +756,9 @@ async def update_trip(trip_id: str, body: TripBody, user: dict = Depends(auth.cu
     ref = _trips_collection(user["uid"]).document(trip_id)
     if not ref.get().exists:
         raise HTTPException(status_code=404, detail="trip not found")
-    ref.set(body.model_dump())
-    return {"id": trip_id, **body.model_dump()}
+    data = await _geocoded_trip_data(body)
+    ref.set(data)
+    return {"id": trip_id, **data}
 
 
 @app.delete("/api/trips/{trip_id}")
@@ -846,8 +914,8 @@ async def get_cities(
 
 @app.get("/api/results")
 async def get_results(
-    city: str, filter: str = "all", music_genre: str = "", chefs: str = "", cuisines: str = "",
-    _user: dict = Depends(auth.current_user),
+    city: str, filter: str = "all", music_genre: str = "", chefs: str = "", cuisines: str = "", trip_id: str = "",
+    user: dict = Depends(auth.current_user),
 ):
     # Run together, not sequentially — the city photo is unrelated to which
     # venues get returned, just an extra Places lookup for ResultsFeed's
@@ -856,6 +924,11 @@ async def get_results(
         _cached_grounded_items(city, music_genre, list(_split(chefs)), list(_split(cuisines))),
         _cached_city_photo(city),
     )
+    # trip_id, when given, orders food picks by distance from the trip's
+    # base address (the hotel) — see _rank_by_trip_distance. Applied before
+    # the filter below so "food only" and "all" both reflect the same order.
+    if trip_id and auth.configured():
+        items = await _rank_by_trip_distance(items, trip_id, user["uid"])
     if filter in ("food", "music"):
         items = [i for i in items if i["type"] == filter]
     return {"city": city, "count": len(items), "items": items, "city_photo_ref": city_photo_ref}
