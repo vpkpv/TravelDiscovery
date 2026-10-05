@@ -293,6 +293,7 @@ export default function App() {
           musicGenre={state.musicGenres[0] || ''}
           favoriteChefs={state.favoriteChefs}
           cuisines={state.cuisines}
+          trip={state.trip}
           onOpenSettings={() => set({ step: 'settings' })}
         />
       );

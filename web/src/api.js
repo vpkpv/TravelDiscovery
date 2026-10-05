@@ -70,4 +70,6 @@ export const api = {
   getTrip: (id) => get(`/api/trips/${encodeURIComponent(id)}`),
   updateTrip: (id, trip) => put(`/api/trips/${encodeURIComponent(id)}`, trip),
   deleteTrip: (id) => del(`/api/trips/${encodeURIComponent(id)}`),
+  setAnchorEvent: (tripId, anchor) => put(`/api/trips/${encodeURIComponent(tripId)}/anchor`, anchor),
+  clearAnchorEvent: (tripId) => del(`/api/trips/${encodeURIComponent(tripId)}/anchor`),
 };

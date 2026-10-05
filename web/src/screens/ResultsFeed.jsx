@@ -77,7 +77,23 @@ function ResultCard({ item, saved, onToggleSave }) {
   );
 }
 
-export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisines = [], onOpenSettings }) {
+function TripBanner({ trip }) {
+  if (!trip) return null;
+  const fmt = (d) => new Date(`${d}T00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const anchor = trip.anchor;
+  return (
+    <div style={{ background: theme.chipBg, borderRadius: 14, padding: '12px 14px', marginTop: 14, fontSize: 13.5, color: theme.textMuted }}>
+      <div>{fmt(trip.start_date)} – {fmt(trip.end_date)} · {trip.base_address}</div>
+      {anchor && (
+        <div style={{ marginTop: 4, fontWeight: 600, color: theme.text }}>
+          {anchor.venue_name} · {new Date(anchor.start_time).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisines = [], trip = null, onOpenSettings }) {
   const [filter, setFilter] = useState('all');
   const [items, setItems] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -178,6 +194,8 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
             </svg>
           </div>
         </div>
+
+        <TripBanner trip={trip} />
 
         {!surprise ? (
           <div style={{ display: 'flex', gap: 10, marginTop: 18, alignItems: 'center' }}>

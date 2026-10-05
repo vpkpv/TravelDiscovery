@@ -701,6 +701,58 @@ async def delete_trip(trip_id: str, user: dict = Depends(auth.current_user)):
     return {"ok": True}
 
 
+class AnchorEventBody(BaseModel):
+    venue_name: str
+    start_time: str  # ISO datetime (e.g. "2026-11-03T19:30") — a specific moment, not just a date
+
+
+@app.put("/api/trips/{trip_id}/anchor")
+async def set_anchor_event(trip_id: str, body: AnchorEventBody, user: dict = Depends(auth.current_user)):
+    """The trip's anchor — a concert, show, or reservation the rest of the
+    trip gets planned around (see the Product Backlog's "Anchor event"
+    story; "Done when: the concert shows on the LA trip"). Grounded
+    against Places when possible, same mechanism as every other venue in
+    this app, so the next story (distance/slot-aware ranking) has a real
+    address to compute walking distance from without needing to touch
+    this again. Not subject to CLAUDE.md's drop-if-ungrounded rule,
+    though — that rule is about venues *we* recommend; an anchor is the
+    user's own plan, so it's saved either way, just without a resolved
+    address if grounding doesn't find a match.
+    """
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    ref = _trips_collection(user["uid"]).document(trip_id)
+    doc = ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="trip not found")
+    trip = doc.to_dict()
+
+    ground = {}
+    if places.configured():
+        ground = await places.find_place(
+            body.venue_name, _city_display_name(trip.get("city", "")), _city_country(trip.get("city", ""))
+        )
+    anchor = {
+        "venue_name": body.venue_name,
+        "start_time": body.start_time,
+        "addr": ground.get("addr", ""),
+        "place_id": ground.get("place_id", ""),
+    }
+    ref.update({"anchor": anchor})
+    return {"id": trip_id, **trip, "anchor": anchor}
+
+
+@app.delete("/api/trips/{trip_id}/anchor")
+async def clear_anchor_event(trip_id: str, user: dict = Depends(auth.current_user)):
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    ref = _trips_collection(user["uid"]).document(trip_id)
+    if not ref.get().exists:
+        raise HTTPException(status_code=404, detail="trip not found")
+    ref.update({"anchor": firestore.DELETE_FIELD})
+    return {"ok": True}
+
+
 @app.get("/api/cuisines")
 def get_cuisines():
     return {"cuisines": CUISINES}
