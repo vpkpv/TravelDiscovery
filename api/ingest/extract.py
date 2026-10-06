@@ -38,11 +38,40 @@ _CUISINE_INSTRUCTION = (
     f"If genuinely none fit, use \"Other\" instead of guessing."
 )
 
+# A specific, sourced credential — "#1, The World's 50 Best Bars 2026",
+# "Michelin 2 Stars", "James Beard Award Winner, Best Chef: Texas 2026" —
+# shown as its own badge in the app rather than buried in `why`'s prose
+# (see ResultsFeed.jsx's credential badge). Deliberately conservative:
+# empty is the common, correct case for most sources (a Time Out roundup
+# rarely states a formal rank/award per venue), so the instruction leans
+# hard on "don't invent one" rather than encouraging a guess.
+_CREDENTIAL_INSTRUCTION = (
+    "credential: ONLY if the source explicitly states a specific rank, award, or official "
+    "recognition for this exact venue (e.g. \"#1 on The World's 50 Best Bars 2026\", "
+    "\"Michelin 2 Stars\", \"James Beard Award Winner, Best Chef: Texas 2026\"), give it back "
+    "concisely in that form. Otherwise an empty string — never invent or infer one just "
+    "because the source is a roundup or list; most venues won't have one, and that's correct."
+)
+
+# For WORLD_ARTICLE_PROMPT_TEMPLATE specifically: the article itself *is* a
+# ranked list, so unlike the two instructions above, this one actively asks
+# for the list's name + this entry's stated position rather than treating
+# that as the rare case — still never inventing a rank the article doesn't
+# actually state for this specific entry.
+_WORLD_CREDENTIAL_INSTRUCTION = (
+    "credential: this entry's specific stated rank or placement in the list this article is "
+    "about, using the list's actual name — e.g. \"#1, The World's 50 Best Bars 2026\" or "
+    "\"#23, The World's 50 Best Restaurants 2026\". If the article doesn't clearly state an "
+    "individual rank/number for this specific entry (not just that it's somewhere in the "
+    "list), use an empty string instead of guessing a position."
+)
+
 
 class VenueCandidate(BaseModel):
     name: str
     why: str
     cuisine: str
+    credential: str = ""
 
 
 class WorldVenueCandidate(BaseModel):
@@ -51,6 +80,7 @@ class WorldVenueCandidate(BaseModel):
     country: str
     why: str
     cuisine: str
+    credential: str = ""
 
 
 PROMPT_TEMPLATE = """You are extracting real restaurant/venue recommendations from a food \
@@ -64,6 +94,7 @@ For each one, provide:
 - why: a short one-sentence line explaining what makes it worth visiting, grounded only in \
 what the transcript actually says — never invent a detail that isn't in the transcript.
 - {cuisine_instruction}
+- {credential_instruction}
 
 If no real venues are named, return an empty list.
 
@@ -85,6 +116,7 @@ For each one, provide:
 - why: a short one-sentence line explaining what makes it worth visiting, grounded only in \
 what the article actually says — never invent a detail that isn't in the article.
 - {cuisine_instruction}
+- {credential_instruction}
 
 If no real restaurants are named, return an empty list.
 
@@ -110,6 +142,7 @@ mentions, only real, individually named restaurants. For each one:
 - why: a short one-sentence reason it's notable, grounded only in what the article actually says \
 — never invent a detail that isn't in the article.
 - {cuisine_instruction}
+- {credential_instruction}
 
 If you can't determine a specific city for an entry, skip it rather than guessing — a wrong city \
 would cause it to be searched for in the wrong place entirely.
@@ -155,18 +188,22 @@ def _extract(prompt: str) -> list:
         log.warning("Gemini response didn't parse against the schema: %r", response.text)
         return []
 
-    return [{"name": c.name, "why": c.why, "cuisine": c.cuisine} for c in candidates if c.name.strip()]
+    return [
+        {"name": c.name, "why": c.why, "cuisine": c.cuisine, "credential": c.credential}
+        for c in candidates if c.name.strip()
+    ]
 
 
 def extract_venues(transcript: str, city: str) -> list:
-    """Returns [{"name": ..., "why": ..., "cuisine": ...}, ...]. Empty list
-    if not configured, the call fails, or no venues are named in the
-    transcript.
+    """Returns [{"name": ..., "why": ..., "cuisine": ..., "credential": ...}, ...].
+    Empty list if not configured, the call fails, or no venues are named in
+    the transcript.
     """
     if not configured() or not transcript.strip():
         return []
     return _extract(PROMPT_TEMPLATE.format(
-        city=city, transcript=transcript[:60000], cuisine_instruction=_CUISINE_INSTRUCTION,
+        city=city, transcript=transcript[:60000],
+        cuisine_instruction=_CUISINE_INSTRUCTION, credential_instruction=_CREDENTIAL_INSTRUCTION,
     ))
 
 
@@ -178,12 +215,13 @@ def extract_venues_from_article(article_text: str, city: str) -> list:
     if not configured() or not article_text.strip():
         return []
     return _extract(ARTICLE_PROMPT_TEMPLATE.format(
-        city=city, article_text=article_text[:60000], cuisine_instruction=_CUISINE_INSTRUCTION,
+        city=city, article_text=article_text[:60000],
+        cuisine_instruction=_CUISINE_INSTRUCTION, credential_instruction=_CREDENTIAL_INSTRUCTION,
     ))
 
 
 def extract_world_venues(article_text: str) -> list:
-    """Returns [{"name", "city", "country", "why", "cuisine"}, ...] — each venue
+    """Returns [{"name", "city", "country", "why", "cuisine", "credential"}, ...] — each venue
     carries its own city/country instead of one for the whole article, for
     a multi-city "world's best restaurants" style list. Empty list if not
     configured, the call fails, or no venues (with a determinable city)
@@ -194,7 +232,8 @@ def extract_world_venues(article_text: str) -> list:
         return []
 
     prompt = WORLD_ARTICLE_PROMPT_TEMPLATE.format(
-        article_text=article_text[:60000], cuisine_instruction=_CUISINE_INSTRUCTION,
+        article_text=article_text[:60000],
+        cuisine_instruction=_CUISINE_INSTRUCTION, credential_instruction=_WORLD_CREDENTIAL_INSTRUCTION,
     )
     try:
         response = _get_client().models.generate_content(
@@ -215,7 +254,10 @@ def extract_world_venues(article_text: str) -> list:
         return []
 
     return [
-        {"name": c.name, "city": c.city, "country": c.country, "why": c.why, "cuisine": c.cuisine}
+        {
+            "name": c.name, "city": c.city, "country": c.country,
+            "why": c.why, "cuisine": c.cuisine, "credential": c.credential,
+        }
         for c in candidates
         if c.name.strip() and c.city.strip()
     ]

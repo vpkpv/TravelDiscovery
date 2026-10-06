@@ -91,6 +91,7 @@ async def ingest_video(video_id: str, city: str, source_label: str, country: str
                 **hit,
                 "why": candidate["why"],
                 "cuisine": candidate.get("cuisine") or hit.get("cuisine", ""),
+                "credential": candidate.get("credential") or hit.get("credential", ""),
                 "source_video_id": video_id,
             })
             continue
@@ -105,6 +106,7 @@ async def ingest_video(video_id: str, city: str, source_label: str, country: str
             "addr": ground["addr"],
             "why": candidate["why"],
             "cuisine": candidate.get("cuisine", ""),
+            "credential": candidate.get("credential", ""),
             "city": city,
             "source_video_id": video_id,
             "photo_ref": ground.get("photo_ref"),
@@ -137,6 +139,7 @@ async def ingest_article(url: str, city: str, source_label: str, country: str = 
                 **hit,
                 "why": candidate["why"],
                 "cuisine": candidate.get("cuisine") or hit.get("cuisine", ""),
+                "credential": candidate.get("credential") or hit.get("credential", ""),
                 "source_url": url,
             })
             continue
@@ -151,6 +154,7 @@ async def ingest_article(url: str, city: str, source_label: str, country: str = 
             "addr": ground["addr"],
             "why": candidate["why"],
             "cuisine": candidate.get("cuisine", ""),
+            "credential": candidate.get("credential", ""),
             "city": city,
             "source_url": url,
             "photo_ref": ground.get("photo_ref"),
@@ -185,6 +189,7 @@ async def ingest_world_article(url: str, source_label: str, db=None) -> list:
                 **hit,
                 "why": candidate["why"],
                 "cuisine": candidate.get("cuisine") or hit.get("cuisine", ""),
+                "credential": candidate.get("credential") or hit.get("credential", ""),
                 "city": city,
                 "source_url": url,
             })
@@ -200,6 +205,7 @@ async def ingest_world_article(url: str, source_label: str, db=None) -> list:
             "addr": ground["addr"],
             "why": candidate["why"],
             "cuisine": candidate.get("cuisine", ""),
+            "credential": candidate.get("credential", ""),
             "city": city,
             "source_url": url,
             "photo_ref": ground.get("photo_ref"),

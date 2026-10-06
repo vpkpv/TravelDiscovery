@@ -71,6 +71,8 @@ def _merge_ingested_items(items: list, city_lookup: dict) -> None:
             entry["photo_ref"] = item["photo_ref"]
         if item.get("cuisine"):
             entry["cuisine"] = item["cuisine"]
+        if item.get("credential"):
+            entry["credential"] = item["credential"]
         if item.get("lat") is not None and item.get("lng") is not None:
             entry["lat"] = item["lat"]
             entry["lng"] = item["lng"]

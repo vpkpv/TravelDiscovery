@@ -72,6 +72,18 @@ function ResultCard({ item, saved, onToggleSave }) {
             </svg>
           </div>
         </div>
+        {item.credential && (
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 5,
+            background: '#FBF1DC', color: '#8A6214', padding: '3px 9px', borderRadius: 10,
+            fontWeight: 600, fontSize: 12,
+          }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+              <circle cx="12" cy="8" r="6" /><path d="M8 13l-3 8 7-3 7 3-3-8" />
+            </svg>
+            {item.credential}
+          </div>
+        )}
         <div style={{ fontSize: 13.5, color: theme.textMuted, marginTop: 4 }}>{item.meta}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 13 }}>
           {isFood || isBar ? (
