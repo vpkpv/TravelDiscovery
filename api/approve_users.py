@@ -20,6 +20,14 @@ A "not found" on approve/revoke means that email hasn't signed in with
 Google yet — Firebase only knows about an account once it's done that at
 least once, so there's nothing yet to approve by email; ask them to sign
 in first, then re-run.
+
+If every command hangs for a long time or dies with a DNS/"UNAVAILABLE"
+error resolving firestore.googleapis.com — confirmed live on macOS even
+with working internet (`ping firestore.googleapis.com` resolves fine) —
+it's gRPC's own bundled DNS resolver misbehaving, not a real network
+problem. Force it to use the system resolver instead:
+
+    GRPC_DNS_RESOLVER=native python approve_users.py ...
 """
 
 import argparse
