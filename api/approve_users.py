@@ -11,15 +11,19 @@ CREDENTIALS, or `gcloud auth application-default login` against the
 right project) plus AUTH_ENABLED=1 in api/.env.
 
 Usage (from api/):
-    python approve_users.py list                 # signed in, waiting on approval
-    python approve_users.py status                # approved users, last seen
-    python approve_users.py approve a@b.com ...   # grant access
-    python approve_users.py revoke a@b.com ...    # remove access
+    python approve_users.py list                   # signed in, waiting on approval
+    python approve_users.py status                  # approved users, last seen
+    python approve_users.py approve a@b.com ...     # grant access (they've signed in once)
+    python approve_users.py preapprove a@b.com ...  # grant access before they've ever signed in
+    python approve_users.py revoke a@b.com ...      # remove access (either kind)
 
 A "not found" on approve/revoke means that email hasn't signed in with
 Google yet — Firebase only knows about an account once it's done that at
-least once, so there's nothing yet to approve by email; ask them to sign
-in first, then re-run.
+least once, so `approve` has no uid yet to key approved_users on; either
+have them sign in first and re-run `approve`, or use `preapprove` instead,
+which doesn't need a uid — it writes approved_emails/{email}, and the app
+itself migrates it into a real approved_users/{uid} doc the first time
+that person actually signs in (see auth.is_approved).
 
 If every command hangs for a long time or dies with a DNS/"UNAVAILABLE"
 error resolving firestore.googleapis.com — confirmed live on macOS even
@@ -47,6 +51,10 @@ def _approved_ref(uid: str):
     return auth.firestore_client().collection("approved_users").document(uid)
 
 
+def _approved_email_ref(email: str):
+    return auth.firestore_client().collection("approved_emails").document(auth._normalize_email(email))
+
+
 def cmd_list(_args):
     pending = [
         user for user in firebase_auth.list_users().iterate_all()
@@ -64,21 +72,30 @@ def cmd_status(_args):
     """Approved users and when they were last seen (main.py's /api/me
     bumps last_active once per sign-in — see auth.touch_last_active) —
     missing for anyone approved before that existed, or who hasn't
-    opened the app since.
+    opened the app since. Also lists anyone preapproved but still waiting
+    on their first sign-in (see cmd_preapprove) — these migrate into the
+    "approved" list above automatically once they do (auth.is_approved).
     """
     docs = list(auth.firestore_client().collection("approved_users").stream())
-    if not docs:
-        print("No approved users yet.")
-        return
+    pending_preapprovals = list(auth.firestore_client().collection("approved_emails").stream())
 
     def _fmt(ts):
         return datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M") if ts else "never seen"
 
-    rows = sorted(docs, key=lambda d: (d.to_dict() or {}).get("last_active", 0), reverse=True)
-    print(f"{len(rows)} approved:")
-    for d in rows:
-        data = d.to_dict() or {}
-        print(f"  {data.get('email') or f'(no email, uid={d.id})'}  last active: {_fmt(data.get('last_active'))}")
+    if docs:
+        rows = sorted(docs, key=lambda d: (d.to_dict() or {}).get("last_active", 0), reverse=True)
+        print(f"{len(rows)} approved:")
+        for d in rows:
+            data = d.to_dict() or {}
+            print(f"  {data.get('email') or f'(no email, uid={d.id})'}  last active: {_fmt(data.get('last_active'))}")
+    else:
+        print("No approved users yet.")
+
+    if pending_preapprovals:
+        print(f"\n{len(pending_preapprovals)} preapproved, waiting on first sign-in:")
+        for d in pending_preapprovals:
+            data = d.to_dict() or {}
+            print(f"  {data.get('email', d.id)}")
 
 
 def cmd_approve(args):
@@ -86,18 +103,32 @@ def cmd_approve(args):
         try:
             user = firebase_auth.get_user_by_email(email)
         except firebase_auth.UserNotFoundError:
-            print(f"  {email}: not found — they need to sign in at least once first.")
+            print(f"  {email}: not found — they need to sign in at least once first (or use `preapprove`).")
             continue
         _approved_ref(user.uid).set({"email": email, "approved_at": int(time.time())}, merge=True)
         print(f"  {email}: approved (uid={user.uid})")
 
 
+def cmd_preapprove(args):
+    """Grants access before the person has ever signed in — no Firebase
+    Auth uid exists yet to key approved_users on, so this writes
+    approved_emails/{email} instead. auth.is_approved() checks that as a
+    fallback and migrates it into a real approved_users/{uid} doc the
+    moment they actually do sign in; nothing else needs to run this
+    approve_users.py command again for that person.
+    """
+    for email in args.emails:
+        _approved_email_ref(email).set({"email": email, "preapproved_at": int(time.time())})
+        print(f"  {email}: preapproved — will unlock automatically on their first sign-in")
+
+
 def cmd_revoke(args):
     for email in args.emails:
+        _approved_email_ref(email).delete()  # a no-op if there was no pending preapproval
         try:
             user = firebase_auth.get_user_by_email(email)
         except firebase_auth.UserNotFoundError:
-            print(f"  {email}: not found in Firebase Auth.")
+            print(f"  {email}: no Firebase account yet — any pending preapproval was cleared.")
             continue
         _approved_ref(user.uid).delete()
         print(f"  {email}: access revoked (uid={user.uid})")
@@ -124,6 +155,10 @@ def main():
     p_approve = sub.add_parser("approve", help="grant access to one or more emails")
     p_approve.add_argument("emails", nargs="+")
     p_approve.set_defaults(func=cmd_approve)
+
+    p_preapprove = sub.add_parser("preapprove", help="grant access before they've ever signed in")
+    p_preapprove.add_argument("emails", nargs="+")
+    p_preapprove.set_defaults(func=cmd_preapprove)
 
     p_revoke = sub.add_parser("revoke", help="remove access for one or more emails")
     p_revoke.add_argument("emails", nargs="+")

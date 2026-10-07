@@ -620,7 +620,7 @@ async def get_me(authorization: str = Header(default="")):
     if not user:
         return {"auth_enabled": True, "signed_in": False}
 
-    approved = auth.is_approved(user["uid"])
+    approved = auth.is_approved(user["uid"], user["email"])
     if approved:
         # A lightweight usage signal — AuthGate.jsx calls /api/me once per
         # sign-in/session, so this is roughly "last time this person opened

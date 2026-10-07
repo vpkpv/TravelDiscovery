@@ -63,9 +63,36 @@ async def verify_token(id_token: str) -> dict:
     return {"uid": decoded.get("uid", ""), "email": decoded.get("email", "")}
 
 
-def is_approved(uid: str) -> bool:
-    doc = firestore_client().collection("approved_users").document(uid).get()
-    return doc.exists
+def _normalize_email(email: str) -> str:
+    return email.strip().lower()
+
+
+def is_approved(uid: str, email: str = "") -> bool:
+    """True if approved_users/{uid} exists — the normal, fast path for
+    anyone who's ever been approved post-sign-in.
+
+    Falls back to approved_emails/{email} when it doesn't: this is how
+    `approve_users.py preapprove` lets someone be approved before they've
+    ever signed in (uid doesn't exist yet to key approved_users on). The
+    first time that fallback fires for a given uid, it migrates — writes a
+    real approved_users/{uid} doc and deletes the pre-approval — so every
+    later check for this account is the fast uid-only path again, and
+    admin tooling (list/status) only ever has one place to look.
+    """
+    if firestore_client().collection("approved_users").document(uid).get().exists:
+        return True
+    if not email:
+        return False
+    pre_ref = firestore_client().collection("approved_emails").document(_normalize_email(email))
+    pre = pre_ref.get()
+    if not pre.exists:
+        return False
+    firestore_client().collection("approved_users").document(uid).set({
+        "email": email,
+        "approved_at": pre.to_dict().get("preapproved_at", time.time()),
+    })
+    pre_ref.delete()
+    return True
 
 
 def touch_last_active(uid: str) -> None:
@@ -103,7 +130,7 @@ async def current_user(authorization: str = Header(default="")) -> dict:
     if not user:
         raise HTTPException(status_code=401, detail="invalid or expired token")
 
-    if not is_approved(user["uid"]):
+    if not is_approved(user["uid"], user["email"]):
         raise HTTPException(status_code=403, detail="account not yet approved")
 
     return user
