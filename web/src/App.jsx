@@ -48,6 +48,17 @@ const initial = { ...DEFAULT_STATE, ...(loadState() || {}) };
 
 export default function App() {
   const [state, setState] = useState(initial);
+  // Gates the save effect below until the cross-device pull (next effect)
+  // has had its one chance to run — true immediately when there's no
+  // account to sync against at all. Without this, the save effect's very
+  // first fire-on-mount pushed whatever `state` happened to start as
+  // (DEFAULT_STATE's blanks, if localStorage was empty — e.g. right after
+  // clearing browser history/site data) straight to Firestore, often
+  // winning the race against the restore fetch below and overwriting a
+  // real saved profile with nothing — confirmed live: clearing history
+  // forced a full Spotify-reauth-and-redo-prefs even though the account's
+  // real prefs were still sitting in Firestore the whole time.
+  const [hydrated, setHydrated] = useState(!fb.configured());
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -55,10 +66,10 @@ export default function App() {
     // as the localStorage write above. A signed-out or auth-not-configured
     // app just gets a rejected promise here, which is fine to ignore: local
     // storage above is already the source of truth for that case.
-    if (fb.configured()) {
+    if (fb.configured() && hydrated) {
       api.savePrefs(state).catch(() => {});
     }
-  }, [state]);
+  }, [state, hydrated]);
 
   // Landing back here after /auth/spotify/callback redirects the browser
   // with the result in the query string — there's no session store yet, so
@@ -81,10 +92,12 @@ export default function App() {
         set({ tasteMethod: 'spotify', spotifyFailed: true, step: 'genres' });
       }
       window.history.replaceState(null, '', window.location.pathname);
+      setHydrated(true); // a fresh Spotify connection is itself real, current state — safe to save
       return; // mid Spotify handoff — skip the cross-device fetch below, it'd race this
     } else if (error) {
       set({ tasteMethod: 'spotify', spotifyFailed: true, step: 'genres' });
       window.history.replaceState(null, '', window.location.pathname);
+      setHydrated(true);
       return;
     }
 
@@ -94,11 +107,14 @@ export default function App() {
     // left off, instead of only ever working on the one browser that set
     // it. Only overwrites state when the server actually has something
     // saved; a signed-out or auth-not-configured app just keeps whatever
-    // loadState() already produced.
+    // loadState() already produced. Either way, this is the one chance the
+    // save effect above waits for (`hydrated`) before it's allowed to push
+    // anything back — so a real saved profile can never lose a race
+    // against this app's own blank starting state.
     if (fb.configured()) {
       api.getPrefs().then((d) => {
         if (d.prefs) set(d.prefs);
-      }).catch(() => {});
+      }).catch(() => {}).finally(() => setHydrated(true));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
