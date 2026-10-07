@@ -27,15 +27,15 @@ from ingest.transcripts import fetch_transcript
 # reusing its stored data instead of spending another billed call on it.
 GROUNDING_REFRESH_DAYS = int(os.environ.get("INGEST_REFRESH_DAYS", "30"))
 
-# citySlug -> {normalized_name: item}, built lazily per city the first time
-# this run touches it. Process-local, not persisted — a fresh `ingest.run`
-# invocation starts empty and reloads from Firestore (via `db`) itself; this
-# only avoids re-fetching the same city's doc repeatedly within one run
-# (several different sources can touch the same city).
+# (citySlug, item_type) -> {normalized_name: item}, built lazily the first
+# time this run touches that combination. Process-local, not persisted — a
+# fresh `ingest.run` invocation starts empty and reloads from Firestore (via
+# `db`) itself; this only avoids re-fetching the same city's doc repeatedly
+# within one run (several different sources can touch the same city).
 _known_cache: dict = {}
 
 
-def _known_venues(db, city: str) -> dict:
+def _known_venues(db, city: str, item_type: str = "food") -> dict:
     """Venues already in Firestore for this city, grounded recently enough
     (see GROUNDING_REFRESH_DAYS) that re-grounding them again now would only
     spend a billed Places call to re-confirm the same answer. `db` is None
@@ -43,23 +43,30 @@ def _known_venues(db, city: str) -> dict:
     against, so every candidate grounds fresh, same as before this existed.
     An item with no `grounded_at` (from before this field existed) is
     treated as due for re-verification rather than assumed fresh.
+
+    `item_type` filters to the venue category actually being ingested
+    ("food" for every video/article source, or "bar" for a world-list bar
+    source — see ingest_world_article's `kind`) — a bar source shouldn't
+    treat an already-known restaurant as "this bar is already known", and
+    vice versa.
     """
     slug = places._slugify(city)
-    if slug in _known_cache:
-        return _known_cache[slug]
+    cache_key = (slug, item_type)
+    if cache_key in _known_cache:
+        return _known_cache[cache_key]
     out = {}
     if db is not None:
         doc = db.collection("venues").document(slug).get()
         if doc.exists:
             cutoff = time.time() - GROUNDING_REFRESH_DAYS * 86400
             for item in (doc.to_dict() or {}).get("items", []):
-                if item.get("type") != "food":
+                if item.get("type") != item_type:
                     continue
                 grounded_at = item.get("grounded_at")
                 if grounded_at is None or grounded_at < cutoff:
                     continue
                 out[places._normalize(item["name"])] = item
-    _known_cache[slug] = out
+    _known_cache[cache_key] = out
     return out
 
 
@@ -165,24 +172,34 @@ async def ingest_article(url: str, city: str, source_label: str, country: str = 
     return grounded
 
 
-async def ingest_world_article(url: str, source_label: str, db=None) -> list:
+# World-list venue kind -> the `type` value stored on RESULTS/Firestore
+# entries (see api/data.py and main.py's _grounded_items) — "restaurant" is
+# the kind every prior world-list source was, stored as "food"; "bar" is a
+# genuinely different displayed category (see places.find_bars_venues and
+# ResultsFeed.jsx's Bars tab), not a food subtype.
+_TYPE_BY_KIND = {"restaurant": "food", "bar": "bar"}
+
+
+async def ingest_world_article(url: str, source_label: str, db=None, kind: str = "restaurant") -> list:
     """Same idea as ingest_article(), but for a multi-city "World's 50 Best
-    Restaurants" style list — each extracted venue carries its own city
-    and country (see extract.extract_world_venues) instead of one city for
-    the whole article, since a list like this spans many places at once.
-    Results can span several different cities' worth of RESULTS entries
-    from a single call. `db` — see ingest_video.
+    Restaurants" (or, with kind="bar", "World's 50 Best Bars") style list —
+    each extracted venue carries its own city and country (see extract.
+    extract_world_venues) instead of one city for the whole article, since a
+    list like this spans many places at once. Results can span several
+    different cities' worth of RESULTS entries from a single call. `db` —
+    see ingest_video.
     """
     article_text = scrape_url(url)
     if not article_text:
         return []
 
-    candidates = extract_world_venues(article_text)
+    candidates = extract_world_venues(article_text, kind=kind)
+    venue_type = _TYPE_BY_KIND.get(kind, "food")
 
     grounded = []
     for candidate in candidates:
         city = candidate["city"]
-        known = _known_venues(db, city)
+        known = _known_venues(db, city, venue_type)
         hit = known.get(places._normalize(candidate["name"]))
         if hit is not None:
             grounded.append({
@@ -198,7 +215,7 @@ async def ingest_world_article(url: str, source_label: str, db=None) -> list:
         if not ground:
             continue
         grounded.append({
-            "type": "food",
+            "type": venue_type,
             "name": candidate["name"],
             "meta": source_label,
             "rating": ground.get("rating"),

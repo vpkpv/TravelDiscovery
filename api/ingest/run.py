@@ -408,6 +408,17 @@ WORLD_ARTICLES = [
         "url": "https://www.theworlds50best.com/restaurants/best-in-north-america/index.html",
         "source": "North America's 50 Best Restaurants 2026",
     },
+    # URL confirmed live by user in their own browser, 2026-10-07 — the
+    # bars sibling of the restaurant list above, same site, same North
+    # America regional edition (Sip & Guzzle, NYC, is #1). First bar
+    # source ingest_world_article can actually handle correctly: `kind`
+    # tags these as type "bar", not "food" — see pipeline.ingest_world_
+    # article and _TYPE_BY_KIND.
+    {
+        "url": "https://www.theworlds50best.com/bars/best-in-north-america/index.html",
+        "source": "North America's 50 Best Bars 2026",
+        "kind": "bar",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
@@ -538,7 +549,7 @@ async def main():
 
     for i, w in enumerate(WORLD_ARTICLES):
         print(f"Scraping: {w['source']} ({w['url']})...", file=sys.stderr)
-        items = await ingest_world_article(w["url"], w["source"], db=db)
+        items = await ingest_world_article(w["url"], w["source"], db=db, kind=w.get("kind", "restaurant"))
         cities = sorted({item["city"] for item in items})
         print(f"  -> {len(items)} grounded venue(s) across {len(cities)} cities: {', '.join(cities)}", file=sys.stderr)
         if not items:

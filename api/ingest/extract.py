@@ -128,15 +128,25 @@ Article:
 # Restaurants"-style list spans many cities and countries in one article,
 # not one fixed city — so city/country have to be extracted per venue
 # instead of supplied once for the whole piece (see WorldVenueCandidate
-# and pipeline.ingest_world_article).
-WORLD_ARTICLE_PROMPT_TEMPLATE = """You are extracting a ranked or curated list of top restaurants \
-from a prestigious food/travel publication's article — something like "The World's 50 Best \
-Restaurants" or "Top 100 Restaurants in the World," spanning many different cities and countries \
-at once, not just one.
+# and pipeline.ingest_world_article). Parameterized on venue kind
+# (restaurant/bar) via {venue_singular}/{venue_plural}/{venue_plural_title}
+# rather than a second near-duplicate template — unlike PROMPT_TEMPLATE vs.
+# ARTICLE_PROMPT_TEMPLATE (a genuinely different source shape), this is a
+# pure noun swap: "World's 50 Best Restaurants" and "World's 50 Best Bars"
+# are the same kind of article about a different kind of venue.
+_VENUE_KIND_WORDS = {
+    "restaurant": {"singular": "restaurant", "plural": "restaurants", "plural_title": "Restaurants"},
+    "bar": {"singular": "bar", "plural": "bars", "plural_title": "Bars"},
+}
 
-Read the article text below and extract every specific, named restaurant it lists — not generic \
-mentions, only real, individually named restaurants. For each one:
-- name: the restaurant's real name.
+WORLD_ARTICLE_PROMPT_TEMPLATE = """You are extracting a ranked or curated list of top {venue_plural} \
+from a prestigious food/travel publication's article — something like "The World's 50 Best \
+{venue_plural_title}" or "Top 100 {venue_plural_title} in the World," spanning many different \
+cities and countries at once, not just one.
+
+Read the article text below and extract every specific, named {venue_singular} it lists — not \
+generic mentions, only real, individually named {venue_plural}. For each one:
+- name: the {venue_singular}'s real name.
 - city: the city it's actually located in, as stated or clearly implied by the article.
 - country: the country it's located in.
 - why: a short one-sentence reason it's notable, grounded only in what the article actually says \
@@ -147,7 +157,7 @@ mentions, only real, individually named restaurants. For each one:
 If you can't determine a specific city for an entry, skip it rather than guessing — a wrong city \
 would cause it to be searched for in the wrong place entirely.
 
-If no real restaurants are named, return an empty list.
+If no real {venue_plural} are named, return an empty list.
 
 Article:
 {article_text}
@@ -220,20 +230,22 @@ def extract_venues_from_article(article_text: str, city: str) -> list:
     ))
 
 
-def extract_world_venues(article_text: str) -> list:
+def extract_world_venues(article_text: str, kind: str = "restaurant") -> list:
     """Returns [{"name", "city", "country", "why", "cuisine", "credential"}, ...] — each venue
     carries its own city/country instead of one for the whole article, for
-    a multi-city "world's best restaurants" style list. Empty list if not
-    configured, the call fails, or no venues (with a determinable city)
-    are named. See WORLD_ARTICLE_PROMPT_TEMPLATE and
-    pipeline.ingest_world_article.
+    a multi-city "world's best restaurants" (or, with kind="bar", "world's
+    best bars") style list. Empty list if not configured, the call fails,
+    or no venues (with a determinable city) are named. See
+    WORLD_ARTICLE_PROMPT_TEMPLATE and pipeline.ingest_world_article.
     """
     if not configured() or not article_text.strip():
         return []
 
+    words = _VENUE_KIND_WORDS.get(kind, _VENUE_KIND_WORDS["restaurant"])
     prompt = WORLD_ARTICLE_PROMPT_TEMPLATE.format(
         article_text=article_text[:60000],
         cuisine_instruction=_CUISINE_INSTRUCTION, credential_instruction=_WORLD_CREDENTIAL_INSTRUCTION,
+        venue_singular=words["singular"], venue_plural=words["plural"], venue_plural_title=words["plural_title"],
     )
     try:
         response = _get_client().models.generate_content(
