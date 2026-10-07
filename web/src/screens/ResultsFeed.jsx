@@ -34,6 +34,31 @@ function mapsUrl(item) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
 
+// Deep-links out to a booking/ticketing provider's own search, rather than
+// a real in-app reservation flow — OpenTable's and Ticketmaster's actual
+// booking APIs are partner-gated (a business agreement, not a self-serve
+// API key), so this is what's buildable without one: the same pattern as
+// mapsUrl() above, a verified name/address handed to the provider's own
+// search rather than us claiming to know their internal venue/event IDs.
+// Also lines up with the OpenTable-affiliate revenue path discussed
+// alongside monetization — a real per-booking commission exists on exactly
+// this kind of referral.
+function bookingUrl(item) {
+  if (item.type === 'music') {
+    return `https://www.ticketmaster.com/search?q=${encodeURIComponent(item.name)}`;
+  }
+  const params = new URLSearchParams({ term: item.name });
+  if (item.lat != null && item.lng != null) {
+    params.set('latitude', item.lat);
+    params.set('longitude', item.lng);
+  }
+  return `https://www.opentable.com/s?${params.toString()}`;
+}
+
+function bookingLabel(item) {
+  return item.type === 'music' ? 'Get tickets' : 'Reserve a table';
+}
+
 function ResultCard({ item, saved, onToggleSave }) {
   const isFood = item.type === 'food';
   const isBar = item.type === 'bar';
@@ -112,6 +137,18 @@ function ResultCard({ item, saved, onToggleSave }) {
             <path d="M12 3l1.9 4.6L18 9l-4.1 1.4L12 15l-1.9-4.6L6 9l4.1-1.4z" />
           </svg>
           <div style={{ fontSize: 13, color: theme.textMuted, lineHeight: 1.45, fontStyle: 'italic' }}>{item.why}</div>
+        </div>
+        <div
+          onClick={(e) => { e.stopPropagation(); window.open(bookingUrl(item), '_blank', 'noopener,noreferrer'); }}
+          style={{
+            marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+            background: accent, color: '#FFFFFF', padding: '8px 14px', borderRadius: 12, fontSize: 13, fontWeight: 600,
+          }}
+        >
+          {bookingLabel(item)}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
         </div>
       </div>
     </div>
