@@ -297,6 +297,14 @@ ARTICLES = [
         "city": "London",
         "source": "Time Out — Mapped: 50 Best Restaurants in London 2026",
     },
+    # URL confirmed live by user in their own browser, 2026-10-07. New York
+    # had no dedicated source before — only ever reachable via live
+    # curated_food top-up, same gap London had before the entry above.
+    {
+        "url": "https://www.timeout.com/newyork/restaurants/best-restaurants-in-nyc",
+        "city": "New York",
+        "source": "Time Out New York — Best Restaurants in NYC",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -390,6 +398,15 @@ WORLD_ARTICLES = [
     {
         "url": "https://guide.michelin.com/us/en/article/michelin-guide-ceremony/all-michelin-star-restaurants-in-spain-2026-the-full-list",
         "source": "MICHELIN Guide — All Starred Restaurants in Spain 2026",
+    },
+    # URL confirmed live by user in their own browser, 2026-10-07 — the
+    # North America regional edition of theworlds50best.com's restaurant
+    # list already above, a different panel vote than the global one
+    # (Smyth in Chicago is #1 regionally). Real credential-badge candidates:
+    # ranked restaurants in Chicago, Montréal, New Orleans and more.
+    {
+        "url": "https://www.theworlds50best.com/restaurants/best-in-north-america/index.html",
+        "source": "North America's 50 Best Restaurants 2026",
     },
 ]
 
