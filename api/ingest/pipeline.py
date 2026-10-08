@@ -65,6 +65,15 @@ def _known_venues(db, city: str, item_type: str = "food") -> dict:
                 grounded_at = item.get("grounded_at")
                 if grounded_at is None or grounded_at < cutoff:
                     continue
+                # grounded_at (added Oct 4) shipped a day before lat/lng
+                # capture (Oct 5) — confirmed live: venues grounded in that
+                # one-day window have a fresh grounded_at but no lat/lng,
+                # and without this check they'd be "already known" for the
+                # full 30 days, permanently missing from distance ranking
+                # until that window passes. Treat missing lat/lng as due
+                # for re-verification regardless of how fresh grounded_at is.
+                if item.get("lat") is None or item.get("lng") is None:
+                    continue
                 out[places._normalize(item["name"])] = item
     _known_cache[cache_key] = out
     return out

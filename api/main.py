@@ -579,13 +579,27 @@ async def _rank_by_trip_distance(items: list, trip_id: str, uid: str) -> list:
     being dropped — an unmeasured distance isn't evidence it's far away.
     Music items and an unknown/base-address-less trip are left untouched.
     """
-    doc = _trips_collection(uid).document(trip_id).get()
+    ref = _trips_collection(uid).document(trip_id)
+    doc = ref.get()
     if not doc.exists:
         return items
     trip = doc.to_dict()
     base_lat, base_lng = trip.get("base_lat"), trip.get("base_lng")
     if base_lat is None or base_lng is None:
-        return items
+        # A trip created before base-address geocoding existed (see
+        # _geocoded_trip_data) never got base_lat/base_lng written at all —
+        # confirmed live: an existing trip with no distances on any pick,
+        # because nothing re-geocodes a trip after it's created. Best-effort
+        # catch-up here instead of leaving it broken until the user edits
+        # the trip: geocode now and persist it, so this only costs an extra
+        # lookup once per such trip rather than on every /api/results call.
+        if not places.configured():
+            return items
+        geo = await places.geocode_address(trip.get("base_address", ""))
+        if not geo:
+            return items
+        base_lat, base_lng = geo["lat"], geo["lng"]
+        ref.update({"base_lat": base_lat, "base_lng": base_lng})
 
     other = [i for i in items if i["type"] not in _DISTANCE_RANKED_TYPES]
     measured, unmeasured = [], []
