@@ -194,8 +194,29 @@ function TripBanner({ trip }) {
   );
 }
 
+// Only meaningful with a trip (distance_km is only populated then — see
+// main.py's _rank_by_trip_distance) — 'recommended' keeps the server's own
+// order (distance-ranked already for food/bar, see that same function),
+// so this toggle is an override, not a replacement for ranking that
+// already happens server-side.
+const SORTS = [
+  { id: 'recommended', label: 'Recommended' },
+  { id: 'distance', label: 'Distance' },
+  { id: 'rating', label: 'Rating' },
+];
+
+function sortItems(list, sort) {
+  if (sort === 'recommended') return list;
+  const withKey = (item) => {
+    const v = sort === 'distance' ? item.distance_km : item.rating;
+    return v == null ? Infinity : (sort === 'distance' ? v : -v);
+  };
+  return [...list].sort((a, b) => withKey(a) - withKey(b));
+}
+
 export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisines = [], trip = null, onOpenSettings }) {
   const [filter, setFilter] = useState('all');
+  const [sort, setSort] = useState('recommended');
   const [items, setItems] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [saved, setSaved] = useState({});
@@ -255,7 +276,7 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
     api.surprise({ city: citySlug, seed, musicGenre, chefs: favoriteChefs, cuisines }).then((d) => setSurprise({ items: d.items, seed }));
   };
 
-  const showing = surprise ? surprise.items : items;
+  const showing = sortItems(surprise ? surprise.items : items, surprise ? 'recommended' : sort);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
@@ -324,7 +345,28 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
               <span style={{ fontSize: 13, color: '#B85E38', fontWeight: 600 }}>Something different</span>
             </div>
           </div>
-        ) : (
+        ) : null}
+
+        {!surprise && trip && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+            <span style={{ fontSize: 12.5, color: theme.textFaint }}>Sort:</span>
+            {SORTS.map((s) => (
+              <div
+                key={s.id}
+                onClick={() => setSort(s.id)}
+                style={{
+                  padding: '5px 12px', borderRadius: 12, fontSize: 12.5, fontWeight: 500, cursor: 'pointer',
+                  background: sort === s.id ? theme.text : theme.chipBg,
+                  color: sort === s.id ? '#FFFFFF' : theme.textMuted,
+                }}
+              >
+                {s.label}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {surprise && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 18 }}>
             <div onClick={() => setSurprise(null)} style={{ cursor: 'pointer', fontSize: 14, color: theme.textMuted, display: 'flex', alignItems: 'center', gap: 4 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
