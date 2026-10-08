@@ -54,17 +54,22 @@ function mapsUrl(item) {
 // shows whichever of table booking or delivery that venue actually offers,
 // which we have no data to predict ahead of time, so routing there instead
 // of promising "reserve a table" everywhere is the honest default.
-// A country field can be the bare curated value ("India") or, for a
-// Places-autocomplete city, Google's structured secondaryText — typically
-// "Maharashtra, India", not just "India" (confirmed live: a Mumbai venue
-// still routed to OpenTable because `country === 'India'` doesn't match
-// that). .includes() instead of === so either form matches.
-function _isIndia(country) {
-  return (country || '').toLowerCase().includes('india');
+// The picked city's country field can be the bare curated value ("India")
+// or, for a Places-autocomplete city, Google's structured secondaryText —
+// typically "Maharashtra, India", not just "India". Rather than lean on
+// city.country alone (confirmed live: still routed to OpenTable for a
+// Mumbai venue even after handling that secondaryText case — something
+// upstream of this function wasn't reliably carrying country through),
+// also check the venue's own grounded address, which Places always
+// formats ending in the country name regardless of how the city was
+// searched — the screenshot that reported this bug shows exactly that:
+// "...Maharashtra 400028, India". Two independent signals, either enough.
+function _isIndia(item, country) {
+  return [country, item.addr].some((s) => (s || '').toLowerCase().includes('india'));
 }
 
 function bookingUrl(item, country) {
-  const isIndia = _isIndia(country);
+  const isIndia = _isIndia(item, country);
   const q = item.addr ? `${item.name} ${item.addr}` : item.name;
 
   if (item.type === 'music') {
@@ -87,7 +92,7 @@ function bookingUrl(item, country) {
 
 function bookingLabel(item, country) {
   if (item.type === 'music') return 'Get tickets';
-  return _isIndia(country) ? 'Order / reserve' : 'Reserve a table';
+  return _isIndia(item, country) ? 'Order / reserve' : 'Reserve a table';
 }
 
 // Which provider bookingUrl() actually routed to — kept in sync with that
@@ -95,7 +100,7 @@ function bookingLabel(item, country) {
 // api.logBookingClick) so a click on India-vs-not, food-vs-music isn't
 // all lumped into one undifferentiated "booking click" count.
 function bookingProvider(item, country) {
-  const isIndia = _isIndia(country);
+  const isIndia = _isIndia(item, country);
   if (item.type === 'music') return isIndia ? 'bookmyshow' : 'ticketmaster';
   return isIndia ? 'zomato' : 'opentable';
 }
