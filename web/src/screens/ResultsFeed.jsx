@@ -72,15 +72,22 @@ function bookingUrl(item, country) {
   const isIndia = _isIndia(item, country);
   const q = item.addr ? `${item.name} ${item.addr}` : item.name;
 
+  // &btnI=1 is Google's "I'm Feeling Lucky" redirect — jumps straight to
+  // the top result instead of showing a results page. Used only for the
+  // India routes: neither BookMyShow nor Zomato has a real search-by-name
+  // URL (see this function's own doc comment above), so this is the only
+  // way to land directly on the listing without a results-page click in
+  // between — confirmed live: without it, "Reserve" landed on a Google
+  // SERP, not the restaurant's own page.
   if (item.type === 'music') {
     if (isIndia) {
-      return `https://www.google.com/search?q=${encodeURIComponent(`${q} site:in.bookmyshow.com`)}`;
+      return `https://www.google.com/search?q=${encodeURIComponent(`${q} site:in.bookmyshow.com`)}&btnI=1`;
     }
     return `https://www.ticketmaster.com/search?q=${encodeURIComponent(item.name)}`;
   }
 
   if (isIndia) {
-    return `https://www.google.com/search?q=${encodeURIComponent(`${q} site:zomato.com`)}`;
+    return `https://www.google.com/search?q=${encodeURIComponent(`${q} site:zomato.com`)}&btnI=1`;
   }
   const params = new URLSearchParams({ term: item.name });
   if (item.lat != null && item.lng != null) {

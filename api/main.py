@@ -593,10 +593,24 @@ async def _rank_by_trip_distance(items: list, trip_id: str, uid: str) -> list:
         # catch-up here instead of leaving it broken until the user edits
         # the trip: geocode now and persist it, so this only costs an extra
         # lookup once per such trip rather than on every /api/results call.
+        #
+        # A prior failed attempt is remembered (geocode_failed_at) and only
+        # retried after a day — without this, an address Places genuinely
+        # can't resolve (confirmed live: a messy "1st Floor, P.b.no 9992, ..."
+        # address) would re-spend a billed Text Search call on every single
+        # /api/results request for that trip, forever, for no new result.
+        retry_cutoff = time.time() - 86400
+        if trip.get("geocode_failed_at", 0) > retry_cutoff:
+            return items
         if not places.configured():
             return items
         geo = await places.geocode_address(trip.get("base_address", ""))
         if not geo:
+            log.warning(
+                "couldn't geocode trip %s's base_address %r — distance ranking stays off for it",
+                trip_id, trip.get("base_address", ""),
+            )
+            ref.update({"geocode_failed_at": time.time()})
             return items
         base_lat, base_lng = geo["lat"], geo["lng"]
         ref.update({"base_lat": base_lat, "base_lng": base_lng})
