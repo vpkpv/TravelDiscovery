@@ -35,17 +35,38 @@ function mapsUrl(item) {
 }
 
 // Deep-links out to a booking/ticketing provider's own search, rather than
-// a real in-app reservation flow — OpenTable's and Ticketmaster's actual
-// booking APIs are partner-gated (a business agreement, not a self-serve
-// API key), so this is what's buildable without one: the same pattern as
-// mapsUrl() above, a verified name/address handed to the provider's own
-// search rather than us claiming to know their internal venue/event IDs.
-// Also lines up with the OpenTable-affiliate revenue path discussed
-// alongside monetization — a real per-booking commission exists on exactly
-// this kind of referral.
-function bookingUrl(item) {
+// a real in-app reservation flow — the providers' actual booking APIs are
+// partner-gated (a business agreement, not a self-serve API key), so this
+// is what's buildable without one: the same pattern as mapsUrl() above, a
+// verified name/address handed to the provider's own search rather than us
+// claiming to know their internal venue/event IDs.
+//
+// Ticketmaster/OpenTable barely operate in India — confirmed live:
+// Ticketmaster offered up a real Mumbai venue, then said it couldn't book
+// there at all. BookMyShow (events) and Zomato (restaurants) are the
+// dominant platforms there instead, but — unlike Ticketmaster's /search?q=
+// and OpenTable's /s?term=, both real, documented, generic search
+// endpoints — neither has a public, documented search-by-name URL (only
+// direct event/restaurant-slug links), so a Google search restricted to
+// its domain is the reliable equivalent rather than guessing a slug.
+// Zomato specifically also covers the "no tables, delivery/takeout only"
+// case this surfaced (e.g. a vada pav stall) — its own restaurant page
+// shows whichever of table booking or delivery that venue actually offers,
+// which we have no data to predict ahead of time, so routing there instead
+// of promising "reserve a table" everywhere is the honest default.
+function bookingUrl(item, country) {
+  const isIndia = (country || '').trim().toLowerCase() === 'india';
+  const q = item.addr ? `${item.name} ${item.addr}` : item.name;
+
   if (item.type === 'music') {
+    if (isIndia) {
+      return `https://www.google.com/search?q=${encodeURIComponent(`${q} site:in.bookmyshow.com`)}`;
+    }
     return `https://www.ticketmaster.com/search?q=${encodeURIComponent(item.name)}`;
+  }
+
+  if (isIndia) {
+    return `https://www.google.com/search?q=${encodeURIComponent(`${q} site:zomato.com`)}`;
   }
   const params = new URLSearchParams({ term: item.name });
   if (item.lat != null && item.lng != null) {
@@ -55,11 +76,13 @@ function bookingUrl(item) {
   return `https://www.opentable.com/s?${params.toString()}`;
 }
 
-function bookingLabel(item) {
-  return item.type === 'music' ? 'Get tickets' : 'Reserve a table';
+function bookingLabel(item, country) {
+  if (item.type === 'music') return 'Get tickets';
+  const isIndia = (country || '').trim().toLowerCase() === 'india';
+  return isIndia ? 'Order / reserve' : 'Reserve a table';
 }
 
-function ResultCard({ item, saved, onToggleSave }) {
+function ResultCard({ item, saved, onToggleSave, country }) {
   const isFood = item.type === 'food';
   const isBar = item.type === 'bar';
   const [photoFailed, setPhotoFailed] = useState(false);
@@ -139,13 +162,13 @@ function ResultCard({ item, saved, onToggleSave }) {
           <div style={{ fontSize: 13, color: theme.textMuted, lineHeight: 1.45, fontStyle: 'italic' }}>{item.why}</div>
         </div>
         <div
-          onClick={(e) => { e.stopPropagation(); window.open(bookingUrl(item), '_blank', 'noopener,noreferrer'); }}
+          onClick={(e) => { e.stopPropagation(); window.open(bookingUrl(item, country), '_blank', 'noopener,noreferrer'); }}
           style={{
             marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
             background: accent, color: '#FFFFFF', padding: '8px 14px', borderRadius: 12, fontSize: 13, fontWeight: 600,
           }}
         >
-          {bookingLabel(item)}
+          {bookingLabel(item, country)}
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 12h14M13 6l6 6-6 6" />
           </svg>
@@ -327,7 +350,7 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
           </div>
         )}
         {showing.map((item) => (
-          <ResultCard key={item.id} item={item} saved={!!saved[item.id]} onToggleSave={toggleSave} />
+          <ResultCard key={item.id} item={item} saved={!!saved[item.id]} onToggleSave={toggleSave} country={city.country} />
         ))}
         {surprise && showing.length > 0 && (
           <div style={{ textAlign: 'center', fontSize: 13, color: theme.textFaint, marginTop: 4 }}>

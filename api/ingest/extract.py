@@ -88,11 +88,18 @@ travel video transcript. The video is about food in {city}.
 
 Read the transcript below and extract every specific, named restaurant, market, or food \
 venue the host actually visits or recommends by name — not generic dish names, not \
-neighborhoods, only real business names.
+neighborhoods, only real business names. A single video often visits several venues: keep \
+each one's own details strictly separate. A dish, cuisine, or specialty the transcript \
+mentions at one stop (or as a general remark about the city's food scene) belongs ONLY to \
+the venue it's actually said about — never attach it to a different venue just because it's \
+thematically related, mentioned nearby, or a famous local dish in that city (confirmed live: \
+"Bombay Duck" mentioned once in a Mumbai video got attached to other venues' "why" lines that \
+never served it).
 
 For each one, provide:
 - why: a short one-sentence line explaining what makes it worth visiting, grounded only in \
-what the transcript actually says — never invent a detail that isn't in the transcript.
+what the transcript actually says about THIS SPECIFIC venue — never invent a detail, and \
+never borrow one said about a different venue in the same transcript.
 - {cuisine_instruction}
 - {credential_instruction}
 
@@ -110,11 +117,16 @@ ARTICLE_PROMPT_TEMPLATE = """You are extracting real restaurant recommendations 
 travel publication's article. The article is about food in {city}.
 
 Read the article text below and extract every specific, named restaurant it recommends or \
-features — not generic dish names, not neighborhoods, only real business names.
+features — not generic dish names, not neighborhoods, only real business names. An article \
+like this often covers several restaurants: keep each one's own details strictly separate. A \
+dish, cuisine, or specialty the article mentions for one restaurant (or as a general remark \
+about the city's food scene) belongs ONLY to that restaurant — never attach it to a different \
+one just because it's thematically related or a famous local dish in that city.
 
 For each one, provide:
 - why: a short one-sentence line explaining what makes it worth visiting, grounded only in \
-what the article actually says — never invent a detail that isn't in the article.
+what the article actually says about THIS SPECIFIC restaurant — never invent a detail, and \
+never borrow one said about a different restaurant in the same article.
 - {cuisine_instruction}
 - {credential_instruction}
 
@@ -145,12 +157,16 @@ from a prestigious food/travel publication's article — something like "The Wor
 cities and countries at once, not just one.
 
 Read the article text below and extract every specific, named {venue_singular} it lists — not \
-generic mentions, only real, individually named {venue_plural}. For each one:
+generic mentions, only real, individually named {venue_plural}, spanning many cities: keep each \
+one's own details strictly separate — a dish, cuisine, or specialty the article mentions for one \
+entry belongs ONLY to that entry, never a different one just because it's thematically related. \
+For each one:
 - name: the {venue_singular}'s real name.
 - city: the city it's actually located in, as stated or clearly implied by the article.
 - country: the country it's located in.
 - why: a short one-sentence reason it's notable, grounded only in what the article actually says \
-— never invent a detail that isn't in the article.
+about THIS SPECIFIC entry — never invent a detail, and never borrow one said about a different \
+entry in the same article.
 - {cuisine_instruction}
 - {credential_instruction}
 
