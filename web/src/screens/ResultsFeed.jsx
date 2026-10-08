@@ -82,6 +82,16 @@ function bookingLabel(item, country) {
   return isIndia ? 'Order / reserve' : 'Reserve a table';
 }
 
+// Which provider bookingUrl() actually routed to — kept in sync with that
+// function's own branching, used only for usage-event logging (see
+// api.logBookingClick) so a click on India-vs-not, food-vs-music isn't
+// all lumped into one undifferentiated "booking click" count.
+function bookingProvider(item, country) {
+  const isIndia = (country || '').trim().toLowerCase() === 'india';
+  if (item.type === 'music') return isIndia ? 'bookmyshow' : 'ticketmaster';
+  return isIndia ? 'zomato' : 'opentable';
+}
+
 function ResultCard({ item, saved, onToggleSave, country }) {
   const isFood = item.type === 'food';
   const isBar = item.type === 'bar';
@@ -162,7 +172,11 @@ function ResultCard({ item, saved, onToggleSave, country }) {
           <div style={{ fontSize: 13, color: theme.textMuted, lineHeight: 1.45, fontStyle: 'italic' }}>{item.why}</div>
         </div>
         <div
-          onClick={(e) => { e.stopPropagation(); window.open(bookingUrl(item, country), '_blank', 'noopener,noreferrer'); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            api.logBookingClick(item.name, bookingProvider(item, country)).catch(() => {});
+            window.open(bookingUrl(item, country), '_blank', 'noopener,noreferrer');
+          }}
           style={{
             marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
             background: accent, color: '#FFFFFF', padding: '8px 14px', borderRadius: 12, fontSize: 13, fontWeight: 600,

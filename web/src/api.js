@@ -64,6 +64,10 @@ export const api = {
   getSaved: () => get('/api/saved'),
   saveItem: (id, item) => put(`/api/saved/${encodeURIComponent(id)}`, { item }),
   deleteItem: (id) => del(`/api/saved/${encodeURIComponent(id)}`),
+  // Usage-event logging only (see api/main.py's /api/log/booking_click) —
+  // the booking link itself is a plain client-side deep-link, so this is
+  // the only way to know a booking button actually got followed.
+  logBookingClick: (itemName, provider) => post('/api/log/booking_click', { item_name: itemName, provider }),
   // Trip planning (see api/main.py's /api/trips, users/{uid}/trips).
   getTrips: () => get('/api/trips'),
   createTrip: (trip) => post('/api/trips', trip),

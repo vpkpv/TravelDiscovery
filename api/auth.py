@@ -109,6 +109,24 @@ def touch_last_active(uid: str) -> None:
         log.warning("couldn't bump last_active for %s: %s", uid, exc)
 
 
+def log_event(uid: str, email: str, event_type: str, detail: str = "") -> None:
+    """Per-user usage event, read back by approve_users.py's `usage`
+    command — a flat collection (not nested under approved_users) so that
+    command can pull every event in one query rather than listing a
+    sub-collection per user. Intentionally coarse (sign_in / view_city /
+    save / booking_click, see call sites in main.py) — enough to answer
+    "who's actually using this and for what," not a full analytics event
+    schema. Best-effort, same stance as touch_last_active: a failed write
+    here shouldn't block the request it's describing.
+    """
+    try:
+        firestore_client().collection("usage_events").document().set({
+            "uid": uid, "email": email, "type": event_type, "detail": detail, "ts": time.time(),
+        })
+    except Exception as exc:
+        log.warning("couldn't log usage event %r for %s: %s", event_type, uid, exc)
+
+
 async def current_user(authorization: str = Header(default="")) -> dict:
     """FastAPI dependency: returns {"uid", "email"} for a valid, approved
     user. Raises 401 for a missing/invalid token, 403 for a valid-but-

@@ -16,6 +16,7 @@ Usage (from api/):
     python approve_users.py approve a@b.com ...     # grant access (they've signed in once)
     python approve_users.py preapprove a@b.com ...  # grant access before they've ever signed in
     python approve_users.py revoke a@b.com ...      # remove access (either kind)
+    python approve_users.py usage [a@b.com]         # per-user activity: sign-ins, cities, saves, clicks
 
 A "not found" on approve/revoke means that email hasn't signed in with
 Google yet — Firebase only knows about an account once it's done that at
@@ -122,6 +123,52 @@ def cmd_preapprove(args):
         print(f"  {email}: preapproved — will unlock automatically on their first sign-in")
 
 
+def cmd_usage(args):
+    """Per-user activity summary from main.py's auth.log_event calls
+    (sign_in, view_city, save, booking_click — see those call sites).
+    Reads the whole usage_events collection in one query rather than a
+    per-user sub-collection listing, since a closed pilot's event volume
+    is small enough that this doesn't need to scale further. Sorted by
+    total activity, most active first, so "who's actually using this" is
+    the first thing you see rather than alphabetical by email.
+    """
+    approved = {d.id: (d.to_dict() or {}) for d in auth.firestore_client().collection("approved_users").stream()}
+    target = args.email.strip().lower() if args.email else None
+    if target:
+        approved = {uid: info for uid, info in approved.items() if info.get("email", "").strip().lower() == target}
+        if not approved:
+            print(f"{args.email}: not an approved user.")
+            return
+
+    by_uid = {}
+    for doc in auth.firestore_client().collection("usage_events").stream():
+        data = doc.to_dict() or {}
+        by_uid.setdefault(data.get("uid", ""), []).append(data)
+
+    def _fmt(ts):
+        return datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M") if ts else "never seen"
+
+    rows = []
+    for uid, info in approved.items():
+        events = by_uid.get(uid, [])
+        sign_ins = sum(1 for e in events if e.get("type") == "sign_in")
+        cities = {e["detail"] for e in events if e.get("type") == "view_city" and e.get("detail")}
+        saves = sum(1 for e in events if e.get("type") == "save")
+        clicks = sum(1 for e in events if e.get("type") == "booking_click")
+        total = sign_ins + len(cities) + saves + clicks
+        rows.append((total, info.get("email") or f"(uid={uid})", sign_ins, cities, saves, clicks, info.get("last_active")))
+    rows.sort(key=lambda r: r[0], reverse=True)
+
+    if not rows:
+        print("No approved users yet.")
+        return
+    for _total, email, sign_ins, cities, saves, clicks, last_active in rows:
+        print(f"  {email}: {sign_ins} sign-ins, {len(cities)} cities browsed, {saves} saves, {clicks} booking clicks"
+              f"  (last active: {_fmt(last_active)})")
+        if args.cities and cities:
+            print(f"      cities: {', '.join(sorted(cities))}")
+
+
 def cmd_revoke(args):
     for email in args.emails:
         _approved_email_ref(email).delete()  # a no-op if there was no pending preapproval
@@ -159,6 +206,11 @@ def main():
     p_preapprove = sub.add_parser("preapprove", help="grant access before they've ever signed in")
     p_preapprove.add_argument("emails", nargs="+")
     p_preapprove.set_defaults(func=cmd_preapprove)
+
+    p_usage = sub.add_parser("usage", help="show per-user activity: sign-ins, cities browsed, saves, booking clicks")
+    p_usage.add_argument("email", nargs="?", help="limit to one user's email (default: everyone)")
+    p_usage.add_argument("--cities", action="store_true", help="also list which cities each user browsed")
+    p_usage.set_defaults(func=cmd_usage)
 
     p_revoke = sub.add_parser("revoke", help="remove access for one or more emails")
     p_revoke.add_argument("emails", nargs="+")

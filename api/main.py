@@ -626,6 +626,7 @@ async def get_me(authorization: str = Header(default="")):
         # sign-in/session, so this is roughly "last time this person opened
         # the app." See approve_users.py for a way to check it.
         auth.touch_last_active(user["uid"])
+        auth.log_event(user["uid"], user["email"], "sign_in")
 
     return {
         "auth_enabled": True,
@@ -705,6 +706,7 @@ async def save_item(item_id: str, body: SavedItemBody, user: dict = Depends(auth
         raise HTTPException(status_code=404, detail="auth not enabled")
     ref = auth.firestore_client().collection("saved_picks").document(user["uid"])
     ref.set({"items": {item_id: body.item}}, merge=True)
+    auth.log_event(user["uid"], user["email"], "save", detail=body.item.get("name", item_id))
     return {"ok": True}
 
 
@@ -717,6 +719,23 @@ async def unsave_item(item_id: str, user: dict = Depends(auth.current_user)):
         ref.update({f"items.{item_id}": firestore.DELETE_FIELD})
     except Exception:
         pass  # nothing to delete (no doc yet) — same end state either way
+    return {"ok": True}
+
+
+class BookingClickBody(BaseModel):
+    item_name: str
+    provider: str
+
+
+@app.post("/api/log/booking_click")
+async def log_booking_click(body: BookingClickBody, user: dict = Depends(auth.current_user)):
+    """Usage-event logging only, no booking actually happens here — the
+    provider link itself is a plain client-side deep-link (see
+    ResultsFeed.jsx's bookingUrl), so this is the only way to know a pilot
+    user actually followed one. See approve_users.py's `usage` command.
+    """
+    if auth.configured():
+        auth.log_event(user["uid"], user["email"], "booking_click", detail=f"{body.provider}:{body.item_name}")
     return {"ok": True}
 
 
@@ -966,6 +985,11 @@ async def get_results(
         items = await _rank_by_trip_distance(items, trip_id, user["uid"])
     if filter in ("food", "music", "bar"):
         items = [i for i in items if i["type"] == filter]
+    # Logged only on filter == "all" — ResultsFeed's own default/landing
+    # fetch for a city — so switching between the filter chips on a city
+    # already being browsed doesn't inflate "cities browsed" per visit.
+    if auth.configured() and filter == "all":
+        auth.log_event(user["uid"], user["email"], "view_city", detail=city)
     return {"city": city, "count": len(items), "items": items, "city_photo_ref": city_photo_ref}
 
 
