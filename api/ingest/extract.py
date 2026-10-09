@@ -99,7 +99,8 @@ never served it).
 For each one, provide:
 - why: a short one-sentence line explaining what makes it worth visiting, grounded only in \
 what the transcript actually says about THIS SPECIFIC venue — never invent a detail, and \
-never borrow one said about a different venue in the same transcript.
+never borrow one said about a different venue in the same transcript. Write it in English \
+even if the transcript itself is in another language.
 - {cuisine_instruction}
 - {credential_instruction}
 
@@ -126,7 +127,9 @@ one just because it's thematically related or a famous local dish in that city.
 For each one, provide:
 - why: a short one-sentence line explaining what makes it worth visiting, grounded only in \
 what the article actually says about THIS SPECIFIC restaurant — never invent a detail, and \
-never borrow one said about a different restaurant in the same article.
+never borrow one said about a different restaurant in the same article. Write it in English \
+even if the article itself is in another language (confirmed live: a French Time Out Paris \
+article needs this spelled out explicitly, not assumed).
 - {cuisine_instruction}
 - {credential_instruction}
 
@@ -166,7 +169,7 @@ For each one:
 - country: the country it's located in.
 - why: a short one-sentence reason it's notable, grounded only in what the article actually says \
 about THIS SPECIFIC entry — never invent a detail, and never borrow one said about a different \
-entry in the same article.
+entry in the same article. Write it in English even if the article itself is in another language.
 - {cuisine_instruction}
 - {credential_instruction}
 
