@@ -26,7 +26,7 @@ load_dotenv()
 import auth
 import places
 from ingest.extract import configured as gemini_configured
-from ingest.pipeline import ingest_article, ingest_video, ingest_world_article
+from ingest.pipeline import ingest_article, ingest_article_via_chefs, ingest_video, ingest_world_article
 
 # Real, verified videos from a small stable of reputable, broad-coverage
 # food-travel channels (Mark Wiens, Best Ever Food Review Show, The Food
@@ -305,6 +305,32 @@ ARTICLES = [
         "city": "New York",
         "source": "Time Out New York — Best Restaurants in NYC",
     },
+    # All four entries below confirmed live by user in their own browser,
+    # 2026-10-09.
+    {
+        "url": "https://www.timeout.fr/paris/actualites/time-out-food-drink-awards-2026-le-palmares-complet-qui-fait-vibrer-les-gastronomies-du-grand-paris-042226",
+        "city": "Paris",
+        "source": "Time Out Paris — Food & Drink Awards 2026",
+    },
+    {
+        "url": "https://www.esquireindia.co.in/food-and-drinks/what-to-eat/indias-best-restaurants-in-2026-mumbai-delhi-bengaluru-or-goa-who-dominates-the-rankings",
+        "city": "Mumbai",
+        "source": "Esquire India — India's Best Restaurants in 2026",
+    },
+    {
+        "url": "https://www.freepressjournal.in/lifestyle/mumbai-dominates-indias-50-best-restaurants-list-these-3-eateries-rank-in-top-10",
+        "city": "Mumbai",
+        "source": "Free Press Journal — Mumbai Dominates India's 50 Best Restaurants",
+    },
+    # "mode": "chefs" — this one names chefs behind standout CDMX dishes
+    # rather than running a restaurant-by-restaurant list (see
+    # ingest_article_via_chefs in pipeline.py).
+    {
+        "url": "https://www.timeoutmexico.mx/ciudad-de-mexico/restaurantes/cdmx-en-top-3-de-mejores-ciudades-para-comer-en-el-mundo-en-2026",
+        "city": "Mexico City",
+        "source": "Time Out Mexico — CDMX, Top 3 Best Food Cities 2026",
+        "mode": "chefs",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -533,7 +559,11 @@ async def main():
 
     for i, a in enumerate(ARTICLES):
         print(f"Scraping: {a['source']} ({a['url']})...", file=sys.stderr)
-        items = await ingest_article(a["url"], a["city"], a["source"], CITY_COUNTRIES.get(a["city"], ""), db=db)
+        # "mode": "chefs" — a source that names chefs rather than listing
+        # restaurants directly (see ingest_article_via_chefs and its first
+        # live use, the Time Out Mexico CDMX entry below).
+        ingest_fn = ingest_article_via_chefs if a.get("mode") == "chefs" else ingest_article
+        items = await ingest_fn(a["url"], a["city"], a["source"], CITY_COUNTRIES.get(a["city"], ""), db=db)
         print(f"  -> {len(items)} grounded venue(s)", file=sys.stderr)
         if not items:
             blocked_count += 1

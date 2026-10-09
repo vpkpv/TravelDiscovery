@@ -181,6 +181,78 @@ async def ingest_article(url: str, city: str, source_label: str, country: str = 
     return grounded
 
 
+async def ingest_article_via_chefs(url: str, city: str, source_label: str, country: str = "", db=None) -> list:
+    """Same contract as ingest_article(), but for a source that names
+    chefs rather than listing restaurants directly — a city-ranking piece
+    that credits a few standout chefs instead of running a venue-by-venue
+    list (confirmed live: a Time Out Mexico CDMX article, see run.py's
+    ARTICLES "mode": "chefs" entries). Each extracted chef name is
+    resolved to a real restaurant via places.find_chef_venues — the same
+    two-step own-restaurant-or-similar-style resolution FavoriteChefs.jsx's
+    manually-typed chef names go through.
+
+    Only an "own_restaurant" match (the chef's own real, currently-open
+    restaurant in this exact city) is kept — a "similar_style" match
+    (find_chef_venues' fallback for when the chef has no restaurant in the
+    searched city at all) is an honest, clearly-labeled "in the style of"
+    suggestion in the live FavoriteChefs feature, but not grounded enough
+    to permanently ingest as real city content shown to everyone: this
+    article is specifically about CDMX, so the named chef is expected to
+    actually have a real restaurant here, just possibly under a different
+    brand name than their own (e.g. a chef named directly but whose
+    restaurant carries its own name) — a similar-style guess in that case
+    would be a different restaurant than the one the article is actually
+    about, not a reasonable substitute.
+    """
+    article_text = scrape_url(url)
+    if not article_text:
+        return []
+
+    candidates = extract_chefs_from_article(article_text, city)
+    if not candidates:
+        return []
+    known = _known_venues(db, city)
+
+    chef_names = [c["name"] for c in candidates]
+    resolved = await places.find_chef_venues(city, chef_names, country)
+    resolved_by_chef = {
+        places._normalize(r["chef"]): r for r in resolved if r.get("match_type") == "own_restaurant"
+    }
+
+    grounded = []
+    for candidate in candidates:
+        ground = resolved_by_chef.get(places._normalize(candidate["name"]))
+        if not ground:
+            continue  # no real restaurant resolves for this chef in this city — drop, don't guess
+        hit = known.get(places._normalize(ground["name"]))
+        if hit is not None:
+            grounded.append({
+                **hit,
+                "why": candidate["why"],
+                "cuisine": candidate.get("cuisine") or hit.get("cuisine", ""),
+                "credential": candidate.get("credential") or hit.get("credential", ""),
+                "source_url": url,
+            })
+            continue
+        grounded.append({
+            "type": "food",
+            "name": ground["name"],
+            "meta": source_label,
+            "rating": ground.get("rating"),
+            "addr": ground["addr"],
+            "why": candidate["why"],
+            "cuisine": candidate.get("cuisine", ""),
+            "credential": candidate.get("credential", ""),
+            "city": city,
+            "source_url": url,
+            "photo_ref": ground.get("photo_ref"),
+            "lat": ground.get("lat"),
+            "lng": ground.get("lng"),
+            "grounded_at": time.time(),
+        })
+    return grounded
+
+
 # World-list venue kind -> the `type` value stored on RESULTS/Firestore
 # entries (see api/data.py and main.py's _grounded_items) — "restaurant" is
 # the kind every prior world-list source was, stored as "food"; "bar" is a

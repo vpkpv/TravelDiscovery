@@ -139,6 +139,43 @@ Article:
 {article_text}
 """
 
+# A different shape of source again: a city-ranking piece (e.g. "CDMX is
+# one of the best food cities in the world") that name-drops a handful of
+# chefs behind standout dishes rather than running a restaurant-by-
+# restaurant list — confirmed live with a Time Out Mexico CDMX article.
+# extract_venues_from_article would mostly come up empty here (there's no
+# clean "restaurant X, restaurant Y" list to lift), so this asks for the
+# people instead; pipeline.ingest_article_via_chefs resolves each one to a
+# real restaurant via places.find_chef_venues (the same resolution
+# FavoriteChefs.jsx's manually-typed chef names go through) rather than
+# grounding the raw name directly, which would fail for a chef whose own
+# name isn't the restaurant's name.
+ARTICLE_CHEF_PROMPT_TEMPLATE = """You are extracting named chefs from a food/travel publication's \
+article about the food scene in {city}. The article names specific chefs (not just dishes or \
+restaurants) behind standout food there.
+
+Read the article text below and extract every specific, named chef or restaurateur it credits — \
+a real person's name, not a restaurant name, a dish name, or a generic title like "the chef." If \
+the article only names a restaurant or dish without crediting a specific chef by name, skip it \
+rather than guessing a name. Keep each one's own details strictly separate — a dish or detail the \
+article credits to one chef belongs ONLY to that chef, never a different one just because it's \
+thematically related.
+
+For each one, provide:
+- name: the chef's real name, exactly as the article gives it.
+- why: a short one-sentence reason they're notable, grounded only in what the article actually \
+says about THIS SPECIFIC chef — never invent a detail, and never borrow one said about a \
+different chef in the same article. Write it in English even if the article itself is in \
+another language.
+- {cuisine_instruction}
+- {credential_instruction}
+
+If no specific chefs are named, return an empty list.
+
+Article:
+{article_text}
+"""
+
 # Separate again from ARTICLE_PROMPT_TEMPLATE: a "World's 50 Best
 # Restaurants"-style list spans many cities and countries in one article,
 # not one fixed city — so city/country have to be extracted per venue
@@ -244,6 +281,20 @@ def extract_venues_from_article(article_text: str, city: str) -> list:
     if not configured() or not article_text.strip():
         return []
     return _extract(ARTICLE_PROMPT_TEMPLATE.format(
+        city=city, article_text=article_text[:60000],
+        cuisine_instruction=_CUISINE_INSTRUCTION, credential_instruction=_CREDENTIAL_INSTRUCTION,
+    ))
+
+
+def extract_chefs_from_article(article_text: str, city: str) -> list:
+    """Same contract as extract_venues_from_article() but pulls named
+    chefs instead of restaurant names — see ARTICLE_CHEF_PROMPT_TEMPLATE
+    and pipeline.ingest_article_via_chefs, which resolves each extracted
+    chef to a real restaurant via places.find_chef_venues.
+    """
+    if not configured() or not article_text.strip():
+        return []
+    return _extract(ARTICLE_CHEF_PROMPT_TEMPLATE.format(
         city=city, article_text=article_text[:60000],
         cuisine_instruction=_CUISINE_INSTRUCTION, credential_instruction=_CREDENTIAL_INSTRUCTION,
     ))
