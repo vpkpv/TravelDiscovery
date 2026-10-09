@@ -342,9 +342,31 @@ async def _grounded_items(
 
     items = already_verified + to_verify
 
-    if places.configured() and not any(i["type"] == "music" for i in items):
-        city_name = _city_display_name(city_id)
-        venues = await places.find_music_venues(city_name, music_genre, country=_city_country(city_id))
+    # Music/bar/chef top-up are three independent Places lookups — none
+    # reads another's result, only each checks the post-grounding `items`
+    # above for whether it's needed at all. They used to run as three
+    # sequential awaits; confirmed live as a chunk of "performance is still
+    # a big issue" reports on top of the _cached_grounded_items TTL cache
+    # below, since every cache-cold request (first hit per city/filter combo
+    # per Cloud Run instance, or any cold start) still paid for all three
+    # round trips back to back. Running them concurrently cuts that to
+    # roughly the slowest single one instead of the sum of all three.
+    city_name = _city_display_name(city_id)
+    country = _city_country(city_id)
+    want_music = places.configured() and not any(i["type"] == "music" for i in items)
+    want_bars = places.configured() and not any(i["type"] == "bar" for i in items)
+    want_chefs = places.configured() and bool(chefs)
+
+    async def _noop():
+        return []
+
+    music_venues, bars, chef_venues = await asyncio.gather(
+        places.find_music_venues(city_name, music_genre, country=country) if want_music else _noop(),
+        places.find_bars_venues(city_name, country=country) if want_bars else _noop(),
+        places.find_chef_venues(city_name, chefs, country=country) if want_chefs else _noop(),
+    )
+
+    if music_venues:
         items = items + [
             {
                 "id": v["place_id"] or f"places-music-{city_id}-{i}",
@@ -362,14 +384,12 @@ async def _grounded_items(
                 "place_verified": True,
                 **({"photo_ref": v["photo_ref"]} if v.get("photo_ref") else {}),
             }
-            for i, v in enumerate(venues)
+            for i, v in enumerate(music_venues)
         ]
 
     # Bars/speakeasies — same live-Places top-up as music above, since
     # there's no ingest content pipeline for this category either.
-    if places.configured() and not any(i["type"] == "bar" for i in items):
-        city_name = _city_display_name(city_id)
-        bars = await places.find_bars_venues(city_name, country=_city_country(city_id))
+    if bars:
         items = items + [
             {
                 "id": b["place_id"] or f"places-bar-{city_id}-{i}",
@@ -386,9 +406,7 @@ async def _grounded_items(
             for i, b in enumerate(bars)
         ]
 
-    if places.configured() and chefs:
-        city_name = _city_display_name(city_id)
-        chef_venues = await places.find_chef_venues(city_name, chefs, country=_city_country(city_id))
+    if chef_venues:
         existing_names = {i["name"].lower() for i in items}
 
         def _chef_meta_why(v: dict) -> tuple:
@@ -466,8 +484,6 @@ async def _grounded_items(
         food_count = sum(1 for i in items if i["type"] == "food")
 
     if places.configured() and curated_food.configured() and food_count < MIN_FOOD_ITEMS:
-        city_name = _city_display_name(city_id)
-        country = _city_country(city_id)
         existing_names = {i["name"].lower() for i in items}
         # suggest_venues makes a synchronous (blocking) Gemini SDK call —
         # run it off the event loop so a slow Gemini response doesn't
