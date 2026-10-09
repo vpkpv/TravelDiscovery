@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { theme } from '../theme.js';
 import { api, photoUrl } from '../api.js';
+import { LOADING_QUOTES, EMPTY_STATE_ASIDES, SURPRISE_OUTROS_FOOD, SURPRISE_OUTROS_BAR, pickFrom } from '../funQuotes.js';
 
 function FoodIcon({ color = '#FFFFFF' }) {
   return (
@@ -248,30 +249,6 @@ function sortItems(list, sort) {
   return [...list].sort((a, b) => withKey(a) - withKey(b));
 }
 
-// Pilot feedback: "make this fun and have funny quotes on the page" — the
-// loading state was the one piece of copy every single user sees on every
-// single city, so it's the highest-leverage place to add personality
-// without touching anything data-driven. One picked per fetch (not on a
-// timer) so it doesn't flicker mid-load; see the results useEffect below.
-const LOADING_QUOTES = [
-  'Googling "is it rude to ask for extra bread" on your behalf…',
-  'Asking locals so you don’t have to post "any recs??" on Instagram…',
-  'Separating the hidden gems from the tourist-trap tiramisu…',
-  'Making sure nothing on this list is secretly a chain…',
-  'Politely ignoring every restaurant with a laminated menu…',
-  'Cross-checking against actual humans who’ve actually eaten here…',
-  'Sniffing out the place with the suspiciously good reviews…',
-  'Reserving judgment on the place that’s "famous for its vibe"…',
-  'Making sure your trip has a soundtrack, not just a menu…',
-  'Double-checking nobody’s favorite spot closed in 2019…',
-  'Weighing ambiance against "will I regret the walk there"…',
-  'Quietly vetoing anywhere with a tourist-menu QR code…',
-];
-
-function pickLoadingQuote() {
-  return LOADING_QUOTES[Math.floor(Math.random() * LOADING_QUOTES.length)];
-}
-
 export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisines = [], trip = null, onOpenSettings }) {
   const [filter, setFilter] = useState('all');
   const [sort, setSort] = useState('recommended');
@@ -286,7 +263,12 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
   // took — confirmed live: "0 picks matched to your taste" / "No picks yet"
   // flashing for a few seconds on every city before real results arrived.
   const [loading, setLoading] = useState(true);
-  const [loadingQuote, setLoadingQuote] = useState(pickLoadingQuote);
+  const [loadingQuote, setLoadingQuote] = useState(() => pickFrom(LOADING_QUOTES));
+  // Picked alongside loadingQuote (same fetch, same lifetime) rather than
+  // inline at render time — an empty result only becomes true once per
+  // fetch, so picking it there avoids re-rolling on every unrelated
+  // re-render (e.g. toggling the save heart) while the empty state is up.
+  const [emptyAside, setEmptyAside] = useState(() => pickFrom(EMPTY_STATE_ASIDES));
 
   const citySlug = city.slug || city.id; // slug: groups a real Places result with our curated content
 
@@ -306,7 +288,8 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
   useEffect(() => {
     setHeroFailed(false);
     setLoading(true);
-    setLoadingQuote(pickLoadingQuote());
+    setLoadingQuote(pickFrom(LOADING_QUOTES));
+    setEmptyAside(pickFrom(EMPTY_STATE_ASIDES));
     // A floor on how long the loading state stays up, not a real delay on
     // the request itself — confirmed live: once the _grounded_items
     // parallelization made most fetches fast (especially a warm
@@ -344,7 +327,10 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
   };
 
   const rollSurprise = (seed) => {
-    api.surprise({ city: citySlug, seed, musicGenre, chefs: favoriteChefs, cuisines }).then((d) => setSurprise({ items: d.items, seed }));
+    api.surprise({ city: citySlug, seed, musicGenre, chefs: favoriteChefs, cuisines }).then((d) => {
+      const outro = pickFrom(d.items.some((i) => i.type === 'bar') ? SURPRISE_OUTROS_BAR : SURPRISE_OUTROS_FOOD);
+      setSurprise({ items: d.items, seed, outro });
+    });
   };
 
   const showing = sortItems(surprise ? surprise.items : items, surprise ? 'recommended' : sort);
@@ -451,15 +437,22 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 22px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {showing.length === 0 && (
+        {/* Gated on !loading too — without it this flashed on every fetch
+            (items starts as [] before the request resolves), not just a
+            genuine zero-result city; made more noticeable once a second
+            line (the aside) was added below the functional message. */}
+        {!loading && showing.length === 0 && (
           <div style={{ fontSize: 14, color: theme.textFaint, padding: '24px 4px' }}>
-            {filter === 'music'
-              ? `No music picks yet for ${city.name}.`
-              : filter === 'food'
-              ? `No food picks yet for ${city.name}.`
-              : filter === 'bar'
-              ? `No bar picks yet for ${city.name}.`
-              : `No picks yet for ${city.name}.`}
+            <div>
+              {filter === 'music'
+                ? `No music picks yet for ${city.name}.`
+                : filter === 'food'
+                ? `No food picks yet for ${city.name}.`
+                : filter === 'bar'
+                ? `No bar picks yet for ${city.name}.`
+                : `No picks yet for ${city.name}.`}
+            </div>
+            <div style={{ marginTop: 4, fontStyle: 'italic' }}>{emptyAside}</div>
           </div>
         )}
         {showing.map((item) => (
@@ -467,9 +460,7 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
         ))}
         {surprise && showing.length > 0 && (
           <div style={{ textAlign: 'center', fontSize: 13, color: theme.textFaint, marginTop: 4 }}>
-            {showing.some((i) => i.type === 'bar')
-              ? 'Drinks, then a short walk to the show — that\'s your pairing for tonight.'
-              : 'Dinner, then a short walk to the show — that\'s your pairing for tonight.'}
+            {surprise.outro}
           </div>
         )}
       </div>

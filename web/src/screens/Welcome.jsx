@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { theme } from '../theme.js';
+import { WELCOME_ASIDES, pickFrom } from '../funQuotes.js';
 
 export function Welcome({ onChooseSpotify, onChooseManual }) {
+  const [aside] = useState(() => pickFrom(WELCOME_ASIDES));
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <div style={{ padding: '48px 28px 0' }}>
@@ -55,6 +58,9 @@ export function Welcome({ onChooseSpotify, onChooseManual }) {
 
         <div style={{ fontSize: 13, color: theme.textFaint, lineHeight: 1.5, marginTop: 4 }}>
           Either way, we never post anything or change your accounts. You can switch methods later in Settings.
+        </div>
+        <div style={{ fontSize: 12.5, color: theme.textFaint, lineHeight: 1.5, fontStyle: 'italic' }}>
+          {aside}
         </div>
       </div>
     </div>
