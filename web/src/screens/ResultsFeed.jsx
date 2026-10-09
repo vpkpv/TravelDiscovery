@@ -307,7 +307,18 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
     setHeroFailed(false);
     setLoading(true);
     setLoadingQuote(pickLoadingQuote());
-    api.results({ city: citySlug, filter, musicGenre, chefs: favoriteChefs, cuisines, tripId: trip?.id || '' }).then((d) => {
+    // A floor on how long the loading state stays up, not a real delay on
+    // the request itself — confirmed live: once the _grounded_items
+    // parallelization made most fetches fast (especially a warm
+    // _cached_grounded_items hit), the loading quote was flashing by too
+    // fast to actually read, sometimes not even a full React paint. 500ms
+    // is long enough to register as "a quote appeared" without making a
+    // genuinely fast load feel artificially slow.
+    const minDisplay = new Promise((resolve) => setTimeout(resolve, 500));
+    Promise.all([
+      api.results({ city: citySlug, filter, musicGenre, chefs: favoriteChefs, cuisines, tripId: trip?.id || '' }),
+      minDisplay,
+    ]).then(([d]) => {
       setItems(d.items);
       setTotalCount(d.count);
       setCityPhotoRef(d.city_photo_ref || null);
