@@ -331,6 +331,22 @@ ARTICLES = [
         "source": "Time Out Mexico — CDMX, Top 3 Best Food Cities 2026",
         "mode": "chefs",
     },
+    # Both URLs confirmed live by user in their own browser, 2026-10-10.
+    # Seoul had only the global multi-city lists before — first dedicated
+    # single-city source for it. (A third candidate, a Korea Times "Seoul
+    # Gourmet 100" piece, was confirmed to open but with no actual list
+    # content visible on the page — not added, since scrape_url would have
+    # nothing to extract from it.)
+    {
+        "url": "https://guide.michelin.com/sg/en/article/michelin-guide-ceremony/all-the-stars-michelin-guide-seoul-busan-2026",
+        "city": "Seoul",
+        "source": "MICHELIN Guide — Seoul & Busan 2026 Stars Reveal",
+    },
+    {
+        "url": "https://blog.resy.com/the-hit-list/sf-restaurants-june-2026/",
+        "city": "San Francisco",
+        "source": "Resy Hit List — San Francisco, June 2026",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
