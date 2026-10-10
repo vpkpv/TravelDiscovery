@@ -1,0 +1,85 @@
+name: Deploy to Cloud Run
+
+# Runs deploy.sh automatically on every push to travel-discovery, so a
+# merged fix/feature is live without a manual `source deploy-env.sh &&
+# ./deploy.sh` from someone's laptop. Also runnable by hand (Actions tab ->
+# "Deploy to Cloud Run" -> Run workflow) for a redeploy with no new commit
+# (e.g. after rotating a key in GitHub Secrets).
+#
+# Setup (one-time):
+# 1. A GCP service account for this workflow, with these roles on the
+#    gen-lang-client-0529555554 project: Cloud Run Admin, Cloud Build
+#    Editor, Service Account User, Cloud Datastore User (Firestore — same
+#    role travel-api's own service account needs), and (only if
+#    DEPLOY_INGEST_JOB is true) Cloud Scheduler Admin + the ability to
+#    create the travel-ingest-scheduler service account deploy.sh creates.
+#      gcloud iam service-accounts create github-deployer \
+#        --display-name "GitHub Actions deploy"
+#      gcloud projects add-iam-policy-binding gen-lang-client-0529555554 \
+#        --member "serviceAccount:github-deployer@gen-lang-client-0529555554.iam.gserviceaccount.com" \
+#        --role "roles/run.admin"
+#      # ...repeat --role for roles/cloudbuild.builds.editor,
+#      # roles/iam.serviceAccountUser, roles/datastore.user,
+#      # roles/cloudscheduler.admin
+#      gcloud iam service-accounts keys create key.json \
+#        --iam-account github-deployer@gen-lang-client-0529555554.iam.gserviceaccount.com
+# 2. In the GitHub repo -> Settings -> Secrets and variables -> Actions,
+#    add a secret per line below (same names/values as your local
+#    deploy-env.sh — see deploy-env.sh.example for what each one is):
+#      GCP_SA_KEY               (the key.json contents from step 1, whole file)
+#      GOOGLE_PLACES_API_KEY
+#      GEMINI_API_KEY
+#      SPOTIFY_CLIENT_ID
+#      SPOTIFY_CLIENT_SECRET
+#      SUPADATA_API_KEY         (optional)
+#      FIREBASE_API_KEY
+#    PROJECT_ID/REGION/the Firebase ids/WEB_PUBLIC_URL below are plain
+#    values already safe to read in this repo (see deploy-env.sh.example
+#    and firebase.js's own comment on why those particular ones are public)
+#    so they're hardcoded directly rather than duplicated into secrets —
+#    edit them below if they ever change.
+#
+# This deploys straight to the live pilot on every push — no staging
+# environment exists yet. If you want a manual approval step before a
+# push actually reaches Cloud Run, add a "Required reviewers" protection
+# rule to a GitHub Environment named `production` and reference
+# `environment: production` on the job below.
+
+on:
+  push:
+    branches: [travel-discovery]
+  workflow_dispatch: {}
+
+env:
+  PROJECT_ID: gen-lang-client-0529555554
+  REGION: us-central1
+  WEB_PUBLIC_URL: https://app.traveldiscoveries.app
+  FIREBASE_AUTH_DOMAIN: auth.traveldiscoveries.app
+  FIREBASE_PROJECT_ID: gen-lang-client-0529555554
+  FIREBASE_APP_ID: "1:911993008582:web:c76d903f67cb173a0902c7"
+  AUTH_ENABLED: "true"
+  DEPLOY_MCP: "true"
+  DEPLOY_INGEST_JOB: "true"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy
+        env:
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          SUPADATA_API_KEY: ${{ secrets.SUPADATA_API_KEY }}
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+        run: ./deploy.sh
