@@ -253,27 +253,35 @@ async def _fetch_autocomplete(query: str) -> Optional[list]:
     return out
 
 
-async def find_place(name: str, city: str, country: str = "") -> dict:
+async def find_place(name: str, city: str, country: str = "", area: str = "") -> dict:
     """Ground a candidate venue name against a real place record.
 
     Returns {} if nothing resolves to a close-enough real match — callers
     should drop the candidate rather than show it, per the design doc's
     grounding rule. Pass `country` when known (see _in_target_country) to
     catch a same-named result in the wrong country entirely.
+
+    Pass `area` (a neighborhood/district/street, from extract.py's `area`
+    field) when the source states one — confirmed live: without it, a
+    multi-location chain ("Dumbo," a real Paris smash-burger chain) grounds
+    to whichever branch Google's Text Search ranks first for a bare
+    "{name}, {city}" query, which silently isn't always the specific branch
+    the source actually discussed.
     """
     if not configured():
         return {}
-    key = (_normalize(name), _normalize(city), _normalize(country))
-    result = await _grounding_cache.get_or_fetch(key, lambda: _fetch_place(name, city, country))
+    key = (_normalize(name), _normalize(city), _normalize(country), _normalize(area))
+    result = await _grounding_cache.get_or_fetch(key, lambda: _fetch_place(name, city, country, area))
     return result if result is not None else {}
 
 
-async def _fetch_place(name: str, city: str, country: str) -> Optional[dict]:
+async def _fetch_place(name: str, city: str, country: str, area: str = "") -> Optional[dict]:
+    text_query = f"{name}, {area}, {city}" if area else f"{name}, {city}"
     data = await _post(
         "places:searchText",
         # Only the top result is ever used; Text Search bills per request,
         # not per result, so this trims payload rather than cost.
-        {"textQuery": f"{name}, {city}", "pageSize": 1},
+        {"textQuery": text_query, "pageSize": 1},
         field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos,places.location",
     )
     if data is None:

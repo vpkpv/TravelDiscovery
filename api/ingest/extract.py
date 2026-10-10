@@ -67,11 +67,28 @@ _WORLD_CREDENTIAL_INSTRUCTION = (
 )
 
 
+# Confirmed live: "Dumbo" (a real, multi-location Paris smash-burger
+# chain) grounded to its Pigalle branch even though the source was
+# specifically about its Le Marais location — find_place's search query
+# was just "Dumbo, Paris", with nothing to tell Google's Text Search
+# which branch was meant, so it silently picked whichever one it ranked
+# first. `area` gives find_place a neighborhood/street to narrow the
+# search with when the source actually states one — the only signal
+# that distinguishes one branch of a chain from another.
+_AREA_INSTRUCTION = (
+    "area: if the source states a specific neighborhood, district, or street for this exact "
+    "venue (e.g. \"Le Marais\", \"Shibuya\", \"Dadar West\"), give it concisely — this matters "
+    "most for a chain or multi-location venue, where it's the only way to tell which branch is "
+    "actually being talked about. Otherwise an empty string — never guess one."
+)
+
+
 class VenueCandidate(BaseModel):
     name: str
     why: str
     cuisine: str
     credential: str = ""
+    area: str = ""
 
 
 class WorldVenueCandidate(BaseModel):
@@ -81,6 +98,7 @@ class WorldVenueCandidate(BaseModel):
     why: str
     cuisine: str
     credential: str = ""
+    area: str = ""
 
 
 PROMPT_TEMPLATE = """You are extracting real restaurant/venue recommendations from a food \
@@ -103,6 +121,7 @@ never borrow one said about a different venue in the same transcript. Write it i
 even if the transcript itself is in another language.
 - {cuisine_instruction}
 - {credential_instruction}
+- {area_instruction}
 
 If no real venues are named, return an empty list.
 
@@ -132,6 +151,7 @@ even if the article itself is in another language (confirmed live: a French Time
 article needs this spelled out explicitly, not assumed).
 - {cuisine_instruction}
 - {credential_instruction}
+- {area_instruction}
 
 If no real restaurants are named, return an empty list.
 
@@ -209,6 +229,7 @@ about THIS SPECIFIC entry — never invent a detail, and never borrow one said a
 entry in the same article. Write it in English even if the article itself is in another language.
 - {cuisine_instruction}
 - {credential_instruction}
+- {area_instruction}
 
 If you can't determine a specific city for an entry, skip it rather than guessing — a wrong city \
 would cause it to be searched for in the wrong place entirely.
@@ -255,13 +276,13 @@ def _extract(prompt: str) -> list:
         return []
 
     return [
-        {"name": c.name, "why": c.why, "cuisine": c.cuisine, "credential": c.credential}
+        {"name": c.name, "why": c.why, "cuisine": c.cuisine, "credential": c.credential, "area": c.area}
         for c in candidates if c.name.strip()
     ]
 
 
 def extract_venues(transcript: str, city: str) -> list:
-    """Returns [{"name": ..., "why": ..., "cuisine": ..., "credential": ...}, ...].
+    """Returns [{"name": ..., "why": ..., "cuisine": ..., "credential": ..., "area": ...}, ...].
     Empty list if not configured, the call fails, or no venues are named in
     the transcript.
     """
@@ -270,6 +291,7 @@ def extract_venues(transcript: str, city: str) -> list:
     return _extract(PROMPT_TEMPLATE.format(
         city=city, transcript=transcript[:60000],
         cuisine_instruction=_CUISINE_INSTRUCTION, credential_instruction=_CREDENTIAL_INSTRUCTION,
+        area_instruction=_AREA_INSTRUCTION,
     ))
 
 
@@ -283,6 +305,7 @@ def extract_venues_from_article(article_text: str, city: str) -> list:
     return _extract(ARTICLE_PROMPT_TEMPLATE.format(
         city=city, article_text=article_text[:60000],
         cuisine_instruction=_CUISINE_INSTRUCTION, credential_instruction=_CREDENTIAL_INSTRUCTION,
+        area_instruction=_AREA_INSTRUCTION,
     ))
 
 
@@ -315,6 +338,7 @@ def extract_world_venues(article_text: str, kind: str = "restaurant") -> list:
     prompt = WORLD_ARTICLE_PROMPT_TEMPLATE.format(
         article_text=article_text[:60000],
         cuisine_instruction=_CUISINE_INSTRUCTION, credential_instruction=_WORLD_CREDENTIAL_INSTRUCTION,
+        area_instruction=_AREA_INSTRUCTION,
         venue_singular=words["singular"], venue_plural=words["plural"], venue_plural_title=words["plural_title"],
     )
     try:
@@ -338,7 +362,7 @@ def extract_world_venues(article_text: str, kind: str = "restaurant") -> list:
     return [
         {
             "name": c.name, "city": c.city, "country": c.country,
-            "why": c.why, "cuisine": c.cuisine, "credential": c.credential,
+            "why": c.why, "cuisine": c.cuisine, "credential": c.credential, "area": c.area,
         }
         for c in candidates
         if c.name.strip() and c.city.strip()

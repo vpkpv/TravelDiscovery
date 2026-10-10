@@ -111,7 +111,7 @@ async def ingest_video(video_id: str, city: str, source_label: str, country: str
                 "source_video_id": video_id,
             })
             continue
-        ground = await places.find_place(candidate["name"], city, country)
+        ground = await places.find_place(candidate["name"], city, country, candidate.get("area", ""))
         if not ground:
             continue  # ungrounded — could be a mishear, a closed business, or hallucinated
         grounded.append({
@@ -159,7 +159,7 @@ async def ingest_article(url: str, city: str, source_label: str, country: str = 
                 "source_url": url,
             })
             continue
-        ground = await places.find_place(candidate["name"], city, country)
+        ground = await places.find_place(candidate["name"], city, country, candidate.get("area", ""))
         if not ground:
             continue
         grounded.append({
@@ -292,7 +292,7 @@ async def ingest_world_article(url: str, source_label: str, db=None, kind: str =
                 "source_url": url,
             })
             continue
-        ground = await places.find_place(candidate["name"], city, candidate.get("country", ""))
+        ground = await places.find_place(candidate["name"], city, candidate.get("country", ""), candidate.get("area", ""))
         if not ground:
             continue
         grounded.append({
