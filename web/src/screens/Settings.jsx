@@ -12,11 +12,33 @@ export function Settings({ state, onChange, onDone }) {
   const [cuisineOptions, setCuisineOptions] = useState([]);
   const [genreOptions, setGenreOptions] = useState([]);
   const [chefDraft, setChefDraft] = useState('');
+  const [mcpToken, setMcpToken] = useState('');
+  const [mintingToken, setMintingToken] = useState(false);
+  const [tokenError, setTokenError] = useState('');
 
   useEffect(() => {
     api.cuisines().then((d) => setCuisineOptions(d.cuisines));
     api.musicGenres().then((d) => setGenreOptions(d.genres));
   }, []);
+
+  // Lets an external MCP client (Claude, or an agent like Muse that can
+  // build its own connector from a URL + token — see api/mcp_server.py)
+  // authenticate as this account, without needing to dig a Firebase ID
+  // token out of browser devtools by hand. Shown once; there's no way to
+  // retrieve the same token again afterward (see /api/tokens' docstring),
+  // only mint a new one.
+  const mintToken = async () => {
+    setMintingToken(true);
+    setTokenError('');
+    try {
+      const { token } = await api.createToken();
+      setMcpToken(token);
+    } catch {
+      setTokenError("Couldn't generate a token — check your connection and try again.");
+    } finally {
+      setMintingToken(false);
+    }
+  };
 
   const toggleCuisine = (c) => {
     onChange({ cuisines: state.cuisines.includes(c) ? state.cuisines.filter((x) => x !== c) : [...state.cuisines, c] });
@@ -109,6 +131,39 @@ export function Settings({ state, onChange, onDone }) {
             ))}
           </div>
         )}
+
+        <div style={sectionLabelStyle}>Developer: MCP access</div>
+        <div style={{ fontSize: 13.5, color: theme.textMuted, lineHeight: 1.5 }}>
+          Generates a personal access token so an MCP-compatible client (Claude, or an
+          agent that can connect to an MCP server URL) can read your picks on your behalf.
+        </div>
+        {mcpToken ? (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 13, color: theme.accentFood, fontWeight: 600, marginBottom: 6 }}>
+              Copy this now — it won't be shown again:
+            </div>
+            <div
+              style={{
+                background: theme.chipBg, borderRadius: 12, padding: '10px 14px',
+                fontFamily: 'monospace', fontSize: 12.5, wordBreak: 'break-all', userSelect: 'all',
+              }}
+            >
+              {mcpToken}
+            </div>
+          </div>
+        ) : (
+          <div
+            onClick={mintingToken ? undefined : mintToken}
+            style={{
+              marginTop: 12, display: 'inline-flex', cursor: mintingToken ? 'default' : 'pointer',
+              border: `1.5px solid ${theme.border}`, borderRadius: 16, padding: '10px 18px',
+              fontSize: 14, fontWeight: 600, color: theme.text, opacity: mintingToken ? 0.6 : 1,
+            }}
+          >
+            {mintingToken ? 'Generating…' : 'Generate access token'}
+          </div>
+        )}
+        {tokenError && <div style={{ fontSize: 13, color: theme.accentFood, marginTop: 8 }}>{tokenError}</div>}
       </div>
     </div>
   );

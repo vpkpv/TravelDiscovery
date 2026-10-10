@@ -76,4 +76,10 @@ export const api = {
   deleteTrip: (id) => del(`/api/trips/${encodeURIComponent(id)}`),
   setAnchorEvent: (tripId, anchor) => put(`/api/trips/${encodeURIComponent(tripId)}/anchor`, anchor),
   clearAnchorEvent: (tripId) => del(`/api/trips/${encodeURIComponent(tripId)}/anchor`),
+  // Mints a personal access token for the MCP server (api/mcp_server.py) —
+  // shown once, not retrievable again (see api/main.py's /api/tokens). The
+  // only way to get one otherwise is a raw curl with a manually-extracted
+  // Firebase ID token, since the signed-in session lives inside the React
+  // bundle, not anywhere a browser console can reach it.
+  createToken: () => post('/api/tokens', {}),
 };
