@@ -24,6 +24,12 @@ export function PhoneShell({ children }) {
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 0 0 1px rgba(43,36,32,0.04)',
+          // Only matters once this runs as an installed PWA (see index.html's
+          // viewport-fit=cover + manifest.json) — a normal browser tab's own
+          // chrome already keeps content clear of the notch/home indicator,
+          // and these resolve to 0 there, so this is a no-op in that case.
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
         }}
       >
         {children}
