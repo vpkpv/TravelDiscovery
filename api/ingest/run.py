@@ -347,6 +347,29 @@ ARTICLES = [
         "city": "San Francisco",
         "source": "Resy Hit List — San Francisco, June 2026",
     },
+    # All three URLs below confirmed live by user in their own browser,
+    # 2026-10-11. Lisbon had no dedicated single-city source before this
+    # (only ever reachable via live curated_food top-up) despite several
+    # days of searching for one. San Francisco gets its first MICHELIN
+    # source (Californios' elevation to 3 stars — first Mexican restaurant
+    # worldwide to do so). Dallas gets a second, more current-events-y
+    # source alongside D Magazine's best-of lists, same Resy Hit List
+    # series as the San Francisco entry above.
+    {
+        "url": "https://www.timeout.com/lisbon/restaurants/the-best-lisbon-restaurants",
+        "city": "Lisbon",
+        "source": "Time Out Lisbon — The Best Lisbon Restaurants",
+    },
+    {
+        "url": "https://blog.resy.com/the-hit-list/dallas-restaurants-aug-2026/",
+        "city": "Dallas",
+        "source": "Resy Hit List — Dallas, August 2026",
+    },
+    {
+        "url": "https://guide.michelin.com/us/en/article/michelin-guide-ceremony/guide-michelin-california",
+        "city": "San Francisco",
+        "source": "MICHELIN Guide — California 2026 Stars",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
