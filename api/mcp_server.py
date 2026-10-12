@@ -29,6 +29,7 @@ SDK may have moved again.
 import os
 import random
 
+from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver import MCPServer
@@ -57,9 +58,11 @@ _resource = os.environ.get("MCP_RESOURCE_URL", "http://localhost:8001")
 mcp = MCPServer(
     name="traveldiscovery",
     instructions=(
-        "Taste-matched food and live-music picks for a city, sourced from insider-curated "
+        "Taste-matched food, bar, and live-music picks for a city, sourced from insider-curated "
         "venue data grounded against Google Places (hallucinated/defunct venues are dropped, "
-        "not shown). Use find_venues to browse, surprise_me for one paired pick."
+        "not shown). Use find_venues to browse a city, surprise_me for one paired pick, or "
+        "get_saved_picks for the venues this account has already explicitly starred — the right "
+        "one when asked to act on (e.g. book) specific picks rather than browse generally."
     ),
     token_verifier=FirestoreTokenVerifier(),
     # validate_token_resource=False: our AccessToken never sets `.resource`
@@ -79,16 +82,33 @@ async def list_cities() -> list:
 
 @mcp.tool()
 async def find_venues(city: str, filter: str = "all") -> list:
-    """Taste-matched food and/or music venues for a city.
+    """Taste-matched food, bar, and/or live-music venues for a city.
 
     Args:
         city: city id from list_cities (e.g. "lisbon", "tokyo").
-        filter: "all", "food", or "music".
+        filter: "all", "food", "bar", or "music".
     """
     items = await api._grounded_items(city)
-    if filter in ("food", "music"):
+    if filter in ("food", "bar", "music"):
         items = [i for i in items if i["type"] == filter]
     return items
+
+
+@mcp.tool()
+async def get_saved_picks() -> list:
+    """This account's saved picks — the ones explicitly starred in the app
+    (the heart icon on a venue card), not the full taste-matched list for a
+    city. Use this, not find_venues, when asked to act on "the ones I
+    picked," "my saved spots," or similar — e.g. to go make reservations
+    for them — rather than to browse a city generally. Same saved_picks/
+    {uid} Firestore data as api/main.py's GET /api/saved.
+    """
+    token = get_access_token()
+    if not token:
+        return []
+    doc = auth.firestore_client().collection("saved_picks").document(token.subject).get()
+    items = doc.to_dict().get("items", {}) if doc.exists else {}
+    return list(items.values())
 
 
 @mcp.tool()
