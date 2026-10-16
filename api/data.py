@@ -71,6 +71,16 @@ CITIES = [
         "first_time_pitch": "Great for: Taco trucks & backyard DJ sets",
         "return_pitch": "New spots since your last trip",
     },
+    {
+        "id": "las-vegas", "name": "Las Vegas", "country": "USA",
+        "first_time_pitch": "Great for: Celebrity-chef outposts & late-night residencies",
+        "return_pitch": "New spots since your last trip",
+    },
+    {
+        "id": "new-delhi", "name": "New Delhi", "country": "India",
+        "first_time_pitch": "Great for: Mughlai classics & modern Indian fine dining",
+        "return_pitch": "New spots since your last trip",
+    },
 ]
 
 # city_id -> list of picks. Each pick's "why" is written as if generated from a taste

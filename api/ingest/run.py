@@ -370,6 +370,114 @@ ARTICLES = [
         "city": "San Francisco",
         "source": "MICHELIN Guide — California 2026 Stars",
     },
+    # All entries below this point were surfaced by the daily discovery
+    # routine (2026-10-12 through 2026-10-16) and verified via WebSearch
+    # structured-link hits, not personally browser-confirmed by the user the
+    # way every ARTICLES entry above this point was — added directly at the
+    # user's explicit request to consolidate the pending backlog in one pass
+    # rather than confirm each individually (2026-10-16).
+    {
+        "url": "https://blog.resy.com/the-hit-list/nyc-restaurants-sept-2026/",
+        "city": "New York",
+        "source": "Resy Hit List — NYC, September 2026",
+    },
+    {
+        "url": "https://blog.resy.com/the-hit-list/chicago-restaurants-sept-2026/",
+        "city": "Chicago",
+        "source": "Resy Hit List — Chicago, September 2026",
+    },
+    {
+        "url": "https://www.timeout.com/london/news/38-london-restaurants-have-been-named-the-best-in-the-uk-in-a-prestigious-new-list-and-this-one-ranks-highest-120525",
+        "city": "London",
+        "source": "Time Out London — Harden's Guide, Best in the UK",
+    },
+    {
+        "url": "https://www.wbez.org/food-drink/2026/01/25/banchet-awards-ceremony-winners-chicago-chefs-restaurants",
+        "city": "Chicago",
+        "source": "WBEZ — Jean Banchet Awards 2026 Winners",
+    },
+    {
+        "url": "https://www.timeout.com/miami/news/these-four-miami-restaurants-were-named-among-the-best-in-the-world-for-2026-120825",
+        "city": "Miami",
+        "source": "Time Out Miami — La Liste 2026",
+    },
+    # Las Vegas — new city, added after Gymkhana (the London two-Michelin-
+    # star Indian restaurant, now at ARIA Resort & Casino) didn't surface in
+    # search. A third URL variant (an undated/"rolling" Resy Hit List page)
+    # found in the same search was skipped as a likely duplicate of the
+    # dated one below.
+    {
+        "url": "https://blog.resy.com/the-hit-list/las-vegas-restaurants-spring-2026/",
+        "city": "Las Vegas",
+        "source": "Resy Hit List — Las Vegas, Spring 2026",
+    },
+    {
+        "url": "https://www.timeout.com/usa/restaurants/best-restaurants-in-las-vegas",
+        "city": "Las Vegas",
+        "source": "Time Out — Best Restaurants in Las Vegas",
+    },
+    # New Delhi — new city.
+    {
+        "url": "https://www.timeout.com/delhi/restaurants/best-restaurants-in-delhi",
+        "city": "New Delhi",
+        "source": "Time Out — Best Restaurants in Delhi",
+    },
+    {
+        "url": "https://www.outlooktraveller.com/News/indian-restaurants-on-asias-50-best-list-2025",
+        "city": "New Delhi",
+        "source": "Outlook Traveller — Delhi Restaurants on Asia's 50 Best 2025",
+    },
+    {
+        "url": "https://www.afar.com/travel-tips/best-restaurants-in-delhi?guide=43",
+        "city": "New Delhi",
+        "source": "Afar — Best Restaurants in Delhi",
+    },
+    {
+        "url": "https://blog.resy.com/the-hit-list/la-restaurants-oct-2026/",
+        "city": "Los Angeles",
+        "source": "Resy Hit List — Los Angeles, October 2026",
+    },
+    {
+        "url": "https://blog.resy.com/the-hit-list/boston-restaurants-sept-2026/",
+        "city": "Boston",
+        "source": "Resy Hit List — Boston, September 2026",
+    },
+    {
+        "url": "https://www.timeout.com/boston/news/boston-officially-named-a-must-visit-food-destination-for-2026-122225",
+        "city": "Boston",
+        "source": "Time Out Boston — Must-Visit Food Destination 2026",
+    },
+    # Three new cities from a city-expansion research pass (2026-10-16),
+    # cross-checked against real culinary-tourism rankings (Travel+Leisure's
+    # repeated #1/top-5 world rankings for Oaxaca's reputation generally —
+    # see WORLD_ARTICLES note below on why Oaxaca itself isn't added yet;
+    # Time Out's World's Best Food Cities 2026 for Lima/Barcelona/Melbourne)
+    # rather than added on name recognition alone. Guatemala City and Cape
+    # Town were researched and deliberately left out: Guatemala City doesn't
+    # appear on any real food-destination ranking (only one individual
+    # restaurant, unrelated to a city-level claim), and the only Cape Town
+    # source found was a secondary aggregator picking up a Time Out ranking
+    # rather than a primary-publication guide — below this file's normal bar.
+    {
+        "url": "https://www.fodors.com/world/south-america/peru/lima/restaurants",
+        "city": "Lima",
+        "source": "Fodor's — 52 Best Restaurants in Lima",
+    },
+    {
+        "url": "https://www.timeout.com/barcelona/restaurants/the-50-best-restaurants-in-barcelona-the-complete-list",
+        "city": "Barcelona",
+        "source": "Time Out — The 50 Best Restaurants in Barcelona",
+    },
+    {
+        "url": "https://www.timeout.com/helsinki/news/best-restaurants-helsinki-2026-new-list-030426",
+        "city": "Helsinki",
+        "source": "Time Out Helsinki — Best Restaurants 2026",
+    },
+    {
+        "url": "https://www.timeout.com/melbourne/news/melbourne-is-officially-one-of-the-10-best-cities-in-the-world-for-food-for-2026-060826",
+        "city": "Melbourne",
+        "source": "Time Out — Melbourne, One of the 10 Best Food Cities 2026",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -484,6 +592,49 @@ WORLD_ARTICLES = [
         "source": "North America's 50 Best Bars 2026",
         "kind": "bar",
     },
+    # Surfaced by the daily discovery routine (2026-10-12 through 10-15),
+    # verified via WebSearch structured-link hits, added directly at the
+    # user's request (2026-10-16) — same provenance note as the ARTICLES
+    # block above. Three other candidates found the same week were skipped
+    # as duplicates of sources already in this file: MICHELIN France &
+    # Monaco 2026 and MICHELIN Great Britain & Ireland 2026 (both re-covering
+    # events already ingested above under different URLs/outlets), and
+    # World's 50 Best North America 2026 (literally the same list already
+    # above). The daily routine's exclusion list is hand-maintained from
+    # chat history rather than checked against this file directly, which is
+    # how these slipped through — worth having future runs grep this file
+    # instead of trusting a manually-copied list.
+    {
+        "url": "https://guide.michelin.com/it/it/notizia/michelin-guide-ceremony/le-nuove-stelle-di-citta-illuminano-roma-milano-napoli-e-firenze",
+        "source": "MICHELIN Guide — Italy 2026 (Rome, Milan, Naples, Florence)",
+    },
+    {
+        "url": "https://www.timeout.com/asia/news/these-are-asias-top-food-cities-for-2026-020126",
+        "source": "Time Out Asia — Top Food Cities 2026",
+    },
+    {
+        "url": "https://www.winespectator.com/articles/wine-spectator-restaurant-awards-reveal-2026",
+        "source": "Wine Spectator — 2026 Restaurant Awards Reveal",
+    },
+    {
+        "url": "https://www.winespectator.com/articles/latest-greatest-best-new-wine-restaurants-guide-2026",
+        "source": "Wine Spectator — Latest & Greatest New Restaurants 2026",
+    },
+    {
+        "url": "https://www.theworlds50best.com/stories/News/menas-50-best-restaurants-2026-highlights.html",
+        "source": "World's 50 Best — MENA 2026 Highlights",
+    },
+    {
+        "url": "https://www.timeout.com/usa/news/these-are-the-best-new-restaurants-of-2026-according-to-yelpand-no-1-definitely-surprised-us-092926",
+        "source": "Time Out USA — Best New Restaurants of 2026 (Yelp-sourced)",
+    },
+    # Also fills the "Hong Kong" slot from the city-expansion research pass
+    # — the only Hong Kong source found there (a 2023-dated Resy Hit List)
+    # was too stale by this file's normal standard, so this is used instead.
+    {
+        "url": "https://guide.michelin.com/hk/zh_HK/event/michelin-guide-ceremony-hong-kong-macau-2026",
+        "source": "MICHELIN Guide — Hong Kong & Macau 2026",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
@@ -505,6 +656,14 @@ CITY_COUNTRIES = {
     "Seoul": "South Korea",
     "San Francisco": "USA",
     "Dallas": "USA",
+    "Miami": "USA",
+    "Las Vegas": "USA",
+    "New Delhi": "India",
+    "Boston": "USA",
+    "Lima": "Peru",
+    "Barcelona": "Spain",
+    "Helsinki": "Finland",
+    "Melbourne": "Australia",
 }
 
 
