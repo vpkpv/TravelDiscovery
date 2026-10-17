@@ -11,7 +11,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # import places, sibling to ingest/
 
 import places
-from ingest.extract import extract_venues, extract_venues_from_article, extract_world_venues
+from ingest.extract import (
+    extract_chefs_from_article,
+    extract_venues,
+    extract_venues_from_article,
+    extract_world_venues,
+)
 from ingest.scrape_articles import scrape_url
 from ingest.transcripts import fetch_transcript
 
