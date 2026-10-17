@@ -478,6 +478,36 @@ ARTICLES = [
         "city": "Melbourne",
         "source": "Time Out — Melbourne, One of the 10 Best Food Cities 2026",
     },
+    # Surfaced by the daily discovery routine (2026-10-16/10-17), verified
+    # via WebSearch structured-link hits, added at the user's request
+    # (2026-10-17) — same provenance note as the backlog block above.
+    {
+        "url": "https://www.timeout.com/singapore/restaurants/the-50-best-restaurants-in-singapore",
+        "city": "Singapore",
+        "source": "Time Out — The 50 Best Restaurants in Singapore",
+    },
+    # Lower-confidence than the Time Out entry above: no primary
+    # guide.michelin.com URL surfaced in search (WebFetch couldn't reach
+    # guide.michelin.com or sethlui.com either, so this rests on a single
+    # WebSearch structured-link hit for a secondary Singapore food
+    # publication, not a MICHELIN-owned page). Kept in since it's a real,
+    # specific source (45 starred restaurants) rather than a guess — if
+    # ingest.run turns up nothing from it, that's informative on its own.
+    {
+        "url": "https://sethlui.com/michelin-guide-singapore-aug-2026/",
+        "city": "Singapore",
+        "source": "SethLui — MICHELIN Guide Singapore 2026",
+    },
+    {
+        "url": "https://blog.resy.com/the-hit-list/philadelphia-restaurants-aug-2026/",
+        "city": "Philadelphia",
+        "source": "Resy Hit List — Philadelphia, August 2026",
+    },
+    {
+        "url": "https://timeout.com/new-orleans/restaurants/best-restaurants-in-new-orleans",
+        "city": "New Orleans",
+        "source": "Time Out — Best Restaurants in New Orleans",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -635,6 +665,34 @@ WORLD_ARTICLES = [
         "url": "https://guide.michelin.com/hk/zh_HK/event/michelin-guide-ceremony-hong-kong-macau-2026",
         "source": "MICHELIN Guide — Hong Kong & Macau 2026",
     },
+    # Surfaced by the daily discovery routine (2026-10-16/10-17), verified
+    # via WebSearch structured-link hits, added at the user's request
+    # (2026-10-17).
+    {
+        "url": "https://www.theworlds50best.com/asia/en/",
+        "source": "World's 50 Best — Asia 2026",
+    },
+    {
+        "url": "https://guide.michelin.com/jp/en/article/michelin-guide-ceremony/full-list-michelin-stars-michelin-guide-thailand-2026",
+        "source": "MICHELIN Guide — Thailand 2026",
+    },
+    # The *global* bars ranking — only the North America regional edition
+    # (above) was in before this. Different panel/scope, not a repeat.
+    {
+        "url": "https://www.timeout.com/newyork/news/these-4-nyc-bars-were-the-only-u-s-spots-to-make-the-worlds-best-bars-2026-list-100826",
+        "source": "The World's 50 Best Bars 2026 (Global)",
+        "kind": "bar",
+    },
+    {
+        "url": "https://www.timeout.com/newyork/news/four-nyc-restaurants-were-just-named-among-the-countrys-best-according-to-the-new-york-times-091526",
+        "source": "The New York Times — America's 50 Favorite Restaurants 2026",
+    },
+    # Destination-level list, distinct from CNT's Hot List (new-openings)
+    # already above.
+    {
+        "url": "https://timeout.com/news/the-worlds-best-food-destinations-for-2026-travel-have-been-crowned-121925",
+        "source": "Condé Nast Traveler — Best Places to Eat in 2026",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
@@ -664,6 +722,9 @@ CITY_COUNTRIES = {
     "Barcelona": "Spain",
     "Helsinki": "Finland",
     "Melbourne": "Australia",
+    "Singapore": "Singapore",
+    "Philadelphia": "USA",
+    "New Orleans": "USA",
 }
 
 
