@@ -36,6 +36,13 @@ app = FastAPI(title="TravelDiscovery API (dev)")
 # city with literally zero.
 MIN_FOOD_ITEMS = 8
 
+# Same idea as MIN_FOOD_ITEMS, for bars — below this many real bar items
+# (ingested, or from places.find_bars_venues' raw category search), top up
+# with curated_food.suggest_bars' named, insider-feeling picks instead of
+# leaving the list as whatever a generic Places "bar" category search
+# returned.
+MIN_BAR_ITEMS = 5
+
 
 def _merge_ingested_items(items: list, city_lookup: dict) -> None:
     """Shared by both loaders below: merges a flat list of ingested venue
@@ -511,6 +518,28 @@ async def _grounded_items(
                 **({"lat": ground["lat"], "lng": ground["lng"]} if ground.get("lat") is not None and ground.get("lng") is not None else {}),
             }
             for i, (s, ground) in enumerate(zip(suggestions, grounded))
+            if ground and s["name"].lower() not in existing_names
+        ]
+
+    bar_count = sum(1 for i in items if i["type"] == "bar")
+    if places.configured() and curated_food.configured() and bar_count < MIN_BAR_ITEMS:
+        existing_names = {i["name"].lower() for i in items}
+        bar_suggestions = await asyncio.to_thread(curated_food.suggest_bars, city_name, 10)
+        bar_grounded = await asyncio.gather(*(places.find_place(s["name"], city_name, country) for s in bar_suggestions))
+        items = items + [
+            {
+                "id": ground["place_id"] or f"llm-bar-{city_id}-{i}",
+                "type": "bar",
+                "name": s["name"],
+                "meta": "Suggested pick",
+                "addr": ground["addr"],
+                "why": s["why"],
+                "place_verified": True,
+                **({"rating": ground["rating"]} if ground.get("rating") is not None else {}),
+                **({"photo_ref": ground["photo_ref"]} if ground.get("photo_ref") else {}),
+                **({"lat": ground["lat"], "lng": ground["lng"]} if ground.get("lat") is not None and ground.get("lng") is not None else {}),
+            }
+            for i, (s, ground) in enumerate(zip(bar_suggestions, bar_grounded))
             if ground and s["name"].lower() not in existing_names
         ]
 
