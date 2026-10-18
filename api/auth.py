@@ -67,6 +67,25 @@ def _normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
+def custom_token_for_email(email: str) -> str:
+    """Mints a Firebase custom token for this email — see
+    google_oauth.py for why this exists (a server-side OAuth exchange,
+    sidestepping signInWithPopup's Safari flakiness). Returns an existing
+    user's uid if one was ever created for this email by any sign-in
+    method (Admin SDK looks these up by email regardless of which
+    provider originally created the account), so someone who signed in
+    before via the old popup flow keeps the exact same uid — same
+    approved_users/user_prefs/saved_picks Firestore data, not a fresh
+    account. Creates a new user only if none exists yet.
+    """
+    _ensure_initialized()
+    try:
+        user = firebase_auth.get_user_by_email(email)
+    except firebase_auth.UserNotFoundError:
+        user = firebase_auth.create_user(email=email, email_verified=True)
+    return firebase_auth.create_custom_token(user.uid).decode("utf-8")
+
+
 def is_approved(uid: str, email: str = "") -> bool:
     """True if approved_users/{uid} exists — the normal, fast path for
     anyone who's ever been approved post-sign-in.

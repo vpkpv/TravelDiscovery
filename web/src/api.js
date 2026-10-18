@@ -2,8 +2,7 @@
 // web/docker-entrypoint.d and web/config.js.template) so the same built
 // image can point at whatever API URL a deploy sets, without rebuilding.
 // Local dev falls through to VITE_API_URL (build-time) or localhost.
-const BASE = window.__API_URL__ || import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
+import { API_BASE as BASE } from './apiBase.js';
 import { getIdToken } from './firebase.js';
 
 async function get(path) {

@@ -31,6 +31,8 @@ name: Deploy to Cloud Run
 #      GEMINI_API_KEY
 #      SPOTIFY_CLIENT_ID
 #      SPOTIFY_CLIENT_SECRET
+#      GOOGLE_OAUTH_CLIENT_ID   (see api/.env.example — a separate OAuth
+#      GOOGLE_OAUTH_CLIENT_SECRET   client from Firebase's own, for server-side Google sign-in)
 #      SUPADATA_API_KEY         (optional)
 #      FIREBASE_API_KEY
 #    PROJECT_ID/REGION/the Firebase ids/WEB_PUBLIC_URL below are plain
@@ -80,6 +82,8 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
           SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           SUPADATA_API_KEY: ${{ secrets.SUPADATA_API_KEY }}
           FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
         run: ./deploy.sh

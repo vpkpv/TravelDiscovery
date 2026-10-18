@@ -19,6 +19,14 @@
 #   # (from developer.spotify.com/dashboard) — this script computes and wires
 #   # up SPOTIFY_REDIRECT_URI itself. See api/.env.example for details,
 #   # including the Dev Mode user-allowlisting requirement.
+#   # for Google sign-in (server-side OAuth, not Firebase's own client-side
+#   # Google provider — see api/google_oauth.py for why): set
+#   # GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET from a Web
+#   # application OAuth 2.0 Client ID (Google Cloud Console -> APIs &
+#   # Services -> Credentials -> Create Credentials -> OAuth client ID). This
+#   # script computes and wires up GOOGLE_OAUTH_REDIRECT_URI itself, same as
+#   # Spotify's above — register that exact URI on the OAuth client
+#   # afterward (this script prints it).
 #   # for Firebase Auth + the closed-pilot approval gate: set AUTH_ENABLED=true
 #   # plus FIREBASE_API_KEY, FIREBASE_AUTH_DOMAIN, FIREBASE_PROJECT_ID,
 #   # FIREBASE_APP_ID (from the Firebase console's web app config). See
@@ -55,7 +63,7 @@ gcloud run deploy travel-api \
   --source ./api \
   --region "$REGION" \
   --allow-unauthenticated \
-  --set-env-vars "GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-},GEMINI_API_KEY=${GEMINI_API_KEY:-},GEMINI_MODEL=${GEMINI_MODEL:-},SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-},SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET:-},AUTH_ENABLED=${AUTH_ENABLED:-}"
+  --set-env-vars "GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-},GEMINI_API_KEY=${GEMINI_API_KEY:-},GEMINI_MODEL=${GEMINI_MODEL:-},SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-},SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET:-},GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-},GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-},AUTH_ENABLED=${AUTH_ENABLED:-}"
 
 API_URL=$(gcloud run services describe travel-api --region "$REGION" --format='value(status.url)')
 echo "API live at: $API_URL"
@@ -89,9 +97,10 @@ WEB_URL="${WEB_PUBLIC_URL:-$(gcloud run services describe travel-web --region "$
 # ALLOWED_ORIGINS yourself before calling this script if you need more than
 # one origin (comma-separated — see main.py).
 SPOTIFY_REDIRECT_URI="${API_URL}/auth/spotify/callback"
+GOOGLE_OAUTH_REDIRECT_URI="${API_URL}/auth/google/callback"
 gcloud run services update travel-api \
   --region "$REGION" \
-  --update-env-vars "WEB_URL=${WEB_URL},SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI},ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-$WEB_URL}" \
+  --update-env-vars "WEB_URL=${WEB_URL},SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI},GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI},ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-$WEB_URL}" \
   >/dev/null
 
 if [ -n "${SPOTIFY_CLIENT_ID:-}" ]; then
@@ -99,6 +108,14 @@ if [ -n "${SPOTIFY_CLIENT_ID:-}" ]; then
   echo "Spotify: make sure this exact Redirect URI is registered on your"
   echo "Spotify app (developer.spotify.com/dashboard -> your app -> Settings):"
   echo "  $SPOTIFY_REDIRECT_URI"
+fi
+
+if [ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" ]; then
+  echo
+  echo "Google sign-in: make sure this exact Authorized redirect URI is"
+  echo "registered on your OAuth client (Google Cloud Console -> APIs &"
+  echo "Services -> Credentials -> your OAuth 2.0 Client ID):"
+  echo "  $GOOGLE_OAUTH_REDIRECT_URI"
 fi
 
 if [ "${AUTH_ENABLED:-}" = "true" ]; then

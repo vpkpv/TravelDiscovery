@@ -22,6 +22,16 @@ export SUPADATA_API_KEY=      # optional — improves ingest transcript reliabil
 export SPOTIFY_CLIENT_ID=
 export SPOTIFY_CLIENT_SECRET=
 
+# A Web application OAuth 2.0 Client ID (Google Cloud Console -> APIs &
+# Services -> Credentials -> Create Credentials -> OAuth client ID) — NOT
+# the same as FIREBASE_APP_ID below, and deliberately a separate client
+# from whatever Firebase auto-created for its own client-side Google
+# provider, so this has its own redirect-URI allowlist to manage. See
+# api/google_oauth.py for why sign-in goes through this server-side
+# exchange instead of Firebase's client-side signInWithPopup.
+export GOOGLE_OAUTH_CLIENT_ID=
+export GOOGLE_OAUTH_CLIENT_SECRET=
+
 # Without this, deploy.sh points every redirect it builds (notably the
 # Spotify connect flow's final handoff) at travel-web's auto-generated
 # *.run.app URL instead of the real custom domain the app is actually

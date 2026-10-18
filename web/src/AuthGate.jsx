@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { theme } from './theme.js';
 import { api } from './api.js';
 import { PhoneShell } from './components/PhoneShell.jsx';
@@ -12,24 +12,37 @@ import * as fb from './firebase.js';
 // api/auth.py and CLAUDE.md's "Access control is manual Firestore
 // approval").
 //
-// This used to also track a redirect-specific failure state (a "sign-in
-// isn't completing" message with debug output), built up while chasing a
-// broken signInWithRedirect flow against the default firebaseapp.com auth
-// domain. A custom same-site auth domain (see firebase.js) fixed the
-// original cross-site problem, but redirect turned out to have a second,
-// independent one (see firebase.js's signInWithGoogle) — so sign-in goes
-// through signInWithPopup, and onAuthChange alone is the reliable signal,
-// same as it is in FfAdvisor.
+// History: used to also track a redirect-specific failure state (a
+// "sign-in isn't completing" message with debug output), built up while
+// chasing a broken signInWithRedirect flow, then later a "tap again, this
+// is a known Safari quirk" retry hint once signInWithPopup turned out to
+// have its own version of the same problem. Both were UX smoothing over a
+// client-SDK limitation, not a real fix — see firebase.js's
+// signInWithGoogle for the actual fix (a server-side OAuth exchange with
+// no popup/redirect/iframe handback at all), which made both obsolete.
+const _ERROR_MESSAGES = {
+  denied: 'Sign-in was cancelled.',
+  unverified_email: "That Google account's email isn't verified — try a different account.",
+  token_exchange_failed: 'Something went wrong signing you in — please try again.',
+  sign_in_failed: 'Something went wrong signing you in — please try again.',
+  not_configured: 'Sign-in isn’t set up yet.',
+};
+
 export function AuthGate({ children }) {
   const [status, setStatus] = useState(fb.configured() ? 'loading' : 'open');
   const [email, setEmail] = useState('');
   const [rechecking, setRechecking] = useState(false);
-  const [signingIn, setSigningIn] = useState(false);
-  const [showRetryHint, setShowRetryHint] = useState(false);
-  const stuckTimer = useRef(null);
+  const [authError, setAuthError] = useState('');
 
   useEffect(() => {
     if (!fb.configured()) return;
+    // Picks up the token (or error) api/main.py's /auth/google/callback
+    // redirects back with, if the user just came from there — a no-op
+    // otherwise. Runs once, before onAuthChange below ever needs to fire
+    // from it.
+    fb.completeSignInFromUrl().then((errorCode) => {
+      if (errorCode) setAuthError(errorCode);
+    });
 
     return fb.onAuthChange(async (user) => {
       if (!user) {
@@ -37,11 +50,7 @@ export function AuthGate({ children }) {
         setEmail('');
         return;
       }
-      // A real, observed sign-in — clears whatever handleSignIn below was
-      // waiting on, including the stuck-after-6s case (see its comment).
-      clearTimeout(stuckTimer.current);
-      setSigningIn(false);
-      setShowRetryHint(false);
+      setAuthError('');
       setEmail(user.email || '');
       try {
         const me = await api.me();
@@ -54,35 +63,6 @@ export function AuthGate({ children }) {
       }
     });
   }, []);
-
-  // Safari's privacy protections make signInWithPopup's cross-window
-  // handback genuinely flaky there specifically (see firebase.js's
-  // signInWithGoogle comment — redirect was already tried and ruled out,
-  // there's no clean code fix left). The popup often closes with no
-  // thrown error at all, but onAuthChange above never fires with a user —
-  // confirmed live, especially right after clearing history/cookies. So
-  // this can't tell "it worked" from "it's stuck" by the promise settling;
-  // it waits a few seconds for onAuthChange to prove it worked, and if
-  // that hasn't happened, surfaces a hint and re-enables the button rather
-  // than leaving it looking like it silently did nothing. An explicit
-  // rejection (e.g. the user closed the popup) surfaces the same hint
-  // immediately instead of waiting out the timer.
-  const handleSignIn = async () => {
-    setSigningIn(true);
-    setShowRetryHint(false);
-    clearTimeout(stuckTimer.current);
-    stuckTimer.current = setTimeout(() => {
-      setShowRetryHint(true);
-      setSigningIn(false);
-    }, 6000);
-    try {
-      await fb.signInWithGoogle();
-    } catch {
-      clearTimeout(stuckTimer.current);
-      setSigningIn(false);
-      setShowRetryHint(true);
-    }
-  };
 
   // Approval happens out of band (someone runs approve_users.py while this
   // tab is already sitting on the pending screen) — onAuthChange above only
@@ -115,20 +95,17 @@ export function AuthGate({ children }) {
             This is a closed pilot — sign in to see if you've been approved.
           </div>
           <button
-            onClick={handleSignIn}
-            disabled={signingIn}
+            onClick={fb.signInWithGoogle}
             style={{
               border: `1.5px solid ${theme.border}`, borderRadius: 18, padding: '14px 22px',
-              background: theme.card, fontSize: 15, fontWeight: 600, color: theme.text,
-              cursor: signingIn ? 'default' : 'pointer', opacity: signingIn ? 0.6 : 1,
+              background: theme.card, fontSize: 15, fontWeight: 600, color: theme.text, cursor: 'pointer',
             }}
           >
-            {signingIn ? 'Signing in…' : 'Sign in with Google'}
+            Sign in with Google
           </button>
-          {showRetryHint && (
+          {authError && (
             <div style={{ fontSize: 12, color: theme.textFaint, maxWidth: 260 }}>
-              Still signing in? Tap the button again — this can take two tries on Safari,
-              especially right after clearing history or cookies.
+              {_ERROR_MESSAGES[authError] || 'Something went wrong signing you in — please try again.'}
             </div>
           )}
         </div>

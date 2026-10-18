@@ -5,7 +5,8 @@
 // safe to ship to the browser — Firebase's actual security boundary is
 // Firestore rules / the backend's approval check, not hiding this config.
 import { initializeApp } from 'firebase/app';
-import { GoogleAuthProvider, getAuth, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signInWithCustomToken, signOut } from 'firebase/auth';
+import { API_BASE } from './apiBase.js';
 
 const injected = window.__FIREBASE_CONFIG__ || {};
 
@@ -35,23 +36,65 @@ export function onAuthChange(callback) {
   return onAuthStateChanged(auth, callback);
 }
 
-// Tried switching this to signInWithRedirect (reasoning: the custom
-// same-site auth domain should make redirect reliable, and popup has known
+// History: first tried signInWithRedirect (reasoning: a custom same-site
+// auth domain should make redirect reliable, and popup has known
 // multi-attempt flakiness) — made things strictly worse, an infinite
 // redirect loop, confirmed live. Root cause: signInWithRedirect's own
 // result-polling on the way back in uses a hidden iframe pointing at
 // auth.traveldiscoveries.app, embedded on app.traveldiscoveries.app's page
 // — still a cross-*origin* iframe even though the two share a registrable
-// domain, so it's still subject to third-party storage partitioning. When
-// that iframe can't see what the top-level authDomain context wrote
-// moments earlier, the app never sees a signed-in user and is back to
-// showing the sign-in screen — which looks like, and functionally is, an
-// endless retry loop. So: back to signInWithPopup, same as FfAdvisor, which
-// doesn't have that iframe-polling step at all.
-export async function signInWithGoogle() {
-  if (!auth) return;
-  const provider = new GoogleAuthProvider();
-  await signInWithPopup(auth, provider);
+// domain, so it's still subject to third-party storage partitioning. Fell
+// back to signInWithPopup instead, which doesn't have that iframe-polling
+// step — but it has its own version of the same underlying problem
+// (confirmed live: Safari popups needed several attempts, worst right
+// after clearing history/cookies), and there was no further client-SDK
+// fix left to try.
+//
+// Now does the whole OAuth exchange server-side instead (see
+// api/google_oauth.py) — a full top-level navigation to the backend,
+// which redirects to Google, exchanges the code itself, and hands back a
+// one-time custom token via completeSignInFromUrl below. No popup, no
+// redirect, no iframe-based handback for Safari to partition.
+export function signInWithGoogle() {
+  window.location.href = `${API_BASE}/auth/google/login`;
+}
+
+// Called once on app load (see AuthGate.jsx) to pick up the token
+// api/main.py's /auth/google/callback redirects back with, if the user
+// just came from there. signInWithCustomToken is a plain authenticated
+// network call — unlike signInWithPopup/signInWithRedirect, it has no
+// popup/iframe choreography for Safari's storage partitioning to break,
+// which is what actually fixes the flakiness rather than just smoothing
+// over it client-side.
+//
+// Strips authToken/auth_error from the URL immediately either way, before
+// awaiting anything — a custom token is a short-lived (1hr) credential
+// that shouldn't linger in the visible URL bar or browser history any
+// longer than it takes to read it once.
+//
+// Returns the auth_error code from a failed server-side attempt (e.g.
+// "denied", "unverified_email"), or "" — callers show this as an error
+// message; it's never thrown, since a user just arriving at the app with
+// no token/error at all (the common case) isn't a failure.
+export async function completeSignInFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('authToken');
+  const authError = params.get('auth_error');
+  if (!token && !authError) return '';
+
+  params.delete('authToken');
+  params.delete('auth_error');
+  const cleanedSearch = params.toString();
+  window.history.replaceState({}, '', window.location.pathname + (cleanedSearch ? `?${cleanedSearch}` : '') + window.location.hash);
+
+  if (!auth || !token) return authError || '';
+  try {
+    await signInWithCustomToken(auth, token);
+    return '';
+  } catch (exc) {
+    console.error('signInWithCustomToken failed:', exc);
+    return 'sign_in_failed';
+  }
 }
 
 export async function signOutUser() {
