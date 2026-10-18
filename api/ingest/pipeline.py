@@ -3,6 +3,7 @@
 api/data.py currently hand-writes for Lisbon.
 """
 
+import logging
 import os
 import sys
 import time
@@ -19,6 +20,8 @@ from ingest.extract import (
 )
 from ingest.scrape_articles import scrape_url
 from ingest.transcripts import fetch_transcript
+
+log = logging.getLogger("pipeline")
 
 # Re-verify a known venue against Places at most this often. Confirmed live:
 # a full `python -m ingest.run` (or the weekly scheduled travel-ingest Cloud
@@ -284,7 +287,16 @@ async def ingest_world_article(url: str, source_label: str, db=None, kind: str =
 
     grounded = []
     for candidate in candidates:
-        city = candidate["city"]
+        city = candidate["city"].strip()
+        if not city:
+            # Gemini didn't give a usable city for this one (seen live: an
+            # empty string from a multi-city source where one entry's city
+            # wasn't clearly stated) — nothing real to attribute it to, so
+            # drop it rather than file it under a meaningless shared bucket
+            # (see places._slugify's "unknown" fallback for why that'd
+            # otherwise silently happen instead of crashing).
+            log.warning("world-article candidate %r had no usable city — skipped", candidate["name"])
+            continue
         known = _known_venues(db, city, venue_type)
         hit = known.get(places._normalize(candidate["name"]))
         if hit is not None:

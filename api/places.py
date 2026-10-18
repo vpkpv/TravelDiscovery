@@ -33,6 +33,7 @@ pinned in place for a week.
 import asyncio
 import logging
 import os
+import re
 import time
 import unicodedata
 from difflib import SequenceMatcher
@@ -111,7 +112,18 @@ def configured() -> bool:
 
 
 def _slugify(name: str) -> str:
-    return name.strip().lower().replace(" ", "-")
+    # Used to build Firestore document IDs (see ingest/run.py and
+    # ingest/pipeline.py's _known_venues) — "/" isn't just an odd character
+    # there, it's a path separator even inside what's meant to be a single
+    # ID segment, and google-cloud-firestore rejects it outright. Confirmed
+    # live: a Gemini-extracted world-article venue's `city` field came back
+    # with a "/" in it, crashing a full ingest run on
+    # "A document must have an even number of path elements". Collapsing
+    # anything that isn't alphanumeric to a single hyphen (not just spaces)
+    # makes this safe against any future LLM-supplied garbage, not just the
+    # one character that happened to crash first.
+    slug = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
+    return slug or "unknown"
 
 
 def _normalize(s: str) -> str:
