@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { theme } from './theme.js';
 import { api } from './api.js';
 import { PhoneShell } from './components/PhoneShell.jsx';
@@ -24,6 +24,9 @@ export function AuthGate({ children }) {
   const [status, setStatus] = useState(fb.configured() ? 'loading' : 'open');
   const [email, setEmail] = useState('');
   const [rechecking, setRechecking] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
+  const [showRetryHint, setShowRetryHint] = useState(false);
+  const stuckTimer = useRef(null);
 
   useEffect(() => {
     if (!fb.configured()) return;
@@ -34,6 +37,11 @@ export function AuthGate({ children }) {
         setEmail('');
         return;
       }
+      // A real, observed sign-in — clears whatever handleSignIn below was
+      // waiting on, including the stuck-after-6s case (see its comment).
+      clearTimeout(stuckTimer.current);
+      setSigningIn(false);
+      setShowRetryHint(false);
       setEmail(user.email || '');
       try {
         const me = await api.me();
@@ -46,6 +54,35 @@ export function AuthGate({ children }) {
       }
     });
   }, []);
+
+  // Safari's privacy protections make signInWithPopup's cross-window
+  // handback genuinely flaky there specifically (see firebase.js's
+  // signInWithGoogle comment — redirect was already tried and ruled out,
+  // there's no clean code fix left). The popup often closes with no
+  // thrown error at all, but onAuthChange above never fires with a user —
+  // confirmed live, especially right after clearing history/cookies. So
+  // this can't tell "it worked" from "it's stuck" by the promise settling;
+  // it waits a few seconds for onAuthChange to prove it worked, and if
+  // that hasn't happened, surfaces a hint and re-enables the button rather
+  // than leaving it looking like it silently did nothing. An explicit
+  // rejection (e.g. the user closed the popup) surfaces the same hint
+  // immediately instead of waiting out the timer.
+  const handleSignIn = async () => {
+    setSigningIn(true);
+    setShowRetryHint(false);
+    clearTimeout(stuckTimer.current);
+    stuckTimer.current = setTimeout(() => {
+      setShowRetryHint(true);
+      setSigningIn(false);
+    }, 6000);
+    try {
+      await fb.signInWithGoogle();
+    } catch {
+      clearTimeout(stuckTimer.current);
+      setSigningIn(false);
+      setShowRetryHint(true);
+    }
+  };
 
   // Approval happens out of band (someone runs approve_users.py while this
   // tab is already sitting on the pending screen) — onAuthChange above only
@@ -78,14 +115,22 @@ export function AuthGate({ children }) {
             This is a closed pilot — sign in to see if you've been approved.
           </div>
           <button
-            onClick={fb.signInWithGoogle}
+            onClick={handleSignIn}
+            disabled={signingIn}
             style={{
               border: `1.5px solid ${theme.border}`, borderRadius: 18, padding: '14px 22px',
-              background: theme.card, fontSize: 15, fontWeight: 600, color: theme.text, cursor: 'pointer',
+              background: theme.card, fontSize: 15, fontWeight: 600, color: theme.text,
+              cursor: signingIn ? 'default' : 'pointer', opacity: signingIn ? 0.6 : 1,
             }}
           >
-            Sign in with Google
+            {signingIn ? 'Signing in…' : 'Sign in with Google'}
           </button>
+          {showRetryHint && (
+            <div style={{ fontSize: 12, color: theme.textFaint, maxWidth: 260 }}>
+              Still signing in? Tap the button again — this can take two tries on Safari,
+              especially right after clearing history or cookies.
+            </div>
+          )}
         </div>
       </PhoneShell>
     );
