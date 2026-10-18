@@ -698,7 +698,9 @@ async def _rank_by_trip_distance(items: list, trip_id: str, uid: str) -> list:
             return items
         if not places.configured():
             return items
-        geo = await places.geocode_address(trip.get("base_address", ""))
+        geo = await places.geocode_address(
+            trip.get("base_address", ""), _city_display_name(trip.get("city", "")), _city_country(trip.get("city", ""))
+        )
         if not geo:
             log.warning(
                 "couldn't geocode trip %s's base_address %r — distance ranking stays off for it",
@@ -898,7 +900,7 @@ async def _geocoded_trip_data(body: TripBody) -> dict:
     """
     data = body.model_dump()
     if places.configured():
-        geo = await places.geocode_address(body.base_address)
+        geo = await places.geocode_address(body.base_address, _city_display_name(body.city), _city_country(body.city))
         if geo:
             data["base_lat"] = geo["lat"]
             data["base_lng"] = geo["lng"]

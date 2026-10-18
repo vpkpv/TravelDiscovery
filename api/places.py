@@ -336,7 +336,7 @@ async def _fetch_place(name: str, city: str, country: str, area: str = "") -> Op
     }
 
 
-async def geocode_address(address: str) -> Optional[dict]:
+async def geocode_address(address: str, city: str = "", country: str = "") -> Optional[dict]:
     """Best-effort lat/lng for a free-text address — a trip's base address
     or an anchor event's venue, typed by the user, not a venue candidate to
     verify against a name. Unlike find_place(), there's no candidate name
@@ -345,17 +345,26 @@ async def geocode_address(address: str) -> Optional[dict]:
     Returns None on failure/no match — callers should treat a trip/anchor
     with no resolved location as "can't rank by distance for this one yet,"
     not as an error.
+
+    Pass `city`/`country` when known (main.py's callers always have the
+    trip's city on hand) — without them this is just as prone to the same
+    wrong-place mixup find_place() was fixed for (a short or generic
+    address resolving to a same-named place somewhere else entirely), just
+    for a trip's base address instead of a venue candidate.
     """
     if not configured() or not address.strip():
         return None
-    result = await _geocode_cache.get_or_fetch(_normalize(address), lambda: _fetch_geocode(address))
+    key = (_normalize(address), _normalize(city), _normalize(country))
+    result = await _geocode_cache.get_or_fetch(key, lambda: _fetch_geocode(address, city, country))
     return result or None
 
 
-async def _fetch_geocode(address: str) -> Optional[dict]:
+async def _fetch_geocode(address: str, city: str = "", country: str = "") -> Optional[dict]:
+    location_hint = ", ".join(p for p in (city, country) if p)
+    text_query = f"{address}, {location_hint}" if location_hint else address
     data = await _post(
         "places:searchText",
-        {"textQuery": address, "pageSize": 1},
+        {"textQuery": text_query, "pageSize": 1},
         field_mask="places.formattedAddress,places.location",
     )
     if data is None:
