@@ -508,6 +508,58 @@ ARTICLES = [
         "city": "New Orleans",
         "source": "Time Out — Best Restaurants in New Orleans",
     },
+    # Surfaced by the daily discovery routine (2026-10-18 through 10-21),
+    # verified via WebSearch structured-link hits, added at the user's
+    # request (2026-10-21) — same provenance note as every prior backlog
+    # block above.
+    {
+        "url": "https://www.timeout.com/sydney/restaurants/the-best-restaurants-in-sydney",
+        "city": "Sydney",
+        "source": "Time Out — Best Restaurants in Sydney",
+    },
+    {
+        "url": "https://blog.resy.com/the-hit-list/austin-restaurants-summer-2026/",
+        "city": "Austin",
+        "source": "Resy Hit List — Austin, Summer 2026",
+    },
+    {
+        "url": "https://blog.resy.com/the-hit-list/seattle-restaurants-summer-2026/",
+        "city": "Seattle",
+        "source": "Resy Hit List — Seattle, Summer 2026",
+    },
+    # Three La Liste 2026 city-angle pieces — depth on cities already
+    # covered, not new geography (same pattern as the existing Miami La
+    # Liste entry).
+    {
+        "url": "https://timeout.com/los-angeles/news/these-four-l-a-restaurants-were-just-ranked-as-some-of-the-best-in-the-world-120825",
+        "city": "Los Angeles",
+        "source": "Time Out Los Angeles — La Liste 2026",
+    },
+    {
+        "url": "https://timeout.com/chicago/news/these-five-chicago-restaurants-were-just-ranked-as-some-of-the-best-in-the-world-120825",
+        "city": "Chicago",
+        "source": "Time Out Chicago — La Liste 2026",
+    },
+    {
+        "url": "https://timeout.com/london/news/28-london-restaurants-have-been-honoured-in-a-prestigious-list-of-the-best-places-to-eat-in-the-world-112525",
+        "city": "London",
+        "source": "Time Out London — La Liste 2026",
+    },
+    {
+        "url": "https://blog.resy.com/the-hit-list/dc-restauraunts-aug-2026/",
+        "city": "Washington DC",
+        "source": "Resy Hit List — Washington DC, August 2026",
+    },
+    {
+        "url": "https://blog.resy.com/the-hit-list/nashville-restaurants-may-2026/",
+        "city": "Nashville",
+        "source": "Resy Hit List — Nashville, May 2026",
+    },
+    {
+        "url": "https://washingtonian.com/2026/01/20/100-very-best-restaurants-2026/",
+        "city": "Washington DC",
+        "source": "Washingtonian — 100 Very Best Restaurants 2026",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -693,6 +745,52 @@ WORLD_ARTICLES = [
         "url": "https://timeout.com/news/the-worlds-best-food-destinations-for-2026-travel-have-been-crowned-121925",
         "source": "Condé Nast Traveler — Best Places to Eat in 2026",
     },
+    # Surfaced by the daily discovery routine (2026-10-18 through 10-21),
+    # verified via WebSearch structured-link hits, added at the user's
+    # request (2026-10-21).
+    {
+        "url": "https://www.theworlds50best.com/latinamerica/en/list/1-50",
+        "source": "Latin America's 50 Best Restaurants 2026",
+    },
+    # Two distinct Asia bars pages — a "Destination Awards" sub-page
+    # (country/city-level winners) and the main top-50 ranked list — kept
+    # as two sources since they're different page content, not the same
+    # list twice, same reasoning as keeping NA bars and Global bars as
+    # separate entries above.
+    {
+        "url": "https://www.theworlds50best.com/bars/best-in-asia/awards/destination-awards.html",
+        "source": "Asia's 50 Best Bars 2026 — Destination Awards",
+        "kind": "bar",
+    },
+    {
+        "url": "https://www.theworlds50best.com/bars/best-in-asia/list/1-50",
+        "source": "Asia's 50 Best Bars 2026",
+        "kind": "bar",
+    },
+    # New country — Austria/Vienna wasn't in CITY_COUNTRIES or any prior
+    # WORLD_ARTICLES entry before this.
+    {
+        "url": "https://guide.michelin.com/at/en/article/michelin-guide-ceremony/all-starred-restaurants---michelin-guide-austria-2026",
+        "source": "MICHELIN Guide — Austria 2026",
+    },
+    # Two Australia-wide sources (new country) — an annual awards piece and
+    # a companion ongoing best-restaurants guide, different content, same
+    # reasoning as keeping multiple sources per city/country elsewhere.
+    {
+        "url": "https://www.gourmettraveller.com.au/dining-out/restaurant-awards-winners-2026/",
+        "source": "Gourmet Traveller — Restaurant Awards 2026",
+    },
+    {
+        "url": "https://gourmettraveller.com.au/dining-out/restaurant-guide/best-restaurants-australia-21192/",
+        "source": "Gourmet Traveller — Best Restaurants Australia",
+    },
+    # New country — Canada wasn't in CITY_COUNTRIES or any prior
+    # WORLD_ARTICLES entry before this; spans Toronto, Montreal, Vancouver,
+    # Calgary, Edmonton, Winnipeg.
+    {
+        "url": "https://www.aircanada.com/media/air-canada-unveils-top-30-contenders-for-2026-best-new-restaurants-and-marks-25-years-of-food-worth-flying-for/",
+        "source": "Air Canada enRoute — Best New Restaurants 2026",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
@@ -725,6 +823,11 @@ CITY_COUNTRIES = {
     "Singapore": "Singapore",
     "Philadelphia": "USA",
     "New Orleans": "USA",
+    "Sydney": "Australia",
+    "Austin": "USA",
+    "Seattle": "USA",
+    "Washington DC": "USA",
+    "Nashville": "USA",
 }
 
 
