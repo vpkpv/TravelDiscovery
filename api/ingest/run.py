@@ -791,6 +791,20 @@ WORLD_ARTICLES = [
         "url": "https://www.aircanada.com/media/air-canada-unveils-top-30-contenders-for-2026-best-new-restaurants-and-marks-25-years-of-food-worth-flying-for/",
         "source": "Air Canada enRoute — Best New Restaurants 2026",
     },
+    # Surfaced by the daily discovery routine (2026-10-22), verified via
+    # WebSearch structured-link hits, added at the user's request
+    # (2026-10-23).
+    {
+        "url": "https://www.theworlds50best.com/stories/News/europes-50-best-bars-2026-the-list.html",
+        "source": "Europe's 50 Best Bars 2026",
+        "kind": "bar",
+    },
+    # Portugal was previously only reachable via the single-city Time Out
+    # Lisbon entry in ARTICLES — this is the first country-level source.
+    {
+        "url": "https://guide.michelin.com/en/article/michelin-guide-ceremony/All%20MICHELIN-Starred%20Restaurants%20in%20Portugal%202026",
+        "source": "MICHELIN Guide — Portugal 2026",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
