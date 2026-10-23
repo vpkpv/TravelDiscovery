@@ -293,7 +293,14 @@ async def _fetch_place(name: str, city: str, country: str, area: str = "") -> Op
         "places:searchText",
         # Only the top result is ever used; Text Search bills per request,
         # not per result, so this trims payload rather than cost.
-        {"textQuery": text_query, "pageSize": 1},
+        # languageCode="en" — confirmed live: without it, Places returns a
+        # venue's native-script name for cities like Tokyo (e.g. "古母里"),
+        # which _looks_like_match can never match against a romanized
+        # candidate name ("Kobori") since _normalize's accent-stripping only
+        # affects Latin combining marks, not CJK script entirely. A real,
+        # currently-listed venue was silently dropped this way before this
+        # was added — not a tuning problem, a structural one.
+        {"textQuery": text_query, "pageSize": 1, "languageCode": "en"},
         field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos,places.location",
     )
     if data is None:
@@ -364,7 +371,7 @@ async def _fetch_geocode(address: str, city: str = "", country: str = "") -> Opt
     text_query = f"{address}, {location_hint}" if location_hint else address
     data = await _post(
         "places:searchText",
-        {"textQuery": text_query, "pageSize": 1},
+        {"textQuery": text_query, "pageSize": 1, "languageCode": "en"},
         field_mask="places.formattedAddress,places.location",
     )
     if data is None:
@@ -469,7 +476,7 @@ async def _fetch_music_venues(city: str, genre_hint: str, country: str) -> Optio
     query = _MUSIC_SEARCH_TERMS.get(genre_hint, "live music venue")
     data = await _post(
         "places:searchText",
-        {"textQuery": f"{query} in {city}"},
+        {"textQuery": f"{query} in {city}", "languageCode": "en"},
         field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos",
     )
     if data is None:
@@ -520,7 +527,7 @@ async def _fetch_bar_venues(city: str, country: str) -> Optional[list]:
     # included in _rank_by_trip_distance the same as food — see main.py.
     data = await _post(
         "places:searchText",
-        {"textQuery": f"best bars and speakeasies in {city}"},
+        {"textQuery": f"best bars and speakeasies in {city}", "languageCode": "en"},
         field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos,places.location",
     )
     if data is None:
@@ -561,7 +568,7 @@ async def _search_one_restaurant(text_query: str, country: str) -> Optional[dict
 async def _fetch_one_restaurant(text_query: str, country: str) -> Optional[dict]:
     data = await _post(
         "places:searchText",
-        {"textQuery": text_query, "pageSize": 1},
+        {"textQuery": text_query, "pageSize": 1, "languageCode": "en"},
         field_mask="places.id,places.formattedAddress,places.rating,places.businessStatus,places.displayName,places.photos",
     )
     if data is None:
@@ -674,7 +681,7 @@ async def find_city_photo(city: str, country: str = "") -> Optional[str]:
 
     data = await _post(
         "places:searchText",
-        {"textQuery": f"{city} skyline landmark"},
+        {"textQuery": f"{city} skyline landmark", "languageCode": "en"},
         field_mask="places.formattedAddress,places.photos",
     )
     if data is None:
