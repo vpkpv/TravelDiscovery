@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { theme } from '../theme.js';
 import { api, photoUrl } from '../api.js';
 import { LOADING_QUOTES, EMPTY_STATE_ASIDES, SURPRISE_OUTROS_FOOD, SURPRISE_OUTROS_BAR, pickFrom } from '../funQuotes.js';
+import { openExternal } from '../nativeLinks.js';
 
 function FoodIcon({ color = '#FFFFFF' }) {
   return (
@@ -122,7 +123,7 @@ function ResultCard({ item, saved, onToggleSave, country }) {
   const accentSoft = isFood ? theme.accentFoodSoft : isBar ? theme.accentBarSoft : theme.accentMusicSoft;
   return (
     <div
-      onClick={() => window.open(mapsUrl(item), '_blank', 'noopener,noreferrer')}
+      onClick={() => openExternal(mapsUrl(item))}
       style={{ background: theme.card, borderRadius: 18, padding: 16, display: 'flex', gap: 14, boxShadow: '0 6px 16px rgba(43,36,32,0.06)', cursor: 'pointer' }}
     >
       {showPhoto ? (
@@ -196,7 +197,7 @@ function ResultCard({ item, saved, onToggleSave, country }) {
           onClick={(e) => {
             e.stopPropagation();
             api.logBookingClick(item.name, bookingProvider(item, country)).catch(() => {});
-            window.open(bookingUrl(item, country), '_blank', 'noopener,noreferrer');
+            openExternal(bookingUrl(item, country));
           }}
           style={{
             marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',

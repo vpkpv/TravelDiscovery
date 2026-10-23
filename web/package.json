@@ -11,6 +11,8 @@
     "cap:assets": "npx @capacitor/assets generate --ios --iconBackgroundColor '#FBF8F3' --iconBackgroundColorDark '#2A2420' --splashBackgroundColor '#FBF8F3' --splashBackgroundColorDark '#2A2420'"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/browser": "^8.0.5",
     "@capacitor/core": "^8.5.3",
     "@capacitor/ios": "^8.5.3",
     "firebase": "^12.19.0",

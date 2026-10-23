@@ -12,6 +12,7 @@ import { SpotifyConfirm } from './screens/SpotifyConfirm.jsx';
 import { Settings } from './screens/Settings.jsx';
 import { api, spotifyLoginUrl } from './api.js';
 import * as fb from './firebase.js';
+import { isNative, connectSpotifyNative } from './nativeLinks.js';
 
 const STORAGE_KEY = 'traveldiscovery.onboarding.v1';
 
@@ -145,7 +146,24 @@ export default function App() {
   // in this tab the moment the popup tab writes it, backed up by a poll in
   // case that event doesn't fire (it's had Safari-specific reliability
   // issues historically).
+  const applySpotifyResult = (result) => {
+    const { artists, error } = result;
+    if (!error && artists && artists.length) {
+      set({ tasteMethod: 'spotify', musicArtists: artists, step: 'spotify-confirm' });
+    } else {
+      set({ tasteMethod: 'spotify', spotifyFailed: true, step: 'genres' });
+    }
+  };
+
   const connectSpotify = () => {
+    // Native shell: no popup/tab model to speak of, and Apple's review
+    // guidelines require this OAuth to run in the system browser rather
+    // than this embedded WKWebView — see nativeLinks.js.
+    if (isNative) {
+      connectSpotifyNative(spotifyLoginUrl).then(applySpotifyResult);
+      return;
+    }
+
     const popup = window.open(`${spotifyLoginUrl}?popup=1`, 'spotify-connect', 'width=480,height=720');
     if (!popup) {
       window.location.href = spotifyLoginUrl;
@@ -180,12 +198,7 @@ export default function App() {
       done = true;
       clearInterval(poll);
       window.removeEventListener('storage', onStorage);
-      const { artists, error } = result;
-      if (!error && artists && artists.length) {
-        set({ tasteMethod: 'spotify', musicArtists: artists, step: 'spotify-confirm' });
-      } else {
-        set({ tasteMethod: 'spotify', spotifyFailed: true, step: 'genres' });
-      }
+      applySpotifyResult(result);
     };
 
     const onStorage = (event) => {
