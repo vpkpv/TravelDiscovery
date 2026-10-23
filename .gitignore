@@ -1,1 +1,6 @@
 deploy-env.sh
+
+# Local git-worktree checkouts Claude Code creates for isolated background
+# agents (.claude/worktrees/agent-*) — workspace state, not project source;
+# their actual content lands in real branches pushed to GitHub.
+.claude/
