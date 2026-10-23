@@ -560,6 +560,34 @@ ARTICLES = [
         "city": "Washington DC",
         "source": "Washingtonian — 100 Very Best Restaurants 2026",
     },
+    # All four URLs below confirmed live by user in their own browser,
+    # 2026-10-23 — three new cities via the same Resy Hit List series
+    # already trusted for SF/Dallas/NYC/Chicago/Vegas/Boston/Nashville/
+    # DC/Philly/Austin/Seattle, plus one new city via a city-magazine
+    # source (same caliber as D Magazine/Washingtonian elsewhere here).
+    {
+        "url": "https://blog.resy.com/the-hit-list/atlanta-restaurants-aug-2026/",
+        "city": "Atlanta",
+        "source": "Resy Hit List — Atlanta, August 2026",
+    },
+    {
+        "url": "https://blog.resy.com/the-hit-list/houston-restaurants-summer-2026/",
+        "city": "Houston",
+        "source": "Resy Hit List — Houston, Summer 2026",
+    },
+    {
+        # "Portland, OR" not "Portland" — genuinely ambiguous with Portland,
+        # ME otherwise, and nothing downstream disambiguates a free-text
+        # city label by state, only by country (both are USA).
+        "url": "https://blog.resy.com/the-hit-list/portland-restaurants-summer-2026/",
+        "city": "Portland, OR",
+        "source": "Resy Hit List — Portland, Summer 2026",
+    },
+    {
+        "url": "https://sandiegomagazine.com/food-drink/the-best-restaurants-in-san-diego-2026/",
+        "city": "San Diego",
+        "source": "San Diego Magazine — Best Restaurants 2026",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -842,6 +870,10 @@ CITY_COUNTRIES = {
     "Seattle": "USA",
     "Washington DC": "USA",
     "Nashville": "USA",
+    "Atlanta": "USA",
+    "Houston": "USA",
+    "Portland, OR": "USA",
+    "San Diego": "USA",
 }
 
 
