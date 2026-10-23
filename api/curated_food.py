@@ -38,11 +38,13 @@ class VenueSuggestion(BaseModel):
     name: str
     why: str
     cuisine: str
+    area: str = ""
 
 
 class BarSuggestion(BaseModel):
     name: str
     why: str
+    area: str = ""
 
 
 def configured() -> bool:
@@ -78,8 +80,7 @@ def suggest_venues(city: str, cuisines: list, limit: int = 10) -> list:
         cuisine_hint = (
             f" Every single suggestion must genuinely be {cuisine_list} cuisine — not "
             f"fusion, not merely influenced by it, not a place that only sometimes serves "
-            f"it alongside other cuisines. If {city} genuinely doesn't have {limit} such "
-            f"restaurants, return fewer rather than padding with off-cuisine picks."
+            f"it alongside other cuisines."
         )
     else:
         cuisine_hint = ""
@@ -90,9 +91,15 @@ def suggest_venues(city: str, cuisines: list, limit: int = 10) -> list:
         f"generic category picks. A mix of well-loved local spots and a couple of buzzy "
         f"newer places, not just the single most famous tourist stop.{cuisine_hint} Only "
         f"name real restaurants you are confident actually exist and are currently open — "
-        f"never invent a name. For each, provide a one-sentence reason it's worth visiting, "
-        f"and its cuisine as the single closest match from this exact list: "
-        f"{', '.join(CUISINES)} (use \"Other\" if genuinely none fit)."
+        f"never invent a name. If you're not confident {city} has {limit} such restaurants, "
+        f"return fewer rather than guessing or padding. Give each one's full, most commonly "
+        f"used business name — not a nickname or shortened version of it — since this name "
+        f"is used to look the place up afterward. For each, also provide a one-sentence "
+        f"reason it's worth visiting; its cuisine as the single closest match from this "
+        f"exact list: {', '.join(CUISINES)} (use \"Other\" if genuinely none fit); and, only "
+        f"if you know it and especially if the name alone could refer to more than one "
+        f"location (a chain or multi-branch restaurant), the specific neighborhood or "
+        f"district it's in — otherwise leave that field empty rather than guessing."
     )
     try:
         response = _get_client().models.generate_content(
@@ -111,7 +118,11 @@ def suggest_venues(city: str, cuisines: list, limit: int = 10) -> list:
     if suggestions is None:
         log.warning("curated_food response didn't parse against the schema: %r", response.text)
         return []
-    return [{"name": s.name, "why": s.why, "cuisine": s.cuisine} for s in suggestions if s.name.strip()]
+    return [
+        {"name": s.name, "why": s.why, "cuisine": s.cuisine, "area": s.area}
+        for s in suggestions
+        if s.name.strip()
+    ]
 
 
 def suggest_bars(city: str, limit: int = 10) -> list:
@@ -132,8 +143,14 @@ def suggest_bars(city: str, limit: int = 10) -> list:
         f"speakeasy, wine bar, rooftop, or neighborhood favorite), not generic category "
         f"picks. A mix of well-loved local spots and a couple of buzzy newer places, not "
         f"just the single most famous tourist stop. Only name real bars you are confident "
-        f"actually exist and are currently open — never invent a name. For each, provide a "
-        f"one-sentence reason it's worth visiting."
+        f"actually exist and are currently open — never invent a name. If you're not "
+        f"confident {city} has {limit} such bars, return fewer rather than guessing or "
+        f"padding. Give each one's full, most commonly used business name — not a nickname "
+        f"or shortened version of it — since this name is used to look the place up "
+        f"afterward. For each, also provide a one-sentence reason it's worth visiting, and, "
+        f"only if you know it and especially if the name alone could refer to more than one "
+        f"location (a chain or multi-branch bar), the specific neighborhood or district "
+        f"it's in — otherwise leave that field empty rather than guessing."
     )
     try:
         response = _get_client().models.generate_content(
@@ -152,4 +169,6 @@ def suggest_bars(city: str, limit: int = 10) -> list:
     if suggestions is None:
         log.warning("curated_food bar response didn't parse against the schema: %r", response.text)
         return []
-    return [{"name": s.name, "why": s.why} for s in suggestions if s.name.strip()]
+    return [
+        {"name": s.name, "why": s.why, "area": s.area} for s in suggestions if s.name.strip()
+    ]

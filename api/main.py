@@ -572,7 +572,9 @@ async def _grounded_items(
         # under it once both of those losses were accounted for.
         suggestion_limit = 16 if cuisines else 10
         suggestions = await asyncio.to_thread(curated_food.suggest_venues, city_name, cuisines or [], suggestion_limit)
-        grounded = await asyncio.gather(*(places.find_place(s["name"], city_name, country) for s in suggestions))
+        grounded = await asyncio.gather(
+            *(places.find_place(s["name"], city_name, country, s.get("area", "")) for s in suggestions)
+        )
         items = items + [
             {
                 "id": ground["place_id"] or f"llm-food-{city_id}-{i}",
@@ -595,7 +597,9 @@ async def _grounded_items(
     if places.configured() and curated_food.configured() and bar_count < MIN_BAR_ITEMS:
         existing_names = {i["name"].lower() for i in items}
         bar_suggestions = await asyncio.to_thread(curated_food.suggest_bars, city_name, 10)
-        bar_grounded = await asyncio.gather(*(places.find_place(s["name"], city_name, country) for s in bar_suggestions))
+        bar_grounded = await asyncio.gather(
+            *(places.find_place(s["name"], city_name, country, s.get("area", "")) for s in bar_suggestions)
+        )
         items = items + [
             {
                 "id": ground["place_id"] or f"llm-bar-{city_id}-{i}",
