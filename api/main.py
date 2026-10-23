@@ -324,9 +324,30 @@ def _city_display_name(city_id: str) -> str:
     return city["name"] if city else city_id.replace("-", " ").title()
 
 
-def _city_country(city_id: str) -> str:
+# city_id -> country, for a city searched ad hoc (not in the curated CITIES
+# list) and therefore not in _CITY_BY_ID — resolved once via Places
+# Autocomplete and kept for the process lifetime (a city's country never
+# changes). Confirmed live: searching Chennai (not in CITIES) surfaced a UK
+# venue — _city_country returned "" for it, which _in_target_country's own
+# docstring says disables the country check entirely rather than guessing,
+# so there was no safety net at all for any ad-hoc-searched city, not just
+# this one.
+_resolved_country_cache: dict = {}
+
+
+async def _city_country(city_id: str) -> str:
     city = _CITY_BY_ID.get(city_id)
-    return city["country"] if city else ""
+    if city:
+        return city["country"]
+    if city_id in _resolved_country_cache:
+        return _resolved_country_cache[city_id]
+    country = ""
+    if places.configured():
+        suggestions = await places.autocomplete_cities(_city_display_name(city_id))
+        if suggestions:
+            country = suggestions[0].get("country", "")
+    _resolved_country_cache[city_id] = country
+    return country
 
 
 async def _grounded_items(
@@ -381,7 +402,7 @@ async def _grounded_items(
 
     if to_verify and places.configured():
         city_name = _city_display_name(city_id)
-        country = _city_country(city_id)
+        country = await _city_country(city_id)
         grounded = await asyncio.gather(*(places.find_place(i["name"], city_name, country) for i in to_verify))
 
         out = []
@@ -408,7 +429,7 @@ async def _grounded_items(
     # round trips back to back. Running them concurrently cuts that to
     # roughly the slowest single one instead of the sum of all three.
     city_name = _city_display_name(city_id)
-    country = _city_country(city_id)
+    country = await _city_country(city_id)
     want_music = places.configured() and not any(i["type"] == "music" for i in items)
     want_bars = places.configured() and not any(i["type"] == "bar" for i in items)
     want_chefs = places.configured() and bool(chefs)
@@ -644,7 +665,7 @@ async def _cached_city_photo(city_id: str) -> Optional[str]:
     cached = _city_photo_cache.get(city_id)
     if cached and now - cached[0] < _RESULTS_CACHE_TTL:
         return cached[1]
-    ref = await places.find_city_photo(_city_display_name(city_id), _city_country(city_id))
+    ref = await places.find_city_photo(_city_display_name(city_id), await _city_country(city_id))
     _city_photo_cache[city_id] = (now, ref)
     return ref
 
@@ -699,7 +720,7 @@ async def _rank_by_trip_distance(items: list, trip_id: str, uid: str) -> list:
         if not places.configured():
             return items
         geo = await places.geocode_address(
-            trip.get("base_address", ""), _city_display_name(trip.get("city", "")), _city_country(trip.get("city", ""))
+            trip.get("base_address", ""), _city_display_name(trip.get("city", "")), await _city_country(trip.get("city", ""))
         )
         if not geo:
             log.warning(
@@ -900,7 +921,7 @@ async def _geocoded_trip_data(body: TripBody) -> dict:
     """
     data = body.model_dump()
     if places.configured():
-        geo = await places.geocode_address(body.base_address, _city_display_name(body.city), _city_country(body.city))
+        geo = await places.geocode_address(body.base_address, _city_display_name(body.city), await _city_country(body.city))
         if geo:
             data["base_lat"] = geo["lat"]
             data["base_lng"] = geo["lng"]
@@ -976,7 +997,7 @@ async def set_anchor_event(trip_id: str, body: AnchorEventBody, user: dict = Dep
     ground = {}
     if places.configured():
         ground = await places.find_place(
-            body.venue_name, _city_display_name(trip.get("city", "")), _city_country(trip.get("city", ""))
+            body.venue_name, _city_display_name(trip.get("city", "")), await _city_country(trip.get("city", ""))
         )
     anchor = {
         "venue_name": body.venue_name,
