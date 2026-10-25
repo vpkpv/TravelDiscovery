@@ -833,6 +833,24 @@ WORLD_ARTICLES = [
         "url": "https://guide.michelin.com/en/article/michelin-guide-ceremony/All%20MICHELIN-Starred%20Restaurants%20in%20Portugal%202026",
         "source": "MICHELIN Guide — Portugal 2026",
     },
+    # Surfaced by the daily discovery routine (2026-10-24, with the primary
+    # guide.michelin.com URLs only becoming searchable that day — the prior
+    # day's pass found the same two stories but only secondary press
+    # coverage), added at the user's request (2026-10-25). Both new
+    # countries — UAE and Germany had no prior coverage here at all (only
+    # neighboring Austria existed for the latter).
+    {
+        "url": "https://guide.michelin.com/ae-du/en/article/michelin-guide-ceremony/michelin-guide-restaurant-ceremony-dubai-highlights-2026",
+        "source": "MICHELIN Guide — Dubai 2026 Ceremony Highlights",
+    },
+    {
+        "url": "https://guide.michelin.com/ae-du/en/article/michelin-guide-ceremony/full-list-michelin-guide-dubai-selection",
+        "source": "MICHELIN Guide — Dubai 2026 Full Selection",
+    },
+    {
+        "url": "https://guide.michelin.com/en/article/michelin-guide-ceremony/the-michelin-guide-germany-2026-is-out",
+        "source": "MICHELIN Guide — Germany 2026",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
