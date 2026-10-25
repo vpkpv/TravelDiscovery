@@ -62,7 +62,12 @@ mcp = MCPServer(
         "venue data grounded against Google Places (hallucinated/defunct venues are dropped, "
         "not shown). Use find_venues to browse a city, surprise_me for one paired pick, or "
         "get_saved_picks for the venues this account has already explicitly starred — the right "
-        "one when asked to act on (e.g. book) specific picks rather than browse generally."
+        "one when asked to act on (e.g. book) specific picks rather than browse generally. This "
+        "app does taste-matched curation and trip planning, not booking (reservations/tickets/"
+        "payment) — when a whole trip is being handed off to a separate booking-capable agent to "
+        "actually act on, use get_trip_booking_targets(trip_id) instead of either of those: it "
+        "bundles that trip's dates/party size/anchor event with its city's saved picks in one "
+        "shape, rather than making the booking agent re-assemble that from separate calls."
     ),
     token_verifier=FirestoreTokenVerifier(),
     # validate_token_resource=False: our AccessToken never sets `.resource`
@@ -109,6 +114,56 @@ async def get_saved_picks() -> list:
     doc = auth.firestore_client().collection("saved_picks").document(token.subject).get()
     items = doc.to_dict().get("items", {}) if doc.exists else {}
     return list(items.values())
+
+
+@mcp.tool()
+async def get_trip_booking_targets(trip_id: str) -> dict:
+    """One trip's shortlist, shaped for handing off to a separate
+    booking-capable agent (e.g. Muse) to actually make reservations,
+    buy tickets, etc. — this app does taste-matched curation and trip
+    planning, not booking/payment itself. Use this, not get_saved_picks or
+    find_venues, when the ask is to act on a *trip* (e.g. "hand this trip
+    off to get booked") rather than to browse a city or list raw saved
+    picks — it's the one call that also carries the trip's dates, party
+    size, and anchor event (the fixed reservation/show the rest plans
+    around), which a booking agent needs and get_saved_picks alone doesn't.
+
+    Known limitation: saved_picks/{uid} isn't linked to a trip_id anywhere
+    in this app yet (see api/main.py's SavedItemBody/save_item) — a saved
+    pick only carries the city it was saved from (see ResultsFeed.jsx's
+    saveItem call). So "this trip's picks" here really means "this
+    account's saved picks whose city matches this trip's city," best
+    effort — a separate save for a different visit to the same city would
+    show up here too.
+
+    Args:
+        trip_id: a trip id from GET /api/trips (or create_trip), scoped to
+            the signed-in account.
+    """
+    token = get_access_token()
+    if not token:
+        return {}
+    uid = token.subject
+
+    doc = api._trips_collection(uid).document(trip_id).get()
+    if not doc.exists:
+        return {}
+    trip = doc.to_dict()
+
+    saved_doc = auth.firestore_client().collection("saved_picks").document(uid).get()
+    saved_items = saved_doc.to_dict().get("items", {}) if saved_doc.exists else {}
+    matching_picks = [i for i in saved_items.values() if i.get("city") == trip.get("city")]
+
+    return {
+        "trip_id": trip_id,
+        "city": trip.get("city"),
+        "start_date": trip.get("start_date"),
+        "end_date": trip.get("end_date"),
+        "base_address": trip.get("base_address"),
+        "party_size": trip.get("party_size", 1),
+        "anchor": trip.get("anchor"),
+        "items": matching_picks,
+    }
 
 
 @mcp.tool()
