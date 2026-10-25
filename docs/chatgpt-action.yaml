@@ -1,0 +1,235 @@
+openapi: 3.1.0
+info:
+  title: TravelDiscovery
+  description: >-
+    Taste-matched food, bar, and live-music picks for a city, sourced from
+    insider-curated venue data grounded against Google Places (hallucinated
+    or defunct venues are dropped, never shown). This app does taste-matched
+    curation and trip planning, not booking — reservations, tickets, and
+    payment are explicitly out of scope; use getTripBookingTargets to hand
+    a trip's shortlist off to a separate booking-capable assistant instead
+    of trying to book anything directly.
+  version: "1.0.0"
+servers:
+  # Replace with the live travel-api URL if it ever changes (see deploy.sh's
+  # printed API URL after a deploy) — ChatGPT's Action builder needs a
+  # concrete server, not an env-var placeholder.
+  - url: https://travel-api-911993008582.us-central1.run.app
+security:
+  - bearerAuth: []
+paths:
+  /api/cities:
+    get:
+      operationId: listCities
+      summary: Cities with curated or ingested venue data available.
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Optional free-text city search (e.g. "chennai"). Leave empty for the curated "trending" list.
+      responses:
+        "200":
+          description: Matching cities.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cities:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        country: { type: string }
+  /api/results:
+    get:
+      operationId: findVenues
+      summary: Taste-matched food, bar, and/or live-music venues for a city.
+      parameters:
+        - name: city
+          in: query
+          required: true
+          schema: { type: string }
+          description: A city id from listCities (e.g. "lisbon", "tokyo").
+        - name: filter
+          in: query
+          schema: { type: string, enum: [all, food, bar, music] }
+        - name: cuisines
+          in: query
+          schema: { type: string }
+          description: Comma-separated cuisine names to filter food picks by.
+        - name: trip_id
+          in: query
+          schema: { type: string }
+          description: When given, orders picks by distance from this trip's base address instead of the default order.
+      responses:
+        "200":
+          description: Venues for the city.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  city: { type: string }
+                  count: { type: integer }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        type: { type: string, enum: [food, bar, music] }
+                        name: { type: string }
+                        addr: { type: string }
+                        why: { type: string }
+                        cuisine: { type: string }
+  /api/results/surprise:
+    get:
+      operationId: surpriseMe
+      summary: One paired food/bar + music pick for a city — a single suggestion for tonight, not a list to browse.
+      parameters:
+        - name: city
+          in: query
+          required: true
+          schema: { type: string }
+        - name: seed
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: One paired pick.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  city: { type: string }
+                  items:
+                    type: array
+                    items:
+                      type: object
+  /api/saved:
+    get:
+      operationId: getSavedPicks
+      summary: >-
+        This account's saved picks — the ones explicitly starred in the
+        app, not the full taste-matched list for a city. Use this, not
+        findVenues, when asked to act on "the ones I picked" rather than
+        to browse a city generally.
+      responses:
+        "200":
+          description: Saved picks, keyed by item id.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: object
+                    additionalProperties: true
+  /api/trips:
+    get:
+      operationId: listTrips
+      summary: This account's saved trips.
+      responses:
+        "200":
+          description: Trips, ordered by start date.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trips:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Trip"
+  /api/trips/{trip_id}:
+    get:
+      operationId: getTrip
+      summary: One trip's details.
+      parameters:
+        - name: trip_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The trip.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trip"
+  /api/trips/{trip_id}/booking-targets:
+    get:
+      operationId: getTripBookingTargets
+      summary: >-
+        One trip's shortlist, shaped for handing off to a separate
+        booking-capable assistant to actually make reservations, buy
+        tickets, etc. Use this, not getSavedPicks or findVenues, when the
+        ask is to act on a whole trip (e.g. "get this trip booked") — it's
+        the one call that also carries the trip's dates, party size, and
+        anchor event (the fixed reservation/show the rest plans around),
+        which a booking assistant needs and getSavedPicks alone doesn't.
+        This app never books anything itself — it only assembles this
+        payload for something else to act on.
+      parameters:
+        - name: trip_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The trip's booking-ready shortlist.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trip_id: { type: string }
+                  city: { type: string }
+                  start_date: { type: string }
+                  end_date: { type: string }
+                  base_address: { type: string }
+                  party_size: { type: integer }
+                  anchor:
+                    type: object
+                    nullable: true
+                    properties:
+                      venue_name: { type: string }
+                      start_time: { type: string }
+                      addr: { type: string }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: >-
+        A TravelDiscovery personal access token (minted via POST
+        /api/tokens by an already-approved, signed-in account — see
+        api/auth.py's mint_token). Paste it as-is into the GPT builder's
+        "API Key" auth field with auth type "Bearer".
+  schemas:
+    Trip:
+      type: object
+      properties:
+        id: { type: string }
+        city: { type: string }
+        start_date: { type: string }
+        end_date: { type: string }
+        base_address: { type: string }
+        party_size: { type: integer }
+        anchor:
+          type: object
+          nullable: true
+          properties:
+            venue_name: { type: string }
+            start_time: { type: string }
+            addr: { type: string }

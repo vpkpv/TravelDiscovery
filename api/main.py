@@ -1024,6 +1024,54 @@ async def clear_anchor_event(trip_id: str, user: dict = Depends(auth.current_use
     return {"ok": True}
 
 
+async def _trip_booking_targets(uid: str, trip_id: str) -> dict:
+    """One trip's shortlist, shaped for handing off to a separate
+    booking-capable agent (e.g. Muse, via an MCP tool or a ChatGPT Action)
+    to actually make reservations — this app does taste-matched curation
+    and trip planning, not booking/payment itself (see CLAUDE.md). Shared
+    by GET /api/trips/{trip_id}/booking-targets below and
+    mcp_server.py's get_trip_booking_targets tool, so the two integration
+    surfaces can't drift apart on what a trip handoff actually contains.
+
+    Known limitation: saved_picks/{uid} isn't linked to a trip_id anywhere
+    in this app yet (see SavedItemBody/save_item below) — a saved pick
+    only carries the city it was saved from (see ResultsFeed.jsx's
+    saveItem call). So "this trip's picks" here really means "this
+    account's saved picks whose city matches this trip's city," best
+    effort — a separate save for a different visit to the same city would
+    show up here too.
+    """
+    doc = _trips_collection(uid).document(trip_id).get()
+    if not doc.exists:
+        return {}
+    trip = doc.to_dict()
+
+    saved_doc = auth.firestore_client().collection("saved_picks").document(uid).get()
+    saved_items = saved_doc.to_dict().get("items", {}) if saved_doc.exists else {}
+    matching_picks = [i for i in saved_items.values() if i.get("city") == trip.get("city")]
+
+    return {
+        "trip_id": trip_id,
+        "city": trip.get("city"),
+        "start_date": trip.get("start_date"),
+        "end_date": trip.get("end_date"),
+        "base_address": trip.get("base_address"),
+        "party_size": trip.get("party_size", 1),
+        "anchor": trip.get("anchor"),
+        "items": matching_picks,
+    }
+
+
+@app.get("/api/trips/{trip_id}/booking-targets")
+async def get_trip_booking_targets(trip_id: str, user: dict = Depends(auth.current_user)):
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    result = await _trip_booking_targets(user["uid"], trip_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="trip not found")
+    return result
+
+
 @app.get("/api/cuisines")
 def get_cuisines():
     return {"cuisines": CUISINES}

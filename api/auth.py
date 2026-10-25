@@ -156,14 +156,31 @@ async def current_user(authorization: str = Header(default="")) -> dict:
     isn't set, so every endpoint using this as a dependency keeps working
     unmodified before Firebase is set up — same graceful-degradation
     pattern as places.configured() elsewhere in this codebase.
+
+    Accepts a personal access token (see mint_token/verify_pat below) as
+    well as a Firebase ID token — same bearer-token endpoints this app
+    already has, now usable by an external agent (e.g. a ChatGPT Action)
+    carrying a PAT instead of a browser session's short-lived ID token.
+    PATs are routed by their fixed prefix rather than trying one
+    verification path and falling back, so a malformed/expired Firebase
+    token never gets misread as a PAT lookup miss or vice versa.
     """
     if not configured():
         return {"uid": "anonymous", "email": ""}
 
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="missing bearer token")
+    raw_token = authorization.removeprefix("Bearer ").strip()
 
-    user = await verify_token(authorization.removeprefix("Bearer ").strip())
+    if raw_token.startswith(_TOKEN_PREFIX):
+        uid = verify_pat(raw_token)
+        if not uid:
+            raise HTTPException(status_code=401, detail="invalid or expired token")
+        # verify_pat already re-checks is_approved itself, and a PAT
+        # carries no email — nothing left to gate or enrich here.
+        return {"uid": uid, "email": ""}
+
+    user = await verify_token(raw_token)
     if not user:
         raise HTTPException(status_code=401, detail="invalid or expired token")
 

@@ -143,27 +143,10 @@ async def get_trip_booking_targets(trip_id: str) -> dict:
     token = get_access_token()
     if not token:
         return {}
-    uid = token.subject
-
-    doc = api._trips_collection(uid).document(trip_id).get()
-    if not doc.exists:
-        return {}
-    trip = doc.to_dict()
-
-    saved_doc = auth.firestore_client().collection("saved_picks").document(uid).get()
-    saved_items = saved_doc.to_dict().get("items", {}) if saved_doc.exists else {}
-    matching_picks = [i for i in saved_items.values() if i.get("city") == trip.get("city")]
-
-    return {
-        "trip_id": trip_id,
-        "city": trip.get("city"),
-        "start_date": trip.get("start_date"),
-        "end_date": trip.get("end_date"),
-        "base_address": trip.get("base_address"),
-        "party_size": trip.get("party_size", 1),
-        "anchor": trip.get("anchor"),
-        "items": matching_picks,
-    }
+    # Shared with GET /api/trips/{trip_id}/booking-targets (the ChatGPT
+    # Action's equivalent of this tool) so the two integration surfaces
+    # can't drift apart on what a trip handoff actually contains.
+    return await api._trip_booking_targets(token.subject, trip_id)
 
 
 @mcp.tool()
