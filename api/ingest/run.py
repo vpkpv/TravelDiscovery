@@ -508,6 +508,16 @@ ARTICLES = [
         "city": "New Orleans",
         "source": "Time Out — Best Restaurants in New Orleans",
     },
+    # Surfaced by the daily discovery routine (2026-10-26), verified via
+    # WebSearch structured-link hits, added at the user's request
+    # (2026-10-26). Same Resy Hit List series already trusted for SF/
+    # Dallas/NYC/Chicago/Vegas/Boston/Nashville/DC/Philly/Austin/Seattle —
+    # adds depth to an already-covered city rather than new geography.
+    {
+        "url": "https://blog.resy.com/the-hit-list/new-orleans-restaurants-summer-2026/",
+        "city": "New Orleans",
+        "source": "Resy Hit List — New Orleans, Summer 2026",
+    },
     # Surfaced by the daily discovery routine (2026-10-18 through 10-21),
     # verified via WebSearch structured-link hits, added at the user's
     # request (2026-10-21) — same provenance note as every prior backlog
