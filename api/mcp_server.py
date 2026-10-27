@@ -65,9 +65,11 @@ mcp = MCPServer(
         "one when asked to act on (e.g. book) specific picks rather than browse generally. This "
         "app does taste-matched curation and trip planning, not booking (reservations/tickets/"
         "payment) — when a whole trip is being handed off to a separate booking-capable agent to "
-        "actually act on, use get_trip_booking_targets(trip_id) instead of either of those: it "
-        "bundles that trip's dates/party size/anchor event with its city's saved picks in one "
-        "shape, rather than making the booking agent re-assemble that from separate calls."
+        "actually act on, use list_trips to resolve which trip (the user will name it, not its "
+        "id — e.g. \"my Lisbon trip\"), then get_trip_booking_targets(trip_id) instead of either "
+        "of those: it bundles that trip's dates/party size/anchor event with its city's saved "
+        "picks in one shape, rather than making the booking agent re-assemble that from separate "
+        "calls."
     ),
     token_verifier=FirestoreTokenVerifier(),
     # validate_token_resource=False: our AccessToken never sets `.resource`
@@ -114,6 +116,22 @@ async def get_saved_picks() -> list:
     doc = auth.firestore_client().collection("saved_picks").document(token.subject).get()
     items = doc.to_dict().get("items", {}) if doc.exists else {}
     return list(items.values())
+
+
+@mcp.tool()
+async def list_trips() -> list:
+    """This account's saved trips — id, city, dates, party size, and
+    anchor event if set. Use this first to resolve a trip the user refers
+    to by name rather than id (e.g. "my Lisbon trip," "the December
+    trip") into the trip_id get_trip_booking_targets needs — there's no
+    other way to look that up. Same users/{uid}/trips Firestore data as
+    api/main.py's GET /api/trips.
+    """
+    token = get_access_token()
+    if not token:
+        return []
+    docs = api._trips_collection(token.subject).order_by("start_date").stream()
+    return [{"id": d.id, **d.to_dict()} for d in docs]
 
 
 @mcp.tool()
