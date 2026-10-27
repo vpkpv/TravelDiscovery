@@ -36,6 +36,19 @@ function mapsUrl(item) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
 
+// Every ingested venue already carries where it actually came from —
+// source_url for an article/world-list (ingest/pipeline.py's
+// ingest_article/ingest_world_article), source_video_id for a YouTube
+// video (ingest_video) — the influencer's own video is the "testimonial"
+// a credential badge alone doesn't show. A live Gemini-suggestion
+// fallback or the curated seed set has neither, so this returns '' and
+// the meta line below just stays plain, unclickable text.
+function sourceUrl(item) {
+  if (item.source_url) return item.source_url;
+  if (item.source_video_id) return `https://www.youtube.com/watch?v=${item.source_video_id}`;
+  return '';
+}
+
 // Deep-links out to a booking/ticketing provider's own search, rather than
 // a real in-app reservation flow — the providers' actual booking APIs are
 // partner-gated (a business agreement, not a self-serve API key), so this
@@ -164,7 +177,16 @@ function ResultCard({ item, saved, onToggleSave, country }) {
             {item.credential}
           </div>
         )}
-        <div style={{ fontSize: 13.5, color: theme.textMuted, marginTop: 4 }}>{item.meta}</div>
+        {sourceUrl(item) ? (
+          <div
+            onClick={(e) => { e.stopPropagation(); openExternal(sourceUrl(item)); }}
+            style={{ fontSize: 13.5, color: theme.textMuted, marginTop: 4, textDecoration: 'underline', cursor: 'pointer', width: 'fit-content' }}
+          >
+            {item.meta}
+          </div>
+        ) : (
+          <div style={{ fontSize: 13.5, color: theme.textMuted, marginTop: 4 }}>{item.meta}</div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 13 }}>
           {isFood || isBar ? (
             <>
