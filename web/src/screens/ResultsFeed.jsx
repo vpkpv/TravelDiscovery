@@ -214,10 +214,38 @@ function ResultCard({ item, saved, onToggleSave, country }) {
   );
 }
 
-function TripBanner({ trip }) {
+// Builds the prompt text a booking-capable assistant (Muse, ChatGPT with
+// the TravelDiscovery Action, Gemini) needs to act on this trip via its
+// own MCP/Action connection — see docs/agent-integrations.md. Deliberately
+// not a deep link: no assistant here publishes a documented URL scheme for
+// "open with this prompt pre-filled," so copy-to-paste is the only
+// reliable hand-off, not a missing nice-to-have.
+function museHandoffPrompt(cityName, trip) {
+  const fmt = (d) => new Date(`${d}T00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return (
+    `Book my ${cityName} trip from TravelDiscovery (${fmt(trip.start_date)} - ${fmt(trip.end_date)}, ` +
+    `party of ${trip.party_size || 1}). Use the TravelDiscovery MCP server: call list_trips to find it, ` +
+    `then get_trip_booking_targets to get the shortlist and dates, and book whatever you can.`
+  );
+}
+
+function TripBanner({ trip, cityName }) {
+  const [copied, setCopied] = useState(false);
   if (!trip) return null;
   const fmt = (d) => new Date(`${d}T00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const anchor = trip.anchor;
+
+  const handOff = async () => {
+    try {
+      await navigator.clipboard.writeText(museHandoffPrompt(cityName, trip));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard access denied/unavailable — nothing to recover to, the
+      // button just silently doesn't show the "Copied" confirmation.
+    }
+  };
+
   return (
     <div style={{ background: theme.chipBg, borderRadius: 14, padding: '12px 14px', marginTop: 14, fontSize: 13.5, color: theme.textMuted }}>
       <div>{fmt(trip.start_date)} – {fmt(trip.end_date)} · {trip.base_address}</div>
@@ -226,6 +254,15 @@ function TripBanner({ trip }) {
           {anchor.venue_name} · {new Date(anchor.start_time).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
         </div>
       )}
+      <div
+        onClick={handOff}
+        style={{
+          marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+          fontSize: 12.5, fontWeight: 600, color: theme.text, textDecoration: copied ? 'none' : 'underline',
+        }}
+      >
+        {copied ? 'Copied — paste into Muse, ChatGPT, or Gemini' : 'Hand off to Muse / ChatGPT / Gemini'}
+      </div>
     </div>
   );
 }
@@ -375,7 +412,7 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
           </div>
         </div>
 
-        <TripBanner trip={trip} />
+        <TripBanner trip={trip} cityName={city.name} />
 
         {!surprise ? (
           <div style={{ display: 'flex', gap: 10, marginTop: 18, alignItems: 'center' }}>
