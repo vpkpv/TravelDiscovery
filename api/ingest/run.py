@@ -732,6 +732,14 @@ WORLD_ARTICLES = [
         "url": "https://www.timeout.com/asia/news/these-are-asias-top-food-cities-for-2026-020126",
         "source": "Time Out Asia — Top Food Cities 2026",
     },
+    # Global companion to the Asia edition above — same Time Out series,
+    # worldwide instead of regional (built with Intrepid Travel from a
+    # 24,000-local survey). Surfaced by the daily discovery routine
+    # (2026-10-27), added at the user's request same day.
+    {
+        "url": "https://www.timeout.com/uk/travel/worlds-best-cities-for-food-2026",
+        "source": "Time Out — World's Best Cities for Food 2026",
+    },
     {
         "url": "https://www.winespectator.com/articles/wine-spectator-restaurant-awards-reveal-2026",
         "source": "Wine Spectator — 2026 Restaurant Awards Reveal",
@@ -743,6 +751,22 @@ WORLD_ARTICLES = [
     {
         "url": "https://www.theworlds50best.com/stories/News/menas-50-best-restaurants-2026-highlights.html",
         "source": "World's 50 Best — MENA 2026 Highlights",
+    },
+    # The full ranked 1-50 list, not just the highlights page above — same
+    # highlights+full-list pairing already kept for Asia's bars elsewhere
+    # in this file. Surfaced by the daily discovery routine (2026-10-27),
+    # added at the user's request same day.
+    {
+        "url": "https://www.theworlds50best.com/stories/News/menas-50-best-restaurants-2026-1-50-list.html",
+        "source": "World's 50 Best — MENA 2026 Full List",
+    },
+    # New country — Vietnam isn't in CITY_COUNTRIES or any other
+    # WORLD_ARTICLES entry (Hanoi, Ho Chi Minh City, Da Nang; 193
+    # establishments). Surfaced by the daily discovery routine
+    # (2026-10-27), added at the user's request same day.
+    {
+        "url": "https://guide.michelin.com/en/article/michelin-guide-ceremony/michelin-guide-vietnam-2026",
+        "source": "MICHELIN Guide — Vietnam 2026",
     },
     {
         "url": "https://www.timeout.com/usa/news/these-are-the-best-new-restaurants-of-2026-according-to-yelpand-no-1-definitely-surprised-us-092926",
