@@ -191,25 +191,34 @@ app.add_middleware(
 # localhost for local dev; set to the deployed web service's URL in prod.
 WEB_URL = os.environ.get("WEB_URL", "http://localhost:5173").rstrip("/")
 
+# Custom URL scheme the native iOS shell registers (see web/ios/App/App/
+# Info.plist's CFBundleURLTypes) to receive the Spotify OAuth result —
+# Apple's review guidelines require third-party OAuth to run in the system
+# browser, not an embedded WKWebView, so unlike the web popup flow there's
+# no same-origin tab inside the app to hand a result to via localStorage.
+NATIVE_APP_SCHEME = os.environ.get("NATIVE_APP_SCHEME", "traveldiscovery").strip()
+
 
 @app.get("/auth/spotify/login")
-def spotify_login(popup: bool = Query(default=False)):
+def spotify_login(popup: bool = Query(default=False), native: bool = Query(default=False)):
     """Kicks off the OAuth flow: a full browser redirect to Spotify's
     consent screen, not a fetch — Spotify won't authorize inside an XHR.
 
     `popup=1` marks this as opened in a popup window rather than navigating
-    the main app tab — see App.jsx's connectSpotify. That distinction rides
-    along in `state` (echoed back verbatim by Spotify) since there's nowhere
-    server-side to stash it between these two requests. No user-session
-    store exists yet (that's Firebase+Firestore, tracked separately), so the
-    rest of `state` is a CSRF nonce only, not verified against anything
-    stored server-side. Acceptable for now: worth revisiting once real user
-    accounts exist.
+    the main app tab — see App.jsx's connectSpotify. `native=1` marks this
+    as opened in the native iOS shell's system browser (Browser.open, via
+    connectSpotifyNative) rather than either of the web paths — see
+    nativeLinks.js. Both distinctions ride along in `state` (echoed back
+    verbatim by Spotify) since there's nowhere server-side to stash it
+    between these two requests. No user-session store exists yet (that's
+    Firebase+Firestore, tracked separately), so the rest of `state` is a
+    CSRF nonce only, not verified against anything stored server-side.
+    Acceptable for now: worth revisiting once real user accounts exist.
     """
     if not spotify.configured():
         return RedirectResponse(f"{WEB_URL}/?spotify_error=not_configured")
     nonce = secrets.token_urlsafe(16)
-    state = f"popup:{nonce}" if popup else f"redirect:{nonce}"
+    state = f"native:{nonce}" if native else f"popup:{nonce}" if popup else f"redirect:{nonce}"
     return RedirectResponse(spotify.authorize_url(state))
 
 
@@ -241,10 +250,13 @@ async def spotify_callback(code: str = "", error: str = "", state: str = ""):
     genre data to map onto our fixed vocabulary. Names are always present.
     """
     is_popup = state.startswith("popup:")
+    is_native = state.startswith("native:")
 
     def _finish(*, artists: Optional[list] = None, error_code: str = ""):
+        query = {"error": error_code} if error_code else {"artists": json.dumps(artists)}
+        if is_native:
+            return RedirectResponse(f"{NATIVE_APP_SCHEME}://spotify-callback?{urlencode(query)}")
         if is_popup:
-            query = {"error": error_code} if error_code else {"artists": json.dumps(artists)}
             return RedirectResponse(f"{WEB_URL}/spotify-popup-done.html?{urlencode(query)}")
         if error_code:
             return RedirectResponse(f"{WEB_URL}/?spotify_error={error_code}")
