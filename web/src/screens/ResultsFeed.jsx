@@ -83,6 +83,26 @@ function _isIndia(item, country) {
   return [country, item.addr].some((s) => (s || '').toLowerCase().includes('india'));
 }
 
+// Confirmed live (WebSearch, not assumed) as OpenTable's real dedicated
+// markets — everywhere else, OpenTable's own /s search was routing users
+// there regardless of whether it actually serves that country, the exact
+// bug the India fix above caught, just unaddressed for every other
+// country. Checked specifically and confirmed NO single dominant platform
+// exists for Thailand, Vietnam, Singapore, South Korea, or the UAE (all
+// already in or being added to this app's city list) — multiple
+// competing apps, no clear leader — so guessing one of them would just
+// trade one wrong confident link for another. Europe outside the UK
+// mostly runs on TheFork, but it uses per-country domains (thefork.fr,
+// .es, .it, .pt...) rather than one global one, so a site-restricted
+// link there risks guessing the wrong domain — left to the generic
+// fallback below instead of a confident-but-possibly-wrong one.
+const _OPENTABLE_COUNTRIES = ['usa', 'united states', 'canada', 'united kingdom', 'great britain', 'australia', 'germany', 'japan', 'mexico'];
+
+function _opentableCountry(item, country) {
+  const haystacks = [country, item.addr].map((s) => (s || '').toLowerCase());
+  return _OPENTABLE_COUNTRIES.some((c) => haystacks.some((h) => h.includes(c)));
+}
+
 function bookingUrl(item, country) {
   const isIndia = _isIndia(item, country);
   const q = item.addr ? `${item.name} ${item.addr}` : item.name;
@@ -104,12 +124,18 @@ function bookingUrl(item, country) {
   if (isIndia) {
     return `https://www.google.com/search?q=${encodeURIComponent(`${q} site:zomato.com`)}&btnI=1`;
   }
-  const params = new URLSearchParams({ term: item.name });
-  if (item.lat != null && item.lng != null) {
-    params.set('latitude', item.lat);
-    params.set('longitude', item.lng);
+  if (_opentableCountry(item, country)) {
+    const params = new URLSearchParams({ term: item.name });
+    if (item.lat != null && item.lng != null) {
+      params.set('latitude', item.lat);
+      params.set('longitude', item.lng);
+    }
+    return `https://www.opentable.com/s?${params.toString()}`;
   }
-  return `https://www.opentable.com/s?${params.toString()}`;
+  // No confirmed single dominant platform for this country — a plain,
+  // non-site-restricted search is the honest default here rather than
+  // guessing a specific provider that might not even operate there.
+  return `https://www.google.com/search?q=${encodeURIComponent(`${q} reservations`)}`;
 }
 
 function bookingLabel(item, country) {
@@ -124,7 +150,8 @@ function bookingLabel(item, country) {
 function bookingProvider(item, country) {
   const isIndia = _isIndia(item, country);
   if (item.type === 'music') return isIndia ? 'bookmyshow' : 'ticketmaster';
-  return isIndia ? 'zomato' : 'opentable';
+  if (isIndia) return 'zomato';
+  return _opentableCountry(item, country) ? 'opentable' : 'generic_search';
 }
 
 function ResultCard({ item, saved, onToggleSave, country }) {
