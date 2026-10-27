@@ -76,3 +76,50 @@ export function connectSpotifyNative(loginUrl) {
     Browser.open({ url: `${loginUrl}?native=1` });
   });
 }
+
+// Google OAuth inside the native shell — same shape as
+// connectSpotifyNative above, but not optional the way that one's
+// popup-vs-system-browser choice was: Google's own OAuth policy actively
+// detects and refuses sign-in attempted inside an embedded WebView
+// (`disallowed_useragent`), so without this, "Sign in with Google" would
+// just fail outright inside the Capacitor shell, not merely look worse.
+// See api/main.py's google_callback `native:` state branch, which
+// redirects to NATIVE_APP_SCHEME://google-callback instead of to
+// WEB_URL. Resolves to { token } or { error }, mirroring
+// firebase.js's completeSignInFromUrl's authToken/auth_error shape so
+// the caller can reuse the same signInWithCustomToken / error-message
+// handling either way.
+export function connectGoogleNative(loginUrl) {
+  return new Promise((resolve) => {
+    let done = false;
+    let urlListener;
+    let finishedListener;
+
+    const finish = (result) => {
+      if (done) return;
+      done = true;
+      urlListener?.remove();
+      finishedListener?.remove();
+      Browser.close().catch(() => {});
+      resolve(result);
+    };
+
+    CapApp.addListener('appUrlOpen', (data) => {
+      let url;
+      try {
+        url = new URL(data.url);
+      } catch {
+        return;
+      }
+      if (url.host !== 'google-callback') return;
+      const token = url.searchParams.get('authToken');
+      const error = url.searchParams.get('error');
+      finish(token ? { token } : { error: error || 'denied' });
+    }).then((h) => { urlListener = h; });
+
+    Browser.addListener('browserFinished', () => finish({ error: 'denied' }))
+      .then((h) => { finishedListener = h; });
+
+    Browser.open({ url: `${loginUrl}?native=1` });
+  });
+}

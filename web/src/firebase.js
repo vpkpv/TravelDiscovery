@@ -55,8 +55,25 @@ export function onAuthChange(callback) {
 // which redirects to Google, exchanges the code itself, and hands back a
 // one-time custom token via completeSignInFromUrl below. No popup, no
 // redirect, no iframe-based handback for Safari to partition.
+export const googleLoginUrl = `${API_BASE}/auth/google/login`;
+
 export function signInWithGoogle() {
-  window.location.href = `${API_BASE}/auth/google/login`;
+  window.location.href = googleLoginUrl;
+}
+
+// Shared by completeSignInFromUrl (web, below) and AuthGate's native path
+// (connectGoogleNative's resolved token) — one place that actually calls
+// signInWithCustomToken, so both entry points stay in sync on how a
+// custom token becomes a real session.
+export async function completeSignInWithToken(token) {
+  if (!auth) return 'not_configured';
+  try {
+    await signInWithCustomToken(auth, token);
+    return '';
+  } catch (exc) {
+    console.error('signInWithCustomToken failed:', exc);
+    return 'sign_in_failed';
+  }
 }
 
 // Called once on app load (see AuthGate.jsx) to pick up the token
@@ -88,13 +105,7 @@ export async function completeSignInFromUrl() {
   window.history.replaceState({}, '', window.location.pathname + (cleanedSearch ? `?${cleanedSearch}` : '') + window.location.hash);
 
   if (!auth || !token) return authError || '';
-  try {
-    await signInWithCustomToken(auth, token);
-    return '';
-  } catch (exc) {
-    console.error('signInWithCustomToken failed:', exc);
-    return 'sign_in_failed';
-  }
+  return completeSignInWithToken(token);
 }
 
 export async function signOutUser() {

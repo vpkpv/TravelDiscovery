@@ -278,51 +278,72 @@ async def spotify_callback(code: str = "", error: str = "", state: str = ""):
 
 
 @app.get("/auth/google/login")
-def google_login():
+def google_login(native: bool = Query(default=False)):
     """Kicks off server-side Google sign-in — see google_oauth.py for why
     this exists instead of firebase.js's old signInWithPopup. Always a
     full top-level redirect, never a popup: that choreography is exactly
-    what this is built to avoid.
+    what this is built to avoid. `native=1` marks this as opened in the
+    native iOS shell's system browser (Browser.open, via
+    connectGoogleNative) rather than the web flow — see nativeLinks.js.
+    This distinction isn't optional the way Spotify's popup-vs-redirect
+    choice was: Google's own OAuth policy actively detects and refuses
+    sign-in attempted inside an embedded WebView
+    (`disallowed_useragent`), so without a native-safe path, "Sign in
+    with Google" inside the Capacitor shell would just fail outright,
+    not merely look worse.
     """
     if not google_oauth.configured():
         return RedirectResponse(f"{WEB_URL}/?auth_error=not_configured")
-    state = secrets.token_urlsafe(16)
+    nonce = secrets.token_urlsafe(16)
+    state = f"native:{nonce}" if native else f"redirect:{nonce}"
     return RedirectResponse(google_oauth.authorize_url(state))
 
 
 @app.get("/auth/google/callback")
-async def google_callback(code: str = "", error: str = ""):
+async def google_callback(code: str = "", error: str = "", state: str = ""):
     """Google redirects here after the user approves/denies. Exchanges the
     code, confirms a verified email, mints a Firebase custom token for it
     (see auth.custom_token_for_email), and hands the browser back to the
-    web app with that token in the URL — firebase.js's
-    completeSignInFromUrl picks it up from there and exchanges it for a
-    real session via signInWithCustomToken, then strips it from the URL.
+    web app with that token — firebase.js's completeSignInFromUrl (web)
+    or connectGoogleNative (native) picks it up from there and exchanges
+    it for a real session via signInWithCustomToken, then strips/discards
+    it immediately either way.
 
     The token sits in a redirect URL only briefly (this response plus one
-    page load) before being consumed and stripped — same handoff-via-
-    query-string shape this file already uses for Spotify's artist names
-    above, just a more sensitive payload, which is why it's consumed and
-    removed immediately on the other end rather than left sitting around.
+    page load, or one deep-link dispatch on native) before being consumed
+    and stripped — same handoff-via-query-string shape this file already
+    uses for Spotify's artist names above, just a more sensitive payload,
+    which is why it's consumed and removed immediately on the other end
+    rather than left sitting around.
     """
+    is_native = state.startswith("native:")
+
+    def _finish(*, token: str = "", error_code: str = ""):
+        query = {"error": error_code} if error_code else {"authToken": token}
+        if is_native:
+            return RedirectResponse(f"{NATIVE_APP_SCHEME}://google-callback?{urlencode(query)}")
+        if error_code:
+            return RedirectResponse(f"{WEB_URL}/?auth_error={error_code}")
+        return RedirectResponse(f"{WEB_URL}/?{urlencode({'authToken': token})}")
+
     if error or not code:
-        return RedirectResponse(f"{WEB_URL}/?auth_error=denied")
+        return _finish(error_code="denied")
 
     access_token = await google_oauth.exchange_code(code)
     if not access_token:
-        return RedirectResponse(f"{WEB_URL}/?auth_error=token_exchange_failed")
+        return _finish(error_code="token_exchange_failed")
 
     email = await google_oauth.get_verified_email(access_token)
     if not email:
-        return RedirectResponse(f"{WEB_URL}/?auth_error=unverified_email")
+        return _finish(error_code="unverified_email")
 
     try:
         custom_token = auth.custom_token_for_email(email)
     except Exception as exc:
         log.warning("minting a custom token for %r failed: %s", email, exc)
-        return RedirectResponse(f"{WEB_URL}/?auth_error=sign_in_failed")
+        return _finish(error_code="sign_in_failed")
 
-    return RedirectResponse(f"{WEB_URL}/?{urlencode({'authToken': custom_token})}")
+    return _finish(token=custom_token)
 
 _CITY_BY_ID = {c["id"]: c for c in CITIES}
 

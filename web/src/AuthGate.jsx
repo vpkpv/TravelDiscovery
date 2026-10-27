@@ -3,6 +3,7 @@ import { theme } from './theme.js';
 import { api } from './api.js';
 import { PhoneShell } from './components/PhoneShell.jsx';
 import * as fb from './firebase.js';
+import { isNative, connectGoogleNative } from './nativeLinks.js';
 
 // Wraps the whole app. Three states beyond "let them through": Firebase
 // isn't configured yet (renders children unmodified — same
@@ -70,6 +71,25 @@ export function AuthGate({ children }) {
   // to find out short of a full page reload or signing out and back in.
   // Confirmed live: that reload step wasn't obvious, so every pilot invite
   // turned into "try refreshing" over text.
+  // Google's OAuth policy blocks sign-in inside an embedded WebView
+  // outright (disallowed_useragent) — unlike Spotify, there's no "it'll
+  // just look worse" fallback here, so the native branch is load-bearing,
+  // not a nicety. See nativeLinks.js's connectGoogleNative.
+  const handleGoogleSignIn = () => {
+    if (!isNative) {
+      fb.signInWithGoogle();
+      return;
+    }
+    connectGoogleNative(fb.googleLoginUrl).then(async (result) => {
+      if (result.token) {
+        const errorCode = await fb.completeSignInWithToken(result.token);
+        if (errorCode) setAuthError(errorCode);
+      } else {
+        setAuthError(result.error || 'sign_in_failed');
+      }
+    });
+  };
+
   const recheckApproval = async () => {
     setRechecking(true);
     try {
@@ -95,7 +115,7 @@ export function AuthGate({ children }) {
             This is a closed pilot — sign in to see if you've been approved.
           </div>
           <button
-            onClick={fb.signInWithGoogle}
+            onClick={handleGoogleSignIn}
             style={{
               border: `1.5px solid ${theme.border}`, borderRadius: 18, padding: '14px 22px',
               background: theme.card, fontSize: 15, fontWeight: 600, color: theme.text, cursor: 'pointer',
