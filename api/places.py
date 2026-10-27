@@ -667,7 +667,24 @@ async def find_chef_venues(city: str, chefs: list, country: str = "") -> list:
         }
 
     results = await asyncio.gather(*(_one(entry) for entry in chefs))
-    return [r for r in results if r]
+    results = [r for r in results if r]
+
+    # Two different typed entries can resolve to the same real-world venue
+    # — the same name typed twice, or two unmatched chefs whose style
+    # search both land on a city's one standout match (confirmed live:
+    # "Davis Munoz" and "Gordon Ramsay," both unmatched in Tokyo, landed on
+    # the same restaurant for a thin style-search result set). Keep only
+    # the first (chefs list order) rather than showing one restaurant
+    # two or three times with a different "in the style of" caption each.
+    seen = set()
+    deduped = []
+    for r in results:
+        key = r.get("place_id") or r["name"].lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(r)
+    return deduped
 
 
 async def find_city_photo(city: str, country: str = "") -> Optional[str]:
