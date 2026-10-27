@@ -84,6 +84,15 @@ def _merge_ingested_items(items: list, city_lookup: dict) -> None:
         if item.get("lat") is not None and item.get("lng") is not None:
             entry["lat"] = item["lat"]
             entry["lng"] = item["lng"]
+        # Where this venue was actually sourced from — ResultsFeed.jsx
+        # links the meta line to it. Was already written into Firestore/
+        # output.json by every ingest path (ingest/pipeline.py) but never
+        # survived this allowlist-based merge into RESULTS, so the link
+        # had no data to point at regardless of what the frontend did.
+        if item.get("source_url"):
+            entry["source_url"] = item["source_url"]
+        if item.get("source_video_id"):
+            entry["source_video_id"] = item["source_video_id"]
         existing.append(entry)
 
 
