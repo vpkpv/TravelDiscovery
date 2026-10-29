@@ -1375,18 +1375,55 @@ async def get_cities(
     return {"cities": out, "source": "curated"}
 
 
+def _personal_why(item: dict, music_genre: str, cuisine_list: list) -> Optional[str]:
+    """A short line naming the actual signed-in account's taste behind a
+    pick, distinct from `why` (an editorial/credential reason the same
+    for every viewer — see data.py's RESULTS comment: "in the real
+    pipeline this line is produced server-side from the user's actual
+    cuisine picks / Spotify taste, not hardcoded per pick" — this is
+    that line). None when nothing about this account's own taste
+    explains the match, so the frontend just keeps showing `why`.
+
+    A chef_match item's `why` is already personal (it names the exact
+    chef/restaurant this account favorited), so it's skipped here rather
+    than layering a second, redundant line on top.
+    """
+    if item.get("chef_match"):
+        return None
+    if item["type"] == "food" and item.get("cuisine"):
+        if any(item["cuisine"].lower() == c.lower() for c in cuisine_list):
+            return f"Matches your {item['cuisine']} pick"
+    if item["type"] == "music" and music_genre and item.get("genre"):
+        if music_genre.lower() in item["genre"].lower():
+            return f"Matches your {music_genre} taste"
+    return None
+
+
+def _with_personal_why(items: list, music_genre: str, cuisine_list: list) -> list:
+    # New dicts only where a line actually applies — items is backed by
+    # _cached_grounded_items' shared, cross-account cache, so mutating an
+    # entry in place would leak one account's personal_why into every
+    # other account's response for the same city/filter combo.
+    return [
+        {**i, "personal_why": pw} if (pw := _personal_why(i, music_genre, cuisine_list)) else i
+        for i in items
+    ]
+
+
 @app.get("/api/results")
 async def get_results(
     city: str, filter: str = "all", music_genre: str = "", chefs: str = "", cuisines: str = "", trip_id: str = "",
     user: dict = Depends(auth.current_user),
 ):
+    cuisine_list = list(_split(cuisines))
     # Run together, not sequentially — the city photo is unrelated to which
     # venues get returned, just an extra Places lookup for ResultsFeed's
     # header banner (see places.find_city_photo).
     items, city_photo_ref = await asyncio.gather(
-        _cached_grounded_items(city, music_genre, list(_split(chefs)), list(_split(cuisines))),
+        _cached_grounded_items(city, music_genre, list(_split(chefs)), cuisine_list),
         _cached_city_photo(city),
     )
+    items = _with_personal_why(items, music_genre, cuisine_list)
     # _cached_grounded_items is a shared, cross-account cache, so a
     # dismissal can't be baked into it — filter it back out per-request
     # against this account's own dismissed_picks doc instead.
@@ -1414,7 +1451,9 @@ async def get_surprise(
     city: str, seed: int = 0, music_genre: str = "", chefs: str = "", cuisines: str = "",
     user: dict = Depends(auth.current_user),
 ):
-    items = await _cached_grounded_items(city, music_genre, list(_split(chefs)), list(_split(cuisines)))
+    cuisine_list = list(_split(cuisines))
+    items = await _cached_grounded_items(city, music_genre, list(_split(chefs)), cuisine_list)
+    items = _with_personal_why(items, music_genre, cuisine_list)
     if auth.configured():
         dismissed = _dismissed_ids(user["uid"])
         if dismissed:

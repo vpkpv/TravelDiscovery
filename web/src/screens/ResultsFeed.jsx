@@ -251,7 +251,7 @@ function ResultCard({ item, saved, onToggleSave, onDismiss, country }) {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B5AA9C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 2, flexShrink: 0 }}>
             <path d="M12 3l1.9 4.6L18 9l-4.1 1.4L12 15l-1.9-4.6L6 9l4.1-1.4z" />
           </svg>
-          <div style={{ fontSize: 13, color: theme.textMuted, lineHeight: 1.45, fontStyle: 'italic' }}>{item.why}</div>
+          <div style={{ fontSize: 13, color: theme.textMuted, lineHeight: 1.45, fontStyle: 'italic' }}>{item.personal_why || item.why}</div>
         </div>
         <div
           onClick={(e) => {
