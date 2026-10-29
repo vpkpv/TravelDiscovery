@@ -866,6 +866,7 @@ async def save_prefs(body: PrefsBody, user: dict = Depends(auth.current_user)):
     if not auth.configured():
         raise HTTPException(status_code=404, detail="auth not enabled")
     auth.firestore_client().collection("user_prefs").document(user["uid"]).set(body.prefs)
+    auth.log_taste_edit(user["uid"], body.prefs)
     return {"ok": True}
 
 

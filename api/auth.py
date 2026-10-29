@@ -128,6 +128,23 @@ def touch_last_active(uid: str) -> None:
         log.warning("couldn't bump last_active for %s: %s", uid, exc)
 
 
+def log_taste_edit(uid: str, prefs: dict) -> None:
+    """Append-only snapshot of this account's taste prefs right after an
+    edit — a history trail of what taste looked like at each point in
+    time, not just whatever user_prefs/{uid} happens to hold now. Backs
+    any future "why this matched" line or before/after-trip comparison
+    that needs the taste a pick was actually matched against, not
+    today's. Flat collection, auto-id, same shape and best-effort stance
+    as log_event — a failed write here shouldn't block saving prefs.
+    """
+    try:
+        firestore_client().collection("taste_history").document().set({
+            "uid": uid, "prefs": prefs, "ts": time.time(),
+        })
+    except Exception as exc:
+        log.warning("couldn't log taste history for %s: %s", uid, exc)
+
+
 def log_event(uid: str, email: str, event_type: str, detail: str = "") -> None:
     """Per-user usage event, read back by approve_users.py's `usage`
     command — a flat collection (not nested under approved_users) so that
