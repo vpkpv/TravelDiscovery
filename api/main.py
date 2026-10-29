@@ -913,6 +913,47 @@ async def unsave_item(item_id: str, user: dict = Depends(auth.current_user)):
     return {"ok": True}
 
 
+def _dismissed_ids(uid: str) -> set:
+    doc = auth.firestore_client().collection("dismissed_picks").document(uid).get()
+    return set(doc.to_dict().get("ids", {}).keys()) if doc.exists else set()
+
+
+@app.get("/api/dismissed")
+async def get_dismissed(user: dict = Depends(auth.current_user)):
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    return {"ids": list(_dismissed_ids(user["uid"]))}
+
+
+@app.put("/api/dismissed/{item_id}")
+async def dismiss_item(item_id: str, user: dict = Depends(auth.current_user)):
+    """Marks one venue as not wanted — permanently filtered out of this
+    account's results everywhere, not just hidden for the current page
+    load (see get_results' filter against this same collection). Same
+    merge=True upsert shape as /api/saved/{item_id}; a dismissal and a
+    save aren't mutually exclusive at this layer (the frontend decides
+    whether to allow both at once), since nothing here needs to know.
+    """
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    ref = auth.firestore_client().collection("dismissed_picks").document(user["uid"])
+    ref.set({"ids": {item_id: True}}, merge=True)
+    auth.log_event(user["uid"], user["email"], "dismiss", detail=item_id)
+    return {"ok": True}
+
+
+@app.delete("/api/dismissed/{item_id}")
+async def undismiss_item(item_id: str, user: dict = Depends(auth.current_user)):
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    ref = auth.firestore_client().collection("dismissed_picks").document(user["uid"])
+    try:
+        ref.update({f"ids.{item_id}": firestore.DELETE_FIELD})
+    except Exception:
+        pass  # nothing to delete (no doc yet) — same end state either way
+    return {"ok": True}
+
+
 class BookingClickBody(BaseModel):
     item_name: str
     provider: str
@@ -1217,6 +1258,13 @@ async def get_results(
         _cached_grounded_items(city, music_genre, list(_split(chefs)), list(_split(cuisines))),
         _cached_city_photo(city),
     )
+    # _cached_grounded_items is a shared, cross-account cache, so a
+    # dismissal can't be baked into it — filter it back out per-request
+    # against this account's own dismissed_picks doc instead.
+    if auth.configured():
+        dismissed = _dismissed_ids(user["uid"])
+        if dismissed:
+            items = [i for i in items if i["id"] not in dismissed]
     # trip_id, when given, orders food picks by distance from the trip's
     # base address (the hotel) — see _rank_by_trip_distance. Applied before
     # the filter below so "food only" and "all" both reflect the same order.
@@ -1235,9 +1283,13 @@ async def get_results(
 @app.get("/api/results/surprise")
 async def get_surprise(
     city: str, seed: int = 0, music_genre: str = "", chefs: str = "", cuisines: str = "",
-    _user: dict = Depends(auth.current_user),
+    user: dict = Depends(auth.current_user),
 ):
     items = await _cached_grounded_items(city, music_genre, list(_split(chefs)), list(_split(cuisines)))
+    if auth.configured():
+        dismissed = _dismissed_ids(user["uid"])
+        if dismissed:
+            items = [i for i in items if i["id"] not in dismissed]
     # Bars are an equally valid "main pick" alongside food now, not a
     # second-class category only food got to be — see _DISTANCE_RANKED_TYPES.
     food_or_bar = [i for i in items if i["type"] in _DISTANCE_RANKED_TYPES]

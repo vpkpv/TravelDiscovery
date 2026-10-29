@@ -63,6 +63,12 @@ export const api = {
   getSaved: () => get('/api/saved'),
   saveItem: (id, item) => put(`/api/saved/${encodeURIComponent(id)}`, { item }),
   deleteItem: (id) => del(`/api/saved/${encodeURIComponent(id)}`),
+  // Not wanted, ever — hidden from this account's results everywhere (see
+  // api/main.py's /api/dismissed and the dismissed_picks filter it applies
+  // inside get_results/get_surprise), not just removed from the current list.
+  getDismissed: () => get('/api/dismissed'),
+  dismissItem: (id) => put(`/api/dismissed/${encodeURIComponent(id)}`),
+  undismissItem: (id) => del(`/api/dismissed/${encodeURIComponent(id)}`),
   // Usage-event logging only (see api/main.py's /api/log/booking_click) —
   // the booking link itself is a plain client-side deep-link, so this is
   // the only way to know a booking button actually got followed.

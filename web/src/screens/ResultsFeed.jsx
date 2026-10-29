@@ -154,7 +154,7 @@ function bookingProvider(item, country) {
   return _opentableCountry(item, country) ? 'opentable' : 'generic_search';
 }
 
-function ResultCard({ item, saved, onToggleSave, country }) {
+function ResultCard({ item, saved, onToggleSave, onDismiss, country }) {
   const isFood = item.type === 'food';
   const isBar = item.type === 'bar';
   const [photoFailed, setPhotoFailed] = useState(false);
@@ -186,10 +186,21 @@ function ResultCard({ item, saved, onToggleSave, country }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
           <div style={{ fontSize: 16.5, fontWeight: 600, lineHeight: 1.3 }}>{item.name}</div>
-          <div onClick={(e) => { e.stopPropagation(); onToggleSave(item); }} style={{ flexShrink: 0, padding: 2, cursor: 'pointer' }}>
-            <svg width="19" height="19" viewBox="0 0 24 24" fill={saved ? theme.accentFood : 'none'} stroke={saved ? theme.accentFood : theme.textFaint} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 3h12a1 1 0 011 1v17l-7-4-7 4V4a1 1 0 011-1z" />
-            </svg>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <div onClick={(e) => { e.stopPropagation(); onToggleSave(item); }} style={{ padding: 2, cursor: 'pointer' }}>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill={saved ? theme.accentFood : 'none'} stroke={saved ? theme.accentFood : theme.textFaint} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 3h12a1 1 0 011 1v17l-7-4-7 4V4a1 1 0 011-1z" />
+              </svg>
+            </div>
+            <div
+              onClick={(e) => { e.stopPropagation(); onDismiss(item); }}
+              title="Not interested — hide this everywhere"
+              style={{ padding: 2, cursor: 'pointer' }}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={theme.textFaint} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </div>
           </div>
         </div>
         {item.credential && (
@@ -427,6 +438,18 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
     }
   };
 
+  // Permanent, account-wide "not interested" (see api/main.py's
+  // /api/dismissed) — removes it from the current list right away, not
+  // just a local hide, since get_results filters the same set server-side
+  // on every future fetch too. No undo here; a dismissed item is still
+  // reachable (and un-dismissable) from wherever a future "dismissed"
+  // browse screen would list it, same as saved picks today.
+  const dismissItem = (item) => {
+    setItems((list) => list.filter((i) => i.id !== item.id));
+    setTotalCount((c) => Math.max(0, c - 1));
+    api.dismissItem(item.id).catch(() => {});
+  };
+
   const rollSurprise = (seed) => {
     api.surprise({ city: citySlug, seed, musicGenre, chefs: favoriteChefs, cuisines }).then((d) => {
       const outro = pickFrom(d.items.some((i) => i.type === 'bar') ? SURPRISE_OUTROS_BAR : SURPRISE_OUTROS_FOOD);
@@ -557,7 +580,7 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
           </div>
         )}
         {showing.map((item) => (
-          <ResultCard key={item.id} item={item} saved={!!saved[item.id]} onToggleSave={toggleSave} country={city.country} />
+          <ResultCard key={item.id} item={item} saved={!!saved[item.id]} onToggleSave={toggleSave} onDismiss={dismissItem} country={city.country} />
         ))}
         {surprise && showing.length > 0 && (
           <div style={{ textAlign: 'center', fontSize: 13, color: theme.textFaint, marginTop: 4 }}>
