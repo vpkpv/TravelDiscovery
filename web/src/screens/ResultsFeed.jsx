@@ -393,6 +393,20 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
       setTotalCount(d.count);
       setCityPhotoRef(d.city_photo_ref || null);
       setLoading(false);
+    }).catch((exc) => {
+      // Confirmed live: with no catch here, a failed request (a city
+      // whose live-fallback Gemini/Places calls error out server-side,
+      // a network blip) left this effect's promise chain dead — items/
+      // loading never updated, so the PREVIOUS city's results stayed on
+      // screen indefinitely under the NEW city's header/name, looking
+      // like a data mix-up bug rather than the request failure it
+      // actually was. Clearing items now surfaces the real empty/error
+      // state instead of silently showing stale, wrong-city data.
+      console.error('results fetch failed:', exc);
+      setItems([]);
+      setTotalCount(0);
+      setCityPhotoRef(null);
+      setLoading(false);
     });
   }, [citySlug, filter, musicGenre, favoriteChefs, cuisines, trip]);
 
