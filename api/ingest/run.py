@@ -914,14 +914,6 @@ WORLD_ARTICLES = [
         "url": "https://www.timeout.com/news/the-extended-list-of-the-worlds-50-best-restaurants-in-2026-has-landed-102326",
         "source": "Time Out — World's 50 Best Restaurants 2026 Extended List (51-100)",
     },
-    # Multi-city within Texas (Houston/Dallas/Austin + 2 new cities, San
-    # Antonio and Paris TX) — regional, not global, but the same
-    # multi-city-in-one-article shape as the other WORLD_ARTICLES entries,
-    # so it needs the same per-venue city extraction.
-    {
-        "url": "https://www.texasmonthly.com/food/best-new-restaurants-2026/",
-        "source": "Texas Monthly — Best New Texas Restaurants 2026",
-    },
     # Entirely new geography — Denmark, Sweden, Norway, Finland, and
     # Iceland had zero prior coverage anywhere in this file.
     {
@@ -970,7 +962,6 @@ CITY_COUNTRIES = {
     "Portland, OR": "USA",
     "San Diego": "USA",
     "Beijing": "China",
-    "San Antonio": "USA",
 }
 
 
