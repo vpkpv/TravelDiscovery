@@ -981,6 +981,25 @@ DELAY_SECONDS = float(os.environ.get("INGEST_DELAY_SECONDS", "8"))
 
 OUTPUT_FILE = Path(__file__).resolve().parent / "output.json"
 
+# A bare `python -m ingest.run` reprocesses every single source in VIDEOS/
+# ARTICLES/WORLD_ARTICLES every time — there's no notion of "just the ones
+# added since last run," so re-running after adding a handful of new
+# sources re-bills Gemini/Places/Supadata for the entire catalog (over 100
+# entries), not just the new ones. INGEST_SOURCE_FILTER is an optional,
+# comma-separated list of substrings matched (case-insensitive) against
+# each entry's "source" or "url" — set it to cheaply re-run only specific
+# sources (e.g. right after adding a few) without touching everything
+# already ingested. Unset (the default) keeps the original full-catalog
+# behavior, which is what the scheduled weekly travel-ingest job expects.
+INGEST_SOURCE_FILTER = [t.strip().lower() for t in os.environ.get("INGEST_SOURCE_FILTER", "").split(",") if t.strip()]
+
+
+def _passes_source_filter(entry: dict) -> bool:
+    if not INGEST_SOURCE_FILTER:
+        return True
+    haystack = f"{entry.get('source', '')} {entry.get('url', '')}".lower()
+    return any(term in haystack for term in INGEST_SOURCE_FILTER)
+
 
 async def main():
     if not gemini_configured():
@@ -1047,8 +1066,19 @@ async def main():
             except Exception as exc:
                 print(f"  Firestore write for {slug} failed (output.json still has it): {exc}", file=sys.stderr)
 
+    videos = [v for v in VIDEOS if _passes_source_filter(v)]
+    articles = [a for a in ARTICLES if _passes_source_filter(a)]
+    world_articles = [w for w in WORLD_ARTICLES if _passes_source_filter(w)]
+    if INGEST_SOURCE_FILTER:
+        print(
+            f"INGEST_SOURCE_FILTER={os.environ['INGEST_SOURCE_FILTER']!r} — running "
+            f"{len(videos)}/{len(VIDEOS)} videos, {len(articles)}/{len(ARTICLES)} articles, "
+            f"{len(world_articles)}/{len(WORLD_ARTICLES)} world-list articles.",
+            file=sys.stderr,
+        )
+
     blocked_count = 0
-    for i, v in enumerate(VIDEOS):
+    for i, v in enumerate(videos):
         print(f"Ingesting: {v['source']} ({v['video_id']})...", file=sys.stderr)
         items = await ingest_video(v["video_id"], v["city"], v["source"], CITY_COUNTRIES.get(v["city"], ""), db=db)
         print(f"  -> {len(items)} grounded venue(s)", file=sys.stderr)
@@ -1059,10 +1089,10 @@ async def main():
         # (YouTube's, not ours) shouldn't lose everything fetched so far.
         _save(v["city"], items)
 
-        if i < len(VIDEOS) - 1 or ARTICLES:
+        if i < len(videos) - 1 or articles:
             await asyncio.sleep(DELAY_SECONDS)
 
-    for i, a in enumerate(ARTICLES):
+    for i, a in enumerate(articles):
         print(f"Scraping: {a['source']} ({a['url']})...", file=sys.stderr)
         # "mode": "chefs" — a source that names chefs rather than listing
         # restaurants directly (see ingest_article_via_chefs and its first
@@ -1079,10 +1109,10 @@ async def main():
         # just working around YouTube's.
         _save(a["city"], items)
 
-        if i < len(ARTICLES) - 1 or WORLD_ARTICLES:
+        if i < len(articles) - 1 or world_articles:
             await asyncio.sleep(DELAY_SECONDS)
 
-    for i, w in enumerate(WORLD_ARTICLES):
+    for i, w in enumerate(world_articles):
         print(f"Scraping: {w['source']} ({w['url']})...", file=sys.stderr)
         items = await ingest_world_article(w["url"], w["source"], db=db, kind=w.get("kind", "restaurant"))
         cities = sorted({item["city"] for item in items})
@@ -1092,12 +1122,12 @@ async def main():
 
         _save_multi(items)
 
-        if i < len(WORLD_ARTICLES) - 1:
+        if i < len(world_articles) - 1:
             await asyncio.sleep(DELAY_SECONDS)
 
-    total_sources = len(VIDEOS) + len(ARTICLES) + len(WORLD_ARTICLES)
-    print(f"\nDone: {len(all_results)} venues from {len(VIDEOS)} videos, {len(ARTICLES)} articles, "
-          f"and {len(WORLD_ARTICLES)} world-list articles "
+    total_sources = len(videos) + len(articles) + len(world_articles)
+    print(f"\nDone: {len(all_results)} venues from {len(videos)} videos, {len(articles)} articles, "
+          f"and {len(world_articles)} world-list articles "
           f"({blocked_count} of {total_sources} sources produced zero venues — check the warnings "
           f"above for why).", file=sys.stderr)
     print(f"Full results written to {OUTPUT_FILE}", file=sys.stderr)
