@@ -291,6 +291,8 @@ function museHandoffPrompt(cityName, trip) {
 
 function TripBanner({ trip, cityName }) {
   const [copied, setCopied] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   if (!trip) return null;
   const fmt = (d) => new Date(`${d}T00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const anchor = trip.anchor;
@@ -306,6 +308,25 @@ function TripBanner({ trip, cityName }) {
     }
   };
 
+  // Mints the link on first click rather than at trip-creation time — most
+  // trips are never shared, so there's no reason for every trip to carry
+  // a share_token (see api/main.py's share_trip, which reuses the token on
+  // repeat calls rather than minting a new one each time).
+  const share = async () => {
+    setSharing(true);
+    try {
+      const { url } = await api.shareTrip(trip.id);
+      await navigator.clipboard.writeText(url);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      // Share-mint failure or clipboard-denied — same silent stance as
+      // handOff above; the link just doesn't get copied.
+    } finally {
+      setSharing(false);
+    }
+  };
+
   return (
     <div style={{ background: theme.chipBg, borderRadius: 14, padding: '12px 14px', marginTop: 14, fontSize: 13.5, color: theme.textMuted }}>
       <div>{fmt(trip.start_date)} – {fmt(trip.end_date)} · {trip.base_address}</div>
@@ -314,14 +335,26 @@ function TripBanner({ trip, cityName }) {
           {anchor.venue_name} · {new Date(anchor.start_time).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
         </div>
       )}
-      <div
-        onClick={handOff}
-        style={{
-          marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-          fontSize: 12.5, fontWeight: 600, color: theme.text, textDecoration: copied ? 'none' : 'underline',
-        }}
-      >
-        {copied ? 'Copied — paste into Muse, ChatGPT, or Gemini' : 'Hand off to Muse / ChatGPT / Gemini'}
+      <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+        <div
+          onClick={handOff}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+            fontSize: 12.5, fontWeight: 600, color: theme.text, textDecoration: copied ? 'none' : 'underline',
+          }}
+        >
+          {copied ? 'Copied — paste into Muse, ChatGPT, or Gemini' : 'Hand off to Muse / ChatGPT / Gemini'}
+        </div>
+        <div
+          onClick={sharing ? undefined : share}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, cursor: sharing ? 'default' : 'pointer',
+            fontSize: 12.5, fontWeight: 600, color: theme.text, textDecoration: shareCopied ? 'none' : 'underline',
+            opacity: sharing ? 0.6 : 1,
+          }}
+        >
+          {shareCopied ? 'Link copied — dates and picks, not your address' : sharing ? 'Getting link…' : 'Share this trip'}
+        </div>
       </div>
     </div>
   );

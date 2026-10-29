@@ -81,6 +81,12 @@ export const api = {
   deleteTrip: (id) => del(`/api/trips/${encodeURIComponent(id)}`),
   setAnchorEvent: (tripId, anchor) => put(`/api/trips/${encodeURIComponent(tripId)}/anchor`, anchor),
   clearAnchorEvent: (tripId) => del(`/api/trips/${encodeURIComponent(tripId)}/anchor`),
+  shareTrip: (tripId) => post(`/api/trips/${encodeURIComponent(tripId)}/share`, {}),
+  unshareTrip: (tripId) => del(`/api/trips/${encodeURIComponent(tripId)}/share`),
+  // Public — no account needed, see api/main.py's get_shared_trip. Reuses
+  // get()'s fetch even though there's normally no signed-in token to
+  // attach; getIdToken() just resolves to null for an anonymous visitor.
+  getSharedTrip: (token) => get(`/api/trips/shared/${encodeURIComponent(token)}`),
   // Mints a personal access token for the MCP server (api/mcp_server.py) —
   // shown once, not retrievable again (see api/main.py's /api/tokens). The
   // only way to get one otherwise is a raw curl with a manually-extracted

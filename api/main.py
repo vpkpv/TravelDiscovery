@@ -1130,10 +1130,6 @@ async def _trip_booking_targets(uid: str, trip_id: str) -> dict:
         return {}
     trip = doc.to_dict()
 
-    saved_doc = auth.firestore_client().collection("saved_picks").document(uid).get()
-    saved_items = saved_doc.to_dict().get("items", {}) if saved_doc.exists else {}
-    matching_picks = [i for i in saved_items.values() if i.get("city") == trip.get("city")]
-
     return {
         "trip_id": trip_id,
         "city": trip.get("city"),
@@ -1142,7 +1138,84 @@ async def _trip_booking_targets(uid: str, trip_id: str) -> dict:
         "base_address": trip.get("base_address"),
         "party_size": trip.get("party_size", 1),
         "anchor": trip.get("anchor"),
-        "items": matching_picks,
+        "items": _matching_saved_picks(uid, trip.get("city")),
+    }
+
+
+def _matching_saved_picks(uid: str, city: str) -> list:
+    """This account's saved picks whose city matches — see
+    _trip_booking_targets' "Known limitation" above; same best-effort
+    city-match stand-in for a real trip_id link, reused by the shared
+    (public) trip page below so the two don't drift on what "this
+    trip's picks" means.
+    """
+    saved_doc = auth.firestore_client().collection("saved_picks").document(uid).get()
+    saved_items = saved_doc.to_dict().get("items", {}) if saved_doc.exists else {}
+    return [i for i in saved_items.values() if i.get("city") == city]
+
+
+@app.post("/api/trips/{trip_id}/share")
+async def share_trip(trip_id: str, user: dict = Depends(auth.current_user)):
+    """Mints (or returns the already-minted) public link for the
+    "shareable trip page" story — a bare token is the only access
+    control, so it's generated once per trip and reused rather than
+    rotated on every call, and never derived from anything guessable
+    (trip_id/uid). See unshare_trip to revoke it and get_shared_trip for
+    what the link actually exposes.
+    """
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    ref = _trips_collection(user["uid"]).document(trip_id)
+    doc = ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="trip not found")
+    token = doc.to_dict().get("share_token") or secrets.token_urlsafe(16)
+    ref.update({"share_token": token})
+    return {"share_token": token, "url": f"{WEB_URL}/trip/shared/{token}"}
+
+
+@app.delete("/api/trips/{trip_id}/share")
+async def unshare_trip(trip_id: str, user: dict = Depends(auth.current_user)):
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    ref = _trips_collection(user["uid"]).document(trip_id)
+    if not ref.get().exists:
+        raise HTTPException(status_code=404, detail="trip not found")
+    ref.update({"share_token": firestore.DELETE_FIELD})
+    return {"ok": True}
+
+
+@app.get("/api/trips/shared/{token}")
+async def get_shared_trip(token: str):
+    """Public, unauthenticated counterpart to share_trip — deliberately
+    no auth.current_user dependency, since whoever gets sent the link is
+    never expected to have (or need) a TravelDiscovery account. A bare
+    token carries no uid, so this is a Firestore collection-group query
+    across every account's users/{uid}/trips rather than a lookup scoped
+    to one user's subcollection.
+
+    Returns only the public-safe subset of a trip, per the "hide base
+    address" decision on this story: never base_address/base_lat/base_lng
+    (someone's actual hotel/home location) — just city, dates, anchor
+    event, and matched picks.
+    """
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    docs = list(
+        auth.firestore_client().collection_group("trips").where("share_token", "==", token).limit(1).stream()
+    )
+    if not docs:
+        raise HTTPException(status_code=404, detail="trip not found")
+    trip = docs[0].to_dict()
+    uid = docs[0].reference.parent.parent.id
+    return {
+        "city": trip.get("city"),
+        "city_name": _city_display_name(trip.get("city", "")),
+        "start_date": trip.get("start_date"),
+        "end_date": trip.get("end_date"),
+        "party_size": trip.get("party_size", 1),
+        "anchor": trip.get("anchor"),
+        "items": _matching_saved_picks(uid, trip.get("city")),
     }
 
 
