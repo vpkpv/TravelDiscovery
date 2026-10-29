@@ -175,6 +175,17 @@ _COUNTRY_ALIASES = {
 
 
 def _country_variants(country: str) -> list:
+    # Places' structured secondaryText for an ad-hoc city (via
+    # autocomplete_cities, see main.py's _city_country) is often composite
+    # — "Tamil Nadu, India," not just "India" — confirmed live: every real
+    # Chennai-grounded venue was rejected here, since the literal
+    # substring "tamil nadu, india" never appears contiguously in a real
+    # formatted address (a postal code sits between the state and country
+    # parts, e.g. "...Tamil Nadu 600002, India"). The country is always
+    # the last comma-separated segment of this kind of structured text, so
+    # take that alone — a no-op for an already-bare country string like
+    # the curated CITIES list uses.
+    country = country.rsplit(",", 1)[-1].strip()
     normalized = _normalize(country)
     for aliases in _COUNTRY_ALIASES.values():
         if normalized in aliases:
