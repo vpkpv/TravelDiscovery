@@ -175,7 +175,14 @@ _COUNTRY_ALIASES = {
 
 
 def _country_variants(country: str) -> list:
-    normalized = _normalize(country)
+    # An ad-hoc searched city's country comes from Autocomplete's
+    # secondaryText, which carries the region too ("Tamil Nadu, India",
+    # "TX, USA"), while a formatted address puts a postal code between the
+    # two ("Chennai, Tamil Nadu 600004, India") — so the whole string never
+    # matched and every result was dropped. Confirmed live: Chennai showed
+    # 0 picks across food, music and bars. Only the last segment is the
+    # country.
+    normalized = _normalize(country.rsplit(",", 1)[-1])
     for aliases in _COUNTRY_ALIASES.values():
         if normalized in aliases:
             return aliases
