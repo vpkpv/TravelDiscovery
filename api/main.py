@@ -1410,6 +1410,31 @@ def _with_personal_why(items: list, music_genre: str, cuisine_list: list) -> lis
     ]
 
 
+def _taste_score(item: dict) -> int:
+    if item.get("chef_match"):
+        return 2
+    if item.get("personal_why"):
+        return 1
+    return 0
+
+
+def _rank_by_taste(items: list) -> list:
+    """Stable sort so a pick this account's own taste actually matches —
+    a favorited chef, or a cuisine/genre pick (see _personal_why) —
+    surfaces first. The "taste-based ranking" story: cuisines/chefs/
+    genre used to only filter food in or out (see the cuisine filter in
+    _grounded_items), never reorder anything by how well it fits.
+    Python's sort is stable, so same-score items keep whatever order
+    they arrived in (editorial/ingest order, then live-fallback) instead
+    of being reshuffled arbitrarily. _rank_by_trip_distance, applied
+    after this when a trip is set, fully re-sorts food/bar by distance —
+    a stronger, more actionable signal once there's a real hotel to
+    measure from — so this mainly governs music ordering and the
+    no-trip-yet browsing case.
+    """
+    return sorted(items, key=lambda i: -_taste_score(i))
+
+
 @app.get("/api/results")
 async def get_results(
     city: str, filter: str = "all", music_genre: str = "", chefs: str = "", cuisines: str = "", trip_id: str = "",
@@ -1424,6 +1449,7 @@ async def get_results(
         _cached_city_photo(city),
     )
     items = _with_personal_why(items, music_genre, cuisine_list)
+    items = _rank_by_taste(items)
     # _cached_grounded_items is a shared, cross-account cache, so a
     # dismissal can't be baked into it — filter it back out per-request
     # against this account's own dismissed_picks doc instead.
