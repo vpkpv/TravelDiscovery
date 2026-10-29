@@ -598,6 +598,25 @@ ARTICLES = [
         "city": "San Diego",
         "source": "San Diego Magazine — Best Restaurants 2026",
     },
+    # Surfaced by the daily discovery routine (2026-10-28), verified via
+    # WebSearch structured-link hits, added at the user's request
+    # (2026-10-29). London already has 3 ARTICLES entries, all rankings/
+    # awards pieces — this is Time Out's own rolling new-openings guide,
+    # a different angle (depth, not new geography).
+    {
+        "url": "https://www.timeout.com/london/restaurants/the-best-new-restaurants-in-london",
+        "city": "London",
+        "source": "Time Out London — Best New Restaurants",
+    },
+    # New country — China has no prior coverage anywhere in this file.
+    # Single-city MICHELIN pieces go in ARTICLES with an explicit city,
+    # same pattern as the existing Tokyo/Seoul/LA/SF entries, not
+    # WORLD_ARTICLES.
+    {
+        "url": "https://guide.michelin.com/en/article/news-and-views/michelin-guide-beijing-2026",
+        "city": "Beijing",
+        "source": "MICHELIN Guide — Beijing 2026",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -885,6 +904,30 @@ WORLD_ARTICLES = [
         "url": "https://guide.michelin.com/en/article/michelin-guide-ceremony/the-michelin-guide-germany-2026-is-out",
         "source": "MICHELIN Guide — Germany 2026",
     },
+    # All three below surfaced by the daily discovery routine (2026-10-27/
+    # 28), verified via WebSearch structured-link hits, added at the
+    # user's request (2026-10-29).
+    #
+    # Ranks 51-100, distinct restaurants from the existing top-50/MENA
+    # entries already here — genuinely new content, not a duplicate.
+    {
+        "url": "https://www.timeout.com/news/the-extended-list-of-the-worlds-50-best-restaurants-in-2026-has-landed-102326",
+        "source": "Time Out — World's 50 Best Restaurants 2026 Extended List (51-100)",
+    },
+    # Multi-city within Texas (Houston/Dallas/Austin + 2 new cities, San
+    # Antonio and Paris TX) — regional, not global, but the same
+    # multi-city-in-one-article shape as the other WORLD_ARTICLES entries,
+    # so it needs the same per-venue city extraction.
+    {
+        "url": "https://www.texasmonthly.com/food/best-new-restaurants-2026/",
+        "source": "Texas Monthly — Best New Texas Restaurants 2026",
+    },
+    # Entirely new geography — Denmark, Sweden, Norway, Finland, and
+    # Iceland had zero prior coverage anywhere in this file.
+    {
+        "url": "https://guide.michelin.com/en/article/michelin-guide-ceremony/michelin-guide-nordic-denmark-finland-iceland-norway-sweden-2026-new-stars-bib-gourmands-special-awards",
+        "source": "MICHELIN Guide — Nordic Countries 2026",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
@@ -926,6 +969,8 @@ CITY_COUNTRIES = {
     "Houston": "USA",
     "Portland, OR": "USA",
     "San Diego": "USA",
+    "Beijing": "China",
+    "San Antonio": "USA",
 }
 
 
