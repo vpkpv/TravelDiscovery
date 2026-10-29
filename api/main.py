@@ -6,6 +6,7 @@ import os
 import random
 import secrets
 import time
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlencode
@@ -1106,6 +1107,60 @@ async def clear_anchor_event(trip_id: str, user: dict = Depends(auth.current_use
         raise HTTPException(status_code=404, detail="trip not found")
     ref.update({"anchor": firestore.DELETE_FIELD})
     return {"ok": True}
+
+
+# (name, from_hour, to_hour) in 24h local wall-clock time — generic enough
+# to cover a restaurant-and-a-show day without pretending to know anyone's
+# actual arrival/checkout times, which this app doesn't collect (TripBody
+# only has start_date/end_date, not times).
+_DAYPARTS = [("morning", 8, 12), ("afternoon", 12, 17), ("evening", 17, 23)]
+
+
+def _trip_time_slots(trip: dict) -> list:
+    """Every (date, daypart) block from start_date to end_date inclusive,
+    each marked open unless the anchor event's start_time falls inside
+    it — the "open time slots" story. Deliberately just the data: no
+    per-venue scheduling or day/slot-aware ranking here yet (that's its
+    own, UI-shaped story), just which blocks of the trip are actually
+    free.
+    """
+    start = date.fromisoformat(trip["start_date"])
+    end = date.fromisoformat(trip["end_date"])
+    anchor = trip.get("anchor") or {}
+    anchor_dt = None
+    if anchor.get("start_time"):
+        try:
+            anchor_dt = datetime.fromisoformat(anchor["start_time"])
+        except ValueError:
+            anchor_dt = None  # malformed anchor data shouldn't break the whole trip's slots
+
+    slots = []
+    d = start
+    while d <= end:
+        for name, from_hour, to_hour in _DAYPARTS:
+            is_anchor_slot = anchor_dt is not None and anchor_dt.date() == d and from_hour <= anchor_dt.hour < to_hour
+            slot = {
+                "date": d.isoformat(),
+                "daypart": name,
+                "start": f"{d.isoformat()}T{from_hour:02d}:00",
+                "end": f"{d.isoformat()}T{to_hour:02d}:00",
+                "open": not is_anchor_slot,
+            }
+            if is_anchor_slot:
+                slot["anchor"] = anchor
+            slots.append(slot)
+        d += timedelta(days=1)
+    return slots
+
+
+@app.get("/api/trips/{trip_id}/slots")
+async def get_trip_slots(trip_id: str, user: dict = Depends(auth.current_user)):
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    doc = _trips_collection(user["uid"]).document(trip_id).get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="trip not found")
+    return {"trip_id": trip_id, "slots": _trip_time_slots(doc.to_dict())}
 
 
 async def _trip_booking_targets(uid: str, trip_id: str) -> dict:

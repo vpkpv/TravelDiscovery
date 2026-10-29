@@ -83,6 +83,9 @@ export const api = {
   clearAnchorEvent: (tripId) => del(`/api/trips/${encodeURIComponent(tripId)}/anchor`),
   shareTrip: (tripId) => post(`/api/trips/${encodeURIComponent(tripId)}/share`, {}),
   unshareTrip: (tripId) => del(`/api/trips/${encodeURIComponent(tripId)}/share`),
+  // Data only for now (see api/main.py's get_trip_slots) — no day/slot
+  // picker UI calls this yet.
+  getTripSlots: (tripId) => get(`/api/trips/${encodeURIComponent(tripId)}/slots`),
   // Public — no account needed, see api/main.py's get_shared_trip. Reuses
   // get()'s fetch even though there's normally no signed-in token to
   // attach; getIdToken() just resolves to null for an anonymous visitor.
