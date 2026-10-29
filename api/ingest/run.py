@@ -617,6 +617,33 @@ ARTICLES = [
         "city": "Beijing",
         "source": "MICHELIN Guide — Beijing 2026",
     },
+    # New country — Canada has no prior coverage anywhere in this file.
+    # Surfaced by the daily discovery routine (2026-10-29), confirmed by
+    # the user. Four single-city recaps of the same underlying ranking
+    # (Canada's 100 Best Restaurants 2026, announced May 4 in Toronto),
+    # same pattern as the Resy Hit List entries above — one city's cut
+    # per source rather than one World's-50-Best-style entry, since each
+    # recap only names that city's own placements, not the full ranking.
+    {
+        "url": "https://nowtoronto.com/culture/ontario-dominates-canadas-100-best-restaurants-list-claiming-half-of-the-top-10-spots/",
+        "city": "Toronto",
+        "source": "Now Toronto — Canada's 100 Best 2026 (Ontario)",
+    },
+    {
+        "url": "https://dailyhive.com/vancouver/canadas-best-restaurants-vancouver-2026",
+        "city": "Vancouver",
+        "source": "Daily Hive — Canada's 100 Best 2026 (Vancouver)",
+    },
+    {
+        "url": "https://www.avenuecalgary.com/restaurants-food/calgary-restaurants-canadas-100-best-restaurants-list-2026/",
+        "city": "Calgary",
+        "source": "Avenue Calgary — Canada's 100 Best 2026 (Calgary)",
+    },
+    {
+        "url": "https://tastet.ca/en/news/canadas-100-best-2026-quebec-still-has-plenty-to-impress-you/?region=mtl",
+        "city": "Montreal",
+        "source": "Tastet — Canada's 100 Best 2026 (Montreal)",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -928,6 +955,18 @@ WORLD_ARTICLES = [
         "url": "https://guide.michelin.com/en/article/michelin-guide-ceremony/michelin-guide-nordic-denmark-finland-iceland-norway-sweden-2026-new-stars-bib-gourmands-special-awards",
         "source": "MICHELIN Guide — Nordic Countries 2026",
     },
+    # Surfaced by the daily discovery routine (2026-10-29) — flagged
+    # unverified (this sandbox's WebFetch can't reach bonappetit.com, and
+    # the URL only appeared in WebSearch prose, not a structured link) —
+    # confirmed working by the user in their own browser before being
+    # added, same bar every other source here has to clear. 19 restaurants
+    # across many US cities (LA, SF, Philadelphia, Houston, Austin,
+    # Manhattan, Santa Fe, ...), genuinely new publication — not in this
+    # file at all otherwise.
+    {
+        "url": "https://www.bonappetit.com/story/best-new-restaurants-2026",
+        "source": "Bon Appétit — Best New Restaurants of 2026",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
@@ -971,6 +1010,12 @@ CITY_COUNTRIES = {
     "San Diego": "USA",
     "Beijing": "China",
     "San Antonio": "USA",
+    # New country — Canada has no prior coverage anywhere in this file
+    # (see Canada's 100 Best 2026 below).
+    "Toronto": "Canada",
+    "Vancouver": "Canada",
+    "Calgary": "Canada",
+    "Montreal": "Canada",
 }
 
 
