@@ -1274,6 +1274,55 @@ async def get_shared_trip(token: str):
     }
 
 
+@app.get("/api/trips/{trip_id}/scorecard")
+async def get_trip_scorecard(trip_id: str, user: dict = Depends(auth.current_user)):
+    """A before-the-trip readiness snapshot — "is this trip actually
+    taste-matched and planned," not an after-the-fact rating (see the
+    Product Backlog's "before/after-trip scorecards" story; there's no
+    visited/rated feedback mechanism in this app yet, so only the before
+    half is buildable). Entirely derived from data that already exists
+    — the trip, this account's saved picks (via _matching_saved_picks),
+    and this account's cuisine prefs (see App.jsx's savePrefs — the
+    whole onboarding `state` object, cuisines included, is what's
+    sitting in user_prefs/{uid}) — nothing new for the user to enter.
+    """
+    if not auth.configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    doc = _trips_collection(user["uid"]).document(trip_id).get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="trip not found")
+    trip = doc.to_dict()
+    picks = _matching_saved_picks(user["uid"], trip.get("city"))
+
+    prefs_doc = auth.firestore_client().collection("user_prefs").document(user["uid"]).get()
+    prefs = prefs_doc.to_dict() if prefs_doc.exists else {}
+    wanted_cuisines = {c.strip().lower() for c in prefs.get("cuisines", []) if c}
+    covered_cuisines = {p["cuisine"].strip().lower() for p in picks if p.get("cuisine")}
+
+    nearest_pick_km = None
+    base_lat, base_lng = trip.get("base_lat"), trip.get("base_lng")
+    if base_lat is not None and base_lng is not None:
+        distances = [
+            _haversine_km(base_lat, base_lng, p["lat"], p["lng"])
+            for p in picks if p.get("lat") is not None and p.get("lng") is not None
+        ]
+        if distances:
+            nearest_pick_km = round(min(distances), 2)
+
+    days_until = (date.fromisoformat(trip["start_date"]) - date.today()).days
+
+    return {
+        "trip_id": trip_id,
+        "days_until": days_until,
+        "picks_saved": len(picks),
+        "has_anchor": bool(trip.get("anchor")),
+        "has_base_address": bool(trip.get("base_address")),
+        "cuisines_covered": sorted(wanted_cuisines & covered_cuisines),
+        "cuisines_missing": sorted(wanted_cuisines - covered_cuisines),
+        "nearest_pick_km": nearest_pick_km,
+    }
+
+
 @app.get("/api/trips/{trip_id}/booking-targets")
 async def get_trip_booking_targets(trip_id: str, user: dict = Depends(auth.current_user)):
     if not auth.configured():

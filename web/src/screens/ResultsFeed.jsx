@@ -293,6 +293,17 @@ function TripBanner({ trip, cityName }) {
   const [copied, setCopied] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [scorecard, setScorecard] = useState(null);
+  const tripId = trip?.id;
+
+  // Before-the-trip readiness snapshot (see api/main.py's
+  // get_trip_scorecard) — silently stays empty on any failure, same
+  // graceful-degradation stance as the saved-picks hydration above.
+  useEffect(() => {
+    if (!tripId) return;
+    api.getTripScorecard(tripId).then(setScorecard).catch(() => {});
+  }, [tripId]);
+
   if (!trip) return null;
   const fmt = (d) => new Date(`${d}T00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const anchor = trip.anchor;
@@ -333,6 +344,14 @@ function TripBanner({ trip, cityName }) {
       {anchor && (
         <div style={{ marginTop: 4, fontWeight: 600, color: theme.text }}>
           {anchor.venue_name} · {new Date(anchor.start_time).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+        </div>
+      )}
+      {scorecard && (
+        <div style={{ marginTop: 8, fontSize: 12.5 }}>
+          {scorecard.picks_saved} pick{scorecard.picks_saved === 1 ? '' : 's'} saved
+          {scorecard.cuisines_covered.length > 0 && ` · ${scorecard.cuisines_covered.join(', ')} covered`}
+          {scorecard.cuisines_missing.length > 0 && ` · still want: ${scorecard.cuisines_missing.join(', ')}`}
+          {scorecard.nearest_pick_km != null && ` · nearest pick ${scorecard.nearest_pick_km} km from your base`}
         </div>
       )}
       <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 14 }}>
