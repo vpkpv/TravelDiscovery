@@ -1046,6 +1046,19 @@ def _passes_source_filter(entry: dict) -> bool:
     return any(term in haystack for term in INGEST_SOURCE_FILTER)
 
 
+# Confirmed live (2026-10-30): SUPADATA_API_KEY had never been set, and
+# scrape_articles.py has no fallback for it (unlike transcripts.py, which
+# falls back to a free direct fetch for videos) — so every single
+# ARTICLES/WORLD_ARTICLES entry ever ingested has silently produced zero
+# venues, while VIDEOS kept working throughout. Confirmed by a real gap:
+# Mumbai has 4 VIDEOS entries and 2 ARTICLES entries, but only the video-
+# sourced venues ever showed up live. Backfilling means re-running every
+# article/world-list source now that a real key is set — re-running videos
+# too would just re-pay for YouTube transcripts that already succeeded.
+# INGEST_SKIP_VIDEOS=true skips the video loop entirely for that backfill.
+INGEST_SKIP_VIDEOS = os.environ.get("INGEST_SKIP_VIDEOS", "").strip().lower() in ("1", "true", "yes")
+
+
 async def main():
     if not gemini_configured():
         print("GEMINI_API_KEY not set — nothing to do. See api/.env.example.", file=sys.stderr)
@@ -1111,12 +1124,13 @@ async def main():
             except Exception as exc:
                 print(f"  Firestore write for {slug} failed (output.json still has it): {exc}", file=sys.stderr)
 
-    videos = [v for v in VIDEOS if _passes_source_filter(v)]
+    videos = [] if INGEST_SKIP_VIDEOS else [v for v in VIDEOS if _passes_source_filter(v)]
     articles = [a for a in ARTICLES if _passes_source_filter(a)]
     world_articles = [w for w in WORLD_ARTICLES if _passes_source_filter(w)]
-    if INGEST_SOURCE_FILTER:
+    if INGEST_SOURCE_FILTER or INGEST_SKIP_VIDEOS:
         print(
-            f"INGEST_SOURCE_FILTER={os.environ['INGEST_SOURCE_FILTER']!r} — running "
+            f"INGEST_SOURCE_FILTER={os.environ.get('INGEST_SOURCE_FILTER', '')!r} "
+            f"INGEST_SKIP_VIDEOS={INGEST_SKIP_VIDEOS} — running "
             f"{len(videos)}/{len(VIDEOS)} videos, {len(articles)}/{len(ARTICLES)} articles, "
             f"{len(world_articles)}/{len(WORLD_ARTICLES)} world-list articles.",
             file=sys.stderr,
