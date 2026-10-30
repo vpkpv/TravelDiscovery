@@ -312,16 +312,6 @@ ARTICLES = [
         "city": "Paris",
         "source": "Time Out Paris — Food & Drink Awards 2026",
     },
-    {
-        "url": "https://www.esquireindia.co.in/food-and-drinks/what-to-eat/indias-best-restaurants-in-2026-mumbai-delhi-bengaluru-or-goa-who-dominates-the-rankings",
-        "city": "Mumbai",
-        "source": "Esquire India — India's Best Restaurants in 2026",
-    },
-    {
-        "url": "https://www.freepressjournal.in/lifestyle/mumbai-dominates-indias-50-best-restaurants-list-these-3-eateries-rank-in-top-10",
-        "city": "Mumbai",
-        "source": "Free Press Journal — Mumbai Dominates India's 50 Best Restaurants",
-    },
     # "mode": "chefs" — this one names chefs behind standout CDMX dishes
     # rather than running a restaurant-by-restaurant list (see
     # ingest_article_via_chefs in pipeline.py).
@@ -966,6 +956,27 @@ WORLD_ARTICLES = [
     {
         "url": "https://www.bonappetit.com/story/best-new-restaurants-2026",
         "source": "Bon Appétit — Best New Restaurants of 2026",
+    },
+    # Moved here from ARTICLES (confirmed live, 2026-10-30): both were
+    # configured as single-city "Mumbai" entries, but are actually
+    # national Indian rankings — the Esquire India piece is explicitly
+    # titled "...Mumbai, Delhi, Bengaluru or Goa..." and even the
+    # Mumbai-framed Free Press Journal piece's "top 3" included a
+    # Himachal Pradesh venue (NAAR, #1 overall). ingest_article (ARTICLES'
+    # extraction path) stamps every extracted venue with the one city
+    # it's given, regardless of the venue's real location — so every
+    # non-Mumbai venue from these two was getting bucketed into the
+    # Mumbai Firestore doc, and would have shown up as a Mumbai
+    # recommendation. ingest_world_article (this list's path) extracts
+    # each venue's own real city instead, same as Texas Monthly/MENA
+    # above.
+    {
+        "url": "https://www.esquireindia.co.in/food-and-drinks/what-to-eat/indias-best-restaurants-in-2026-mumbai-delhi-bengaluru-or-goa-who-dominates-the-rankings",
+        "source": "Esquire India — India's Best Restaurants in 2026",
+    },
+    {
+        "url": "https://www.freepressjournal.in/lifestyle/mumbai-dominates-indias-50-best-restaurants-list-these-3-eateries-rank-in-top-10",
+        "source": "Free Press Journal — Mumbai Dominates India's 50 Best Restaurants",
     },
 ]
 
