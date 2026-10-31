@@ -377,11 +377,6 @@ ARTICLES = [
         "source": "Resy Hit List — Chicago, September 2026",
     },
     {
-        "url": "https://www.timeout.com/london/news/38-london-restaurants-have-been-named-the-best-in-the-uk-in-a-prestigious-new-list-and-this-one-ranks-highest-120525",
-        "city": "London",
-        "source": "Time Out London — Harden's Guide, Best in the UK",
-    },
-    {
         "url": "https://www.wbez.org/food-drink/2026/01/25/banchet-awards-ceremony-winners-chicago-chefs-restaurants",
         "city": "Chicago",
         "source": "WBEZ — Jean Banchet Awards 2026 Winners",
@@ -977,6 +972,15 @@ WORLD_ARTICLES = [
     {
         "url": "https://www.freepressjournal.in/lifestyle/mumbai-dominates-indias-50-best-restaurants-list-these-3-eateries-rank-in-top-10",
         "source": "Free Press Journal — Mumbai Dominates India's 50 Best Restaurants",
+    },
+    # Moved here from ARTICLES (confirmed live, 2026-10-31): configured as
+    # a single-city "London" entry, but "Best in the UK" means exactly
+    # that — one grounded venue from this exact run was Moor Hall in
+    # Ormskirk, Lancashire (near Liverpool), not London. Same bug class,
+    # same fix as the two Mumbai entries above.
+    {
+        "url": "https://www.timeout.com/london/news/38-london-restaurants-have-been-named-the-best-in-the-uk-in-a-prestigious-new-list-and-this-one-ranks-highest-120525",
+        "source": "Time Out London — Harden's Guide, Best in the UK",
     },
 ]
 

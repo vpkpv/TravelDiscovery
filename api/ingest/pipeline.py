@@ -12,6 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # import places, sibling to ingest/
 
 import places
+from data import CITIES
 from ingest.extract import (
     extract_chefs_from_article,
     extract_venues,
@@ -268,6 +269,27 @@ async def ingest_article_via_chefs(url: str, city: str, source_label: str, count
 # ResultsFeed.jsx's Bars tab), not a food subtype.
 _TYPE_BY_KIND = {"restaurant": "food", "bar": "bar"}
 
+# Curated city name -> country, so a world-article candidate whose city
+# shares a name with one of this app's own curated CITIES (api/data.py)
+# can be told apart from it when they're not actually the same place.
+_CURATED_CITY_COUNTRY = {c["name"].lower(): c["country"] for c in CITIES}
+
+
+def _disambiguated_city(city: str, country: str) -> str:
+    """Guards against a same-named-but-unrelated place colliding with a
+    much bigger curated city already in this app — confirmed live: Texas
+    Monthly's "Paris, TX" venue (BonFire) got filed under the Paris-
+    FRANCE Firestore bucket, since places._slugify only ever uses the
+    bare city name, with no country. Only kicks in when this exact city
+    name is one of the curated CITIES under a DIFFERENT country than the
+    one just extracted here — every other, non-colliding city's slug is
+    untouched, so this can't change where any already-correct data lives.
+    """
+    curated_country = _CURATED_CITY_COUNTRY.get(city.strip().lower())
+    if curated_country and country and curated_country.lower() != country.strip().lower():
+        return f"{city}, {country}"
+    return city
+
 
 async def ingest_world_article(url: str, source_label: str, db=None, kind: str = "restaurant") -> list:
     """Same idea as ingest_article(), but for a multi-city "World's 50 Best
@@ -297,7 +319,8 @@ async def ingest_world_article(url: str, source_label: str, db=None, kind: str =
             # otherwise silently happen instead of crashing).
             log.warning("world-article candidate %r had no usable city — skipped", candidate["name"])
             continue
-        known = _known_venues(db, city, venue_type)
+        storage_city = _disambiguated_city(city, candidate.get("country", ""))
+        known = _known_venues(db, storage_city, venue_type)
         hit = known.get(places._normalize(candidate["name"]))
         if hit is not None:
             grounded.append({
@@ -305,7 +328,7 @@ async def ingest_world_article(url: str, source_label: str, db=None, kind: str =
                 "why": candidate["why"],
                 "cuisine": candidate.get("cuisine") or hit.get("cuisine", ""),
                 "credential": candidate.get("credential") or hit.get("credential", ""),
-                "city": city,
+                "city": storage_city,
                 "source_url": url,
             })
             continue
@@ -321,7 +344,7 @@ async def ingest_world_article(url: str, source_label: str, db=None, kind: str =
             "why": candidate["why"],
             "cuisine": candidate.get("cuisine", ""),
             "credential": candidate.get("credential", ""),
-            "city": city,
+            "city": storage_city,
             "source_url": url,
             "photo_ref": ground.get("photo_ref"),
             "lat": ground.get("lat"),
