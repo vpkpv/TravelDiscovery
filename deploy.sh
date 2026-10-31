@@ -42,7 +42,18 @@
 #   # ingest.run write to Firestore instead of only a local output.json) and
 #   # GEMINI_API_KEY. Optionally INGEST_SCHEDULE (cron, default weekly) and
 #   # SUPADATA_API_KEY. Every firing re-runs the full curated VIDEOS list in
-#   # api/ingest/run.py — real Gemini/Places/Supadata API cost each time.
+#   # api/ingest/run.py — real Gemini/Places/Supadata API cost each time,
+#   # EXCEPT for a venue already grounded within INGEST_REFRESH_DAYS (see
+#   # ingest/pipeline.py's GROUNDING_REFRESH_DAYS, default 30) — that one's
+#   # reused from Firestore instead of re-billed. Confirmed live: the first
+#   # real run after SUPADATA_API_KEY had been missing for a long time
+#   # (nothing cached yet) cost ~$97 for ~3,000 venues at $0.032/Places
+#   # lookup; every run after that should cost a small fraction of that,
+#   # as long as INGEST_SCHEDULE fires comfortably inside the refresh
+#   # window — a schedule that lands right at/past it loses the cache
+#   # benefit and costs close to the full price again. Raise
+#   # INGEST_REFRESH_DAYS a bit past your schedule's interval (e.g. 40 for
+#   # a monthly schedule) to stay safely inside the window every time.
 set -euo pipefail
 
 : "${PROJECT_ID:?Set PROJECT_ID, e.g. PROJECT_ID=my-project ./deploy.sh}"
@@ -177,7 +188,7 @@ if [ "${DEPLOY_INGEST_JOB:-}" = "true" ]; then
     --args="-m,ingest.run" \
     --max-retries 0 \
     --task-timeout 3600 \
-    --set-env-vars "GEMINI_API_KEY=${GEMINI_API_KEY:-},GEMINI_MODEL=${GEMINI_MODEL:-},GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-},SUPADATA_API_KEY=${SUPADATA_API_KEY:-},AUTH_ENABLED=${AUTH_ENABLED:-}"
+    --set-env-vars "GEMINI_API_KEY=${GEMINI_API_KEY:-},GEMINI_MODEL=${GEMINI_MODEL:-},GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-},SUPADATA_API_KEY=${SUPADATA_API_KEY:-},AUTH_ENABLED=${AUTH_ENABLED:-},INGEST_REFRESH_DAYS=${INGEST_REFRESH_DAYS:-}"
 
   JOB_SA=$(gcloud run jobs describe travel-ingest --region "$REGION" --format='value(template.template.serviceAccount)')
   if [ -z "$JOB_SA" ]; then
