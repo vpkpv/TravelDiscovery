@@ -629,6 +629,23 @@ ARTICLES = [
         "city": "Montreal",
         "source": "Tastet — Canada's 100 Best 2026 (Montreal)",
     },
+    # New city — Chennai has no prior coverage anywhere in this file (the
+    # only Chennai venues that exist today came incidentally from the
+    # Esquire India national list in WORLD_ARTICLES). Added at the user's
+    # request (2026-11-01): the live Gemini-suggestion fallback this city
+    # otherwise relies on isn't exhaustive — it names ~10 restaurants per
+    # call, and a lower-profile place can simply not get picked, run after
+    # run. This single-restaurant feature (not a "best of" list) at least
+    # guarantees this one venue is reliably there. thehindu.com is blocked
+    # for this sandbox's own WebFetch (same as eater.com/cntraveler.com
+    # elsewhere in this file) — confirmed working by the user in their own
+    # browser before being added, same bar every other blocked-domain
+    # source here has to clear.
+    {
+        "url": "https://www.thehindu.com/food/dining/chennais-elba-trading-company-introduces-a-languid-italian-brunch-on-weekends/article69203175.ece",
+        "city": "Chennai",
+        "source": "The Hindu — Elba Trading Company's Italian Brunch",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -991,6 +1008,7 @@ WORLD_ARTICLES = [
 CITY_COUNTRIES = {
     "Lisbon": "Portugal",
     "Mumbai": "India",
+    "Chennai": "India",
     "New York": "USA",
     "Paris": "France",
     "Rome": "Italy",
