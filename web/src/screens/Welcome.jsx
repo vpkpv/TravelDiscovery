@@ -14,7 +14,7 @@ export function Welcome({ onChooseSpotify, onChooseManual }) {
           Go where your<br /><span style={{ color: theme.accentFood }}>taste</span> takes you.
         </div>
         <div style={{ marginTop: 17, fontSize: 16, color: theme.textMuted, maxWidth: 316, lineHeight: 1.55 }}>
-          Food, live music, and the local spots worth travelling for—matched to your own taste.
+          Matched to your real Spotify taste, not a quiz. Picks sourced from food insiders, not crowd reviews — every one verified still open.
         </div>
       </div>
 
