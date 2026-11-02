@@ -16,71 +16,19 @@ MUSIC_GENRES = [
 ]
 
 CITIES = [
-    {
-        "id": "lisbon", "name": "Lisbon", "country": "Portugal",
-        "first_time_pitch": "Great for: Fado & Portuguese seafood",
-        "return_pitch": "New spots since your last trip: 4 fresh picks",
-    },
-    {
-        "id": "paris", "name": "Paris", "country": "France",
-        "first_time_pitch": "Great for: Chanson & French bistros",
-        "return_pitch": "New spots since your last trip: 6 fresh picks",
-    },
-    {
-        "id": "tokyo", "name": "Tokyo", "country": "Japan",
-        "first_time_pitch": "Great for: City pop & izakaya crawls",
-        "return_pitch": "New spots since your last trip",
-    },
-    {
-        "id": "mexico-city", "name": "Mexico City", "country": "Mexico",
-        "first_time_pitch": "Great for: Cumbia & street tacos",
-        "return_pitch": "New spots since your last trip",
-    },
-    {
-        "id": "bangkok", "name": "Bangkok", "country": "Thailand",
-        "first_time_pitch": "Great for: Thai street food & rooftop DJs",
-        "return_pitch": "New spots since your last trip",
-    },
-    {
-        "id": "seoul", "name": "Seoul", "country": "South Korea",
-        "first_time_pitch": "Great for: K-indie & Korean BBQ",
-        "return_pitch": "New spots since your last trip",
-    },
-    {
-        "id": "mumbai", "name": "Mumbai", "country": "India",
-        "first_time_pitch": "Great for: Street food crawls & spice-forward classics",
-        "return_pitch": "New spots since your last trip",
-    },
-    {
-        "id": "new-york", "name": "New York", "country": "USA",
-        "first_time_pitch": "Great for: Delis, pizza slices & late-night bites",
-        "return_pitch": "New spots since your last trip",
-    },
-    {
-        "id": "rome", "name": "Rome", "country": "Italy",
-        "first_time_pitch": "Great for: Trattoria classics & gelato hunting",
-        "return_pitch": "New spots since your last trip",
-    },
-    {
-        "id": "chicago", "name": "Chicago", "country": "USA",
-        "first_time_pitch": "Great for: Deep dish & tavern-style pizza tours",
-        "return_pitch": "New spots since your last trip",
-    },
-    {
-        "id": "los-angeles", "name": "Los Angeles", "country": "USA",
-        "first_time_pitch": "Great for: Taco trucks & backyard DJ sets",
-        "return_pitch": "New spots since your last trip",
-    },
-    {
-        "id": "las-vegas", "name": "Las Vegas", "country": "USA",
-        "first_time_pitch": "Great for: Celebrity-chef outposts & late-night residencies",
-        "return_pitch": "New spots since your last trip",
-    },
-    {
-        "id": "new-delhi", "name": "New Delhi", "country": "India",
-        "first_time_pitch": "Great for: Mughlai classics & modern Indian fine dining",
-        "return_pitch": "New spots since your last trip",
-    },
+    {"id": "lisbon", "name": "Lisbon", "country": "Portugal", "pitch": "Great for: Fado & Portuguese seafood"},
+    {"id": "paris", "name": "Paris", "country": "France", "pitch": "Great for: Chanson & French bistros"},
+    {"id": "tokyo", "name": "Tokyo", "country": "Japan", "pitch": "Great for: City pop & izakaya crawls"},
+    {"id": "mexico-city", "name": "Mexico City", "country": "Mexico", "pitch": "Great for: Cumbia & street tacos"},
+    {"id": "bangkok", "name": "Bangkok", "country": "Thailand", "pitch": "Great for: Thai street food & rooftop DJs"},
+    {"id": "seoul", "name": "Seoul", "country": "South Korea", "pitch": "Great for: K-indie & Korean BBQ"},
+    {"id": "mumbai", "name": "Mumbai", "country": "India", "pitch": "Great for: Street food crawls & spice-forward classics"},
+    {"id": "new-york", "name": "New York", "country": "USA", "pitch": "Great for: Delis, pizza slices & late-night bites"},
+    {"id": "rome", "name": "Rome", "country": "Italy", "pitch": "Great for: Trattoria classics & gelato hunting"},
+    {"id": "chicago", "name": "Chicago", "country": "USA", "pitch": "Great for: Deep dish & tavern-style pizza tours"},
+    {"id": "los-angeles", "name": "Los Angeles", "country": "USA", "pitch": "Great for: Taco trucks & backyard DJ sets"},
+    {"id": "las-vegas", "name": "Las Vegas", "country": "USA", "pitch": "Great for: Celebrity-chef outposts & late-night residencies"},
+    {"id": "new-delhi", "name": "New Delhi", "country": "India", "pitch": "Great for: Mughlai classics & modern Indian fine dining"},
 ]
 
 # city_id -> list of picks. Each pick's "why" is written as if generated from a taste

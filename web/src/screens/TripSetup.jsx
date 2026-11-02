@@ -54,7 +54,7 @@ export function TripSetup({ city, onContinue, onSkip }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <StepHeader
-        step={6} total={6}
+        step={5} total={5}
         title="Set up your trip"
         subtitle={`A few details for ${city.name} — we'll use these to time and place your picks.`}
       />

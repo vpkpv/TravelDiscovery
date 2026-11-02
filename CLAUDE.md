@@ -27,7 +27,7 @@ session history) is the authoritative story list and phase/priority/status track
 before re-deriving scope from the codebase or this file. It cross-checks its "Done" statuses
 against this branch directly, so it's generally more current than a quick read of the code.
 
-Per-user storage underlies all of Phase 1: every choice (genres, cuisines, visited cities,
+Per-user storage underlies all of Phase 1: every choice (genres, cuisines, favorite chefs,
 trips, saves, scores) is stored against the signed-in account, not just locally — see the
 backlog's "Per-user data model" section for the Firestore shape (`user_prefs/{uid}`,
 `saved_picks/{uid}` today; a `users/{uid}` subcollection shape is the target once trips and

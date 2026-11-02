@@ -13,7 +13,7 @@ for competitive research.
 
 Runnable dev scaffold — a real React + FastAPI app implementing the full onboarding →
 discovery flow with mock data, in the current focus profile (40/50+: equal-weight
-Spotify/manual taste entry, larger type, a "cities already visited" onboarding step).
+Spotify/manual taste entry, larger type).
 This is a starting point to iterate on, not a finished product — see "What's stubbed"
 below for what still needs real integrations.
 
@@ -100,10 +100,8 @@ are using it).
    routes into the same manual genre picker as the other option, with a note that
    Spotify's coming soon) vs. "Tell us what you like" (manual genre picker)
 2. **Cuisine quick-pick** — multi-select chips, from `GET /api/cuisines`
-3. **Cities already visited** — new step, tap to mark, skippable
-4. **City search** — live-filters as you type; a visited city gets a "Been here" tag and
-   a "what's new" pitch instead of the first-timer pitch (`GET /api/cities`)
-5. **Results feed** — combined food + music picks for the chosen city, with All/Food/Music
+3. **City search** — live-filters as you type (`GET /api/cities`)
+4. **Results feed** — combined food + music picks for the chosen city, with All/Food/Music
    filter pills, a "Something different" (surprise me) action that swaps the list for one
    random food+music pairing, and a per-card save/bookmark toggle (`GET /api/results`,
    `GET /api/results/surprise`)

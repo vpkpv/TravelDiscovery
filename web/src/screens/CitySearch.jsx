@@ -3,7 +3,7 @@ import { theme } from '../theme.js';
 import { api } from '../api.js';
 import { StepHeader } from '../components/StepHeader.jsx';
 
-export function CitySearch({ step, visitedCities, onPickCity }) {
+export function CitySearch({ step, onPickCity }) {
   const [query, setQuery] = useState('');
   const [cities, setCities] = useState([]);
 
@@ -13,14 +13,14 @@ export function CitySearch({ step, visitedCities, onPickCity }) {
     // (confirmed live: typing "hong kong" fired ~9 network round-trips in a
     // row, felt sluggish while typing).
     const timeout = setTimeout(() => {
-      api.cities({ q: query, visited: visitedCities }).then((d) => setCities(d.cities));
+      api.cities({ q: query }).then((d) => setCities(d.cities));
     }, 300);
     return () => clearTimeout(timeout);
-  }, [query, visitedCities]);
+  }, [query]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-      <StepHeader step={step} total={6} title="Where are you headed?" />
+      <StepHeader step={step} total={5} title="Where are you headed?" />
       <div style={{ padding: '18px 26px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 16, padding: '12px 16px' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={theme.textFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -54,11 +54,6 @@ export function CitySearch({ step, visitedCities, onPickCity }) {
                 <div style={{ fontSize: 16, fontWeight: 500 }}>
                   {c.name} <span style={{ fontWeight: 400, color: theme.textFaint, fontSize: 14 }}>· {c.country}</span>
                 </div>
-                {c.visited && (
-                  <span style={{ fontSize: 11, background: theme.chipBg, color: '#B85E38', padding: '2px 8px', borderRadius: 9, fontWeight: 600 }}>
-                    Been here
-                  </span>
-                )}
               </div>
               <div style={{ fontSize: 13.5, color: theme.textMuted, marginTop: 3 }}>{c.pitch}</div>
             </div>

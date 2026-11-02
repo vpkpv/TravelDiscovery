@@ -4,7 +4,6 @@ import { Welcome } from './screens/Welcome.jsx';
 import { MusicGenrePick } from './screens/MusicGenrePick.jsx';
 import { CuisinePick } from './screens/CuisinePick.jsx';
 import { FavoriteChefs } from './screens/FavoriteChefs.jsx';
-import { CitiesVisited } from './screens/CitiesVisited.jsx';
 import { CitySearch } from './screens/CitySearch.jsx';
 import { TripSetup } from './screens/TripSetup.jsx';
 import { ResultsFeed } from './screens/ResultsFeed.jsx';
@@ -26,14 +25,13 @@ function loadState() {
 }
 
 const DEFAULT_STATE = {
-  step: 'welcome', // welcome -> genres (manual, or Spotify-failure fallback) -> cuisines -> chefs -> visited -> search -> results
+  step: 'welcome', // welcome -> genres (manual, or Spotify-failure fallback) -> cuisines -> chefs -> search -> results
   tasteMethod: null, // 'spotify' | 'manual'
   musicGenres: [], // manual path's fixed-vocabulary picks
   musicArtists: [], // Spotify path's top artist names — a freeform signal, not genre-bucketed (see api/spotify.py)
   spotifyFailed: false,
   cuisines: [],
   favoriteChefs: [], // manual, typed names — see FavoriteChefs.jsx's docstring on why this isn't Instagram-sourced
-  visitedCities: [],
   city: null,
   trip: null, // the created trip record ({id, city, start_date, end_date, base_address, party_size}), or null if skipped
 };
@@ -274,18 +272,6 @@ export default function App() {
           step={3}
           chefs={state.favoriteChefs}
           onChange={(favoriteChefs) => set({ favoriteChefs })}
-          onContinue={() => set({ step: 'visited' })}
-          onSkip={() => set({ step: 'visited' })}
-        />
-      );
-      break;
-
-    case 'visited':
-      screen = (
-        <CitiesVisited
-          step={4}
-          visited={state.visitedCities}
-          onChange={(visitedCities) => set({ visitedCities })}
           onContinue={() => set({ step: 'search' })}
           onSkip={() => set({ step: 'search' })}
         />
@@ -295,8 +281,7 @@ export default function App() {
     case 'search':
       screen = (
         <CitySearch
-          step={5}
-          visitedCities={state.visitedCities}
+          step={4}
           onPickCity={(city) => set({ city, trip: null, step: 'trip-setup' })}
         />
       );
@@ -343,8 +328,7 @@ export default function App() {
           onClick={() => {
             if (state.step === 'results') set({ step: state.trip ? 'trip-setup' : 'search' });
             else if (state.step === 'trip-setup') set({ step: 'search' });
-            else if (state.step === 'search') set({ step: 'visited' });
-            else if (state.step === 'visited') set({ step: 'chefs' });
+            else if (state.step === 'search') set({ step: 'chefs' });
             else if (state.step === 'chefs') set({ step: 'cuisines' });
             else if (state.step === 'cuisines') {
               // A successful Spotify connection shows the confirmation

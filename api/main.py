@@ -1363,12 +1363,7 @@ async def get_photo(ref: str, w: int = 400):
 
 
 @app.get("/api/cities")
-async def get_cities(
-    q: str = "",
-    visited: Optional[str] = Query(default=None, description="comma-separated city ids"),
-    _user: dict = Depends(auth.current_user),
-):
-    visited_ids = _split(visited)
+async def get_cities(q: str = "", _user: dict = Depends(auth.current_user)):
     q_stripped = q.strip()
 
     # Empty query -> the curated "trending for your taste" list. This is
@@ -1381,8 +1376,7 @@ async def get_cities(
                     "slug": c["id"],  # curated ids are already slug-shaped
                     "name": c["name"],
                     "country": c["country"],
-                    "visited": c["id"] in visited_ids,
-                    "pitch": c["return_pitch"] if c["id"] in visited_ids else c["first_time_pitch"],
+                    "pitch": c["pitch"],
                 }
                 for c in CITIES
             ],
@@ -1390,23 +1384,10 @@ async def get_cities(
         }
 
     # A typed query: use real autocomplete if configured, else fall back to
-    # substring-filtering the same curated list (old behavior). Visited-status
-    # and the resulting pitch are matched on `slug`, not `id` — a real Places
-    # result's `id` is an opaque place_id, but its `slug` (from the city name)
-    # is what lines up with our curated visited-city ids and RESULTS data.
+    # substring-filtering the same curated list (old behavior).
     if places.configured():
         results = await places.autocomplete_cities(q_stripped)
-        return {
-            "cities": [
-                {
-                    **r,
-                    "visited": r["slug"] in visited_ids,
-                    "pitch": "New spots since your last trip" if r["slug"] in visited_ids else "",
-                }
-                for r in results
-            ],
-            "source": "places",
-        }
+        return {"cities": results, "source": "places"}
 
     q_lower = q_stripped.lower()
     out = [
@@ -1415,8 +1396,7 @@ async def get_cities(
             "slug": c["id"],
             "name": c["name"],
             "country": c["country"],
-            "visited": c["id"] in visited_ids,
-            "pitch": c["return_pitch"] if c["id"] in visited_ids else c["first_time_pitch"],
+            "pitch": c["pitch"],
         }
         for c in CITIES
         if q_lower in c["name"].lower()

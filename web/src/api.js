@@ -51,8 +51,8 @@ export const api = {
   savePrefs: (prefs) => post('/api/prefs', { prefs }),
   cuisines: () => get('/api/cuisines'),
   musicGenres: () => get('/api/music-genres'),
-  cities: ({ q = '', visited = [] } = {}) =>
-    get(`/api/cities?q=${encodeURIComponent(q)}&visited=${visited.join(',')}`),
+  cities: ({ q = '' } = {}) =>
+    get(`/api/cities?q=${encodeURIComponent(q)}`),
   results: ({ city, filter = 'all', musicGenre = '', chefs = [], cuisines = [], tripId = '' }) =>
     get(`/api/results?city=${encodeURIComponent(city)}&filter=${filter}&music_genre=${encodeURIComponent(musicGenre)}&chefs=${encodeURIComponent(chefs.join(','))}&cuisines=${encodeURIComponent(cuisines.join(','))}&trip_id=${encodeURIComponent(tripId)}`),
   surprise: ({ city, seed = 0, musicGenre = '', chefs = [], cuisines = [] }) =>
