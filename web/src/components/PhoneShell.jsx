@@ -10,7 +10,7 @@ export function PhoneShell({ children }) {
         minHeight: '100vh',
         display: 'flex',
         justifyContent: 'center',
-        background: '#EDE7DC',
+        background: 'transparent',
         fontFamily: theme.fontBody,
         color: theme.text,
       }}
@@ -20,7 +20,7 @@ export function PhoneShell({ children }) {
           width: '100%',
           maxWidth: 460,
           minHeight: '100vh',
-          background: theme.bg,
+          background: `linear-gradient(180deg, ${theme.bg} 0%, #FFF7F2 100%)`,
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 0 0 1px rgba(43,36,32,0.04)',
@@ -31,6 +31,7 @@ export function PhoneShell({ children }) {
           paddingTop: 'env(safe-area-inset-top)',
           paddingBottom: 'env(safe-area-inset-bottom)',
         }}
+        className="app-shell"
       >
         {children}
       </div>
