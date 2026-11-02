@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { theme } from '../theme.js';
 import { StepHeader } from '../components/StepHeader.jsx';
 import { api } from '../api.js';
@@ -23,18 +23,32 @@ export function TripSetup({ city, onContinue, onSkip }) {
 
   const canContinue = startDate && endDate && baseAddress.trim();
 
+  // Holds the trip once createTrip succeeds, surviving re-renders (and a
+  // retry) without itself triggering one — a plain useState here would
+  // work too, but a ref makes it clearer this is just a "did we already
+  // do this part" latch, not something that should ever drive a render.
+  // Without it, a dropped connection between createTrip succeeding and
+  // setAnchorEvent returning landed in the catch block below, and tapping
+  // Continue again called createTrip a second time — a duplicate,
+  // anchor-less trip alongside the first one, now orphaned in Firestore.
+  const createdTripRef = useRef(null);
+
   const handleContinue = async () => {
     if (!canContinue) return;
     setSaving(true);
     setError('');
     try {
-      let trip = await api.createTrip({
-        city: city.slug || city.id,
-        start_date: startDate,
-        end_date: endDate,
-        base_address: baseAddress.trim(),
-        party_size: partySize,
-      });
+      let trip = createdTripRef.current;
+      if (!trip) {
+        trip = await api.createTrip({
+          city: city.slug || city.id,
+          start_date: startDate,
+          end_date: endDate,
+          base_address: baseAddress.trim(),
+          party_size: partySize,
+        });
+        createdTripRef.current = trip;
+      }
       if (anchorVenue.trim() && anchorTime) {
         trip = await api.setAnchorEvent(trip.id, { venue_name: anchorVenue.trim(), start_time: anchorTime });
       }

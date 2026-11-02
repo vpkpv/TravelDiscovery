@@ -95,7 +95,14 @@ async def find_venues(city: str, filter: str = "all") -> list:
         city: city id from list_cities (e.g. "lisbon", "tokyo").
         filter: "all", "food", "bar", or "music".
     """
-    items = await api._grounded_items(city)
+    token = get_access_token()
+    uid = token.subject if token else ""
+    # api._assembled_items, not the raw api._grounded_items this used to
+    # call directly — that skipped the 15-minute results cache (full
+    # Gemini+Places cost on every single call), this account's own
+    # dismissed-item filter, and taste-based ranking, and had already
+    # drifted from get_results' own later fixes once (see surprise_me).
+    items = await api._assembled_items(city, uid=uid)
     if filter in ("food", "bar", "music"):
         items = [i for i in items if i["type"] == filter]
     return items
@@ -169,18 +176,25 @@ async def get_trip_booking_targets(trip_id: str) -> dict:
 
 @mcp.tool()
 async def surprise_me(city: str, seed: int = 0) -> dict:
-    """One paired food + music pick for a city — a single suggestion for
-    tonight, not a list to browse.
+    """One paired food/bar + music pick for a city — a single suggestion
+    for tonight, not a list to browse.
     """
-    items = await api._grounded_items(city)
-    food = [i for i in items if i["type"] == "food"]
+    token = get_access_token()
+    uid = token.subject if token else ""
+    # Same api._assembled_items pipeline as find_venues above, and the
+    # same food-or-bar pairing api.get_surprise uses (api._DISTANCE_RANKED_
+    # TYPES) — this used to hand-roll a food-only version of this pairing
+    # directly against api._grounded_items, so it silently missed the
+    # "bars are a valid main pick too" fix applied to get_surprise.
+    items = await api._assembled_items(city, uid=uid)
+    food_or_bar = [i for i in items if i["type"] in api._DISTANCE_RANKED_TYPES]
     music = [i for i in items if i["type"] == "music"]
-    if not food or not music:
+    if not food_or_bar or not music:
         return {"city": city, "items": []}
     rnd = random.Random(seed)
-    pick_food = food[seed % len(food)] if seed else rnd.choice(food)
+    pick_main = food_or_bar[seed % len(food_or_bar)] if seed else rnd.choice(food_or_bar)
     pick_music = music[(seed * 2 + 1) % len(music)] if seed else rnd.choice(music)
-    return {"city": city, "items": [pick_food, pick_music]}
+    return {"city": city, "items": [pick_main, pick_music]}
 
 
 # Cloud Run/uvicorn's entrypoint (see Dockerfile: uvicorn ${ASGI_APP:-main:app}).

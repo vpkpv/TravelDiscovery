@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # picks up api/.env for local dev — see .env.example
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, Response
 from firebase_admin import firestore
@@ -44,6 +44,17 @@ MIN_FOOD_ITEMS = 8
 # leaving the list as whatever a generic Places "bar" category search
 # returned.
 MIN_BAR_ITEMS = 5
+
+# Serve-time backstop for an ingested item's place_verified=True, which
+# ingest/pipeline.py otherwise only re-checks when the ingest job itself
+# runs again (see its own GROUNDING_REFRESH_DAYS, 30 days by default). If
+# that scheduled job was never deployed (see deploy.sh's DEPLOY_INGEST_JOB)
+# or stops running, place_verified=True would otherwise mean "verified
+# once, served forever" for this process's lifetime — a closed/defunct
+# venue never actually gets dropped. Deliberately longer than
+# GROUNDING_REFRESH_DAYS (this only has to fire if that mechanism didn't),
+# so the ordinary case still pays zero extra Places calls at serve time.
+_SERVE_TIME_REGROUND_DAYS = 60
 
 
 def _merge_ingested_items(items: list, city_lookup: dict) -> None:
@@ -85,6 +96,15 @@ def _merge_ingested_items(items: list, city_lookup: dict) -> None:
         if item.get("lat") is not None and item.get("lng") is not None:
             entry["lat"] = item["lat"]
             entry["lng"] = item["lng"]
+        # Carried through so _grounded_items' serve-time staleness backstop
+        # (_SERVE_TIME_REGROUND_DAYS) can tell how old this grounding
+        # actually is — without it, every ingested item looked equally
+        # "fresh" (place_verified=True, with no way to tell since when),
+        # so a city whose scheduled re-ingest job silently stopped running
+        # would keep serving the same grounding (closed/moved venues
+        # included) indefinitely, not just until the next ingest run.
+        if item.get("grounded_at") is not None:
+            entry["grounded_at"] = item["grounded_at"]
         # Where this venue was actually sourced from — ResultsFeed.jsx
         # links the meta line to it. Was already written into Firestore/
         # output.json by every ingest path (ingest/pipeline.py) but never
@@ -188,7 +208,15 @@ _load_ingested_results()
 # ALLOWED_ORIGINS=https://travel-web-xyz.a.run.app — set once the web
 # service's URL is known, to stop any origin from calling this API.
 _allowed = os.environ.get("ALLOWED_ORIGINS", "*").strip()
-_origins = ["*"] if _allowed == "*" else [o.strip() for o in _allowed.split(",") if o.strip()]
+# The iOS Capacitor shell (web/capacitor.config.ts) serves the app from a
+# fixed native-webview origin, not WEB_URL — always allowed in addition to
+# whatever ALLOWED_ORIGINS locks the browser app down to, otherwise
+# deploy.sh's own CORS-hardening step (ALLOWED_ORIGINS=$WEB_URL) locks the
+# bundled native app out of its own API on every deploy.
+_NATIVE_APP_ORIGINS = ["capacitor://localhost", "https://localhost", "http://localhost"]
+_origins = ["*"] if _allowed == "*" else [
+    o.strip() for o in _allowed.split(",") if o.strip()
+] + _NATIVE_APP_ORIGINS
 
 app.add_middleware(
     CORSMiddleware,
@@ -208,6 +236,33 @@ WEB_URL = os.environ.get("WEB_URL", "http://localhost:5173").rstrip("/")
 # no same-origin tab inside the app to hand a result to via localStorage.
 NATIVE_APP_SCHEME = os.environ.get("NATIVE_APP_SCHEME", "traveldiscovery").strip()
 
+# Only send Set-Cookie's Secure flag over an actual https deployment — a
+# Secure cookie is silently dropped by the browser over plain http, which
+# is exactly how WEB_URL's own default (http://localhost:5173) runs.
+_COOKIE_SECURE = WEB_URL.startswith("https://")
+_OAUTH_NONCE_COOKIE_MAX_AGE = 600  # generous for "approve on Spotify/Google's own page", tight enough to not linger
+
+
+def _oauth_state_matches(state: str, cookie_nonce: str) -> bool:
+    """Binds an OAuth `state` to the browser that started the flow, via a
+    short-lived HttpOnly cookie set at /auth/*/login and compared back
+    here — closes the login-CSRF gap both *_login docstrings used to
+    flag as "acceptable for now... worth revisiting once real user
+    accounts exist": this PR is exactly the one that adds those real,
+    persistent accounts (see auth.py), so the gap stopped being
+    acceptable. Without this, an attacker could start their own OAuth
+    flow, capture the resulting callback URL (which completes sign-in as
+    *them*), and get a victim's browser to load it — signing the victim
+    into the attacker's account (Google) or adopting the attacker's
+    Spotify taste as the victim's own (Spotify). A plain state==state
+    check wouldn't help: the attacker's captured URL already carries a
+    valid, matching state value. Binding it to a cookie set during the
+    victim's *own* login step is what breaks the attack, since the
+    attacker has no way to plant their nonce into the victim's cookie jar.
+    """
+    nonce = state.split(":", 1)[1] if ":" in state else ""
+    return bool(nonce) and bool(cookie_nonce) and secrets.compare_digest(nonce, cookie_nonce)
+
 
 @app.get("/auth/spotify/login")
 def spotify_login(popup: bool = Query(default=False), native: bool = Query(default=False)):
@@ -219,23 +274,28 @@ def spotify_login(popup: bool = Query(default=False), native: bool = Query(defau
     as opened in the native iOS shell's system browser (Browser.open, via
     connectSpotifyNative) rather than either of the web paths — see
     nativeLinks.js. Both distinctions ride along in `state` (echoed back
-    verbatim by Spotify) since there's nowhere server-side to stash it
-    between these two requests. No user-session store exists yet (that's
-    Firebase+Firestore, tracked separately), so the rest of `state` is a
-    CSRF nonce only, not verified against anything stored server-side.
-    Acceptable for now: worth revisiting once real user accounts exist.
+    verbatim by Spotify). The nonce half of `state` is also set as a
+    short-lived HttpOnly cookie here and checked against in
+    spotify_callback (see _oauth_state_matches) — binding the callback to
+    this same browser, not just checking the state string round-trips.
     """
     if not spotify.configured():
         return RedirectResponse(f"{WEB_URL}/?spotify_error=not_configured")
     nonce = secrets.token_urlsafe(16)
     state = f"native:{nonce}" if native else f"popup:{nonce}" if popup else f"redirect:{nonce}"
-    return RedirectResponse(spotify.authorize_url(state))
+    resp = RedirectResponse(spotify.authorize_url(state))
+    resp.set_cookie(
+        "spotify_oauth_nonce", nonce, max_age=_OAUTH_NONCE_COOKIE_MAX_AGE,
+        httponly=True, secure=_COOKIE_SECURE, samesite="lax", path="/auth/spotify/callback",
+    )
+    return resp
 
 
 @app.get("/auth/spotify/callback")
-async def spotify_callback(code: str = "", error: str = "", state: str = ""):
+async def spotify_callback(code: str = "", error: str = "", state: str = "", spotify_oauth_nonce: str = Cookie(default="")):
     """Spotify redirects here after the user approves/denies. Exchanges the
-    code, reads top artists, and hands the result back to the web app —
+    code, reads top artists, infers a best-effort genre match against this
+    app's fixed vocabulary, and hands the result back to the web app —
     redirected to a tiny static handoff page (spotify-popup-done.html,
     served by the web app itself) if this came from a popup (see
     spotify_login), else the original full-redirect-with-query-string
@@ -255,22 +315,40 @@ async def spotify_callback(code: str = "", error: str = "", state: str = ""):
     the opener relationship surviving the popup's multi-hop navigation
     (our domain -> spotify.com -> our domain again).
 
-    Artist names, not a genre bucket: Spotify's Web API returns an empty
-    `genres` field on essentially every artist in practice, so there's no
-    genre data to map onto our fixed vocabulary. Names are always present.
+    Artist names, not a genre bucket, as the *display* signal: Spotify's
+    Web API returns an empty `genres` field on essentially every artist in
+    practice, so there's no genre data to map onto our fixed vocabulary
+    directly from Spotify. curated_food.infer_music_genres asks Gemini to
+    do that mapping instead, from the artist names themselves — without
+    this step, a Spotify-connected account's taste never actually reached
+    find_music_venues/_personal_why (both keyed on music_genre), so every
+    Spotify user got the same unpersonalized music results a no-taste-
+    entered user would.
     """
     is_popup = state.startswith("popup:")
     is_native = state.startswith("native:")
 
-    def _finish(*, artists: Optional[list] = None, error_code: str = ""):
-        query = {"error": error_code} if error_code else {"artists": json.dumps(artists)}
-        if is_native:
-            return RedirectResponse(f"{NATIVE_APP_SCHEME}://spotify-callback?{urlencode(query)}")
-        if is_popup:
-            return RedirectResponse(f"{WEB_URL}/spotify-popup-done.html?{urlencode(query)}")
+    def _finish(*, artists: Optional[list] = None, genres: Optional[list] = None, error_code: str = ""):
         if error_code:
-            return RedirectResponse(f"{WEB_URL}/?spotify_error={error_code}")
-        return RedirectResponse(f"{WEB_URL}/?{urlencode({'spotify_artists': json.dumps(artists)})}")
+            query = {"error": error_code}
+        elif is_native or is_popup:
+            query = {"artists": json.dumps(artists), "genres": json.dumps(genres or [])}
+        else:
+            query = {"spotify_artists": json.dumps(artists), "spotify_genres": json.dumps(genres or [])}
+        if is_native:
+            resp = RedirectResponse(f"{NATIVE_APP_SCHEME}://spotify-callback?{urlencode(query)}")
+        elif is_popup:
+            resp = RedirectResponse(f"{WEB_URL}/spotify-popup-done.html?{urlencode(query)}")
+        elif error_code:
+            resp = RedirectResponse(f"{WEB_URL}/?spotify_error={error_code}")
+        else:
+            resp = RedirectResponse(f"{WEB_URL}/?{urlencode(query)}")
+        resp.delete_cookie("spotify_oauth_nonce", path="/auth/spotify/callback")
+        return resp
+
+    if not _oauth_state_matches(state, spotify_oauth_nonce):
+        log.warning("Spotify callback state/cookie mismatch — rejecting (possible CSRF replay)")
+        return _finish(error_code="invalid_state")
 
     if error or not code:
         return _finish(error_code="denied")
@@ -284,7 +362,8 @@ async def spotify_callback(code: str = "", error: str = "", state: str = ""):
         log.warning("Spotify auth succeeded but no top artists were returned")
         return _finish(error_code="no_artists_found")
 
-    return _finish(artists=artists)
+    genres = await asyncio.to_thread(curated_food.infer_music_genres, artists)
+    return _finish(artists=artists, genres=genres)
 
 
 @app.get("/auth/google/login")
@@ -301,16 +380,28 @@ def google_login(native: bool = Query(default=False)):
     (`disallowed_useragent`), so without a native-safe path, "Sign in
     with Google" inside the Capacitor shell would just fail outright,
     not merely look worse.
+
+    Same cookie-bound `state` nonce as spotify_login — see
+    _oauth_state_matches. More load-bearing here than for Spotify: a
+    successful Google callback mints a real, persistent Firebase account
+    sign-in (see google_callback), so an unbound state would let an
+    attacker sign a victim into the attacker's own account outright, not
+    just poison a taste profile.
     """
     if not google_oauth.configured():
         return RedirectResponse(f"{WEB_URL}/?auth_error=not_configured")
     nonce = secrets.token_urlsafe(16)
     state = f"native:{nonce}" if native else f"redirect:{nonce}"
-    return RedirectResponse(google_oauth.authorize_url(state))
+    resp = RedirectResponse(google_oauth.authorize_url(state))
+    resp.set_cookie(
+        "google_oauth_nonce", nonce, max_age=_OAUTH_NONCE_COOKIE_MAX_AGE,
+        httponly=True, secure=_COOKIE_SECURE, samesite="lax", path="/auth/google/callback",
+    )
+    return resp
 
 
 @app.get("/auth/google/callback")
-async def google_callback(code: str = "", error: str = "", state: str = ""):
+async def google_callback(code: str = "", error: str = "", state: str = "", google_oauth_nonce: str = Cookie(default="")):
     """Google redirects here after the user approves/denies. Exchanges the
     code, confirms a verified email, mints a Firebase custom token for it
     (see auth.custom_token_for_email), and hands the browser back to the
@@ -331,10 +422,17 @@ async def google_callback(code: str = "", error: str = "", state: str = ""):
     def _finish(*, token: str = "", error_code: str = ""):
         query = {"error": error_code} if error_code else {"authToken": token}
         if is_native:
-            return RedirectResponse(f"{NATIVE_APP_SCHEME}://google-callback?{urlencode(query)}")
-        if error_code:
-            return RedirectResponse(f"{WEB_URL}/?auth_error={error_code}")
-        return RedirectResponse(f"{WEB_URL}/?{urlencode({'authToken': token})}")
+            resp = RedirectResponse(f"{NATIVE_APP_SCHEME}://google-callback?{urlencode(query)}")
+        elif error_code:
+            resp = RedirectResponse(f"{WEB_URL}/?auth_error={error_code}")
+        else:
+            resp = RedirectResponse(f"{WEB_URL}/?{urlencode({'authToken': token})}")
+        resp.delete_cookie("google_oauth_nonce", path="/auth/google/callback")
+        return resp
+
+    if not _oauth_state_matches(state, google_oauth_nonce):
+        log.warning("Google callback state/cookie mismatch — rejecting (possible CSRF replay)")
+        return _finish(error_code="invalid_state")
 
     if error or not code:
         return _finish(error_code="denied")
@@ -348,7 +446,7 @@ async def google_callback(code: str = "", error: str = "", state: str = ""):
         return _finish(error_code="unverified_email")
 
     try:
-        custom_token = auth.custom_token_for_email(email)
+        custom_token = await asyncio.to_thread(auth.custom_token_for_email, email)
     except Exception as exc:
         log.warning("minting a custom token for %r failed: %s", email, exc)
         return _finish(error_code="sign_in_failed")
@@ -440,8 +538,11 @@ async def _grounded_items(
     _ensure_ingested_results_loaded()
 
     items = RESULTS.get(city_id, [])
-    to_verify = [i for i in items if not i.get("place_verified")]
-    already_verified = [i for i in items if i.get("place_verified")]
+    _stale_cutoff = time.time() - _SERVE_TIME_REGROUND_DAYS * 86400
+    to_verify, already_verified = [], []
+    for i in items:
+        due_for_reverify = i.get("grounded_at") is not None and i["grounded_at"] < _stale_cutoff
+        (to_verify if not i.get("place_verified") or due_for_reverify else already_verified).append(i)
 
     if to_verify and places.configured():
         city_name = _city_display_name(city_id)
@@ -452,11 +553,20 @@ async def _grounded_items(
         for item, ground in zip(to_verify, grounded):
             if not ground:
                 continue  # didn't resolve to a real place — drop it
-            merged = {**item, "addr": ground["addr"], "place_verified": True}
+            merged = {**item, "addr": ground["addr"], "place_verified": True, "grounded_at": time.time()}
             if item["type"] == "food" and ground.get("rating") is not None:
                 merged["rating"] = ground["rating"]
             if ground.get("photo_ref"):
                 merged["photo_ref"] = ground["photo_ref"]
+            # This item reached to_verify because _SERVE_TIME_REGROUND_DAYS
+            # caught it stale (not a brand-new curated item being grounded
+            # for the first time, which never has place_verified set) —
+            # persist the refreshed grounded_at onto the same dict object
+            # RESULTS holds, so the next cache-cold call sees it's fresh
+            # again instead of re-grounding this venue on every single
+            # cache-cold request from here on.
+            if item.get("place_verified"):
+                item.update(merged)
             out.append(merged)
         to_verify = out
 
@@ -812,7 +922,7 @@ async def get_me(authorization: str = Header(default="")):
     if not user:
         return {"auth_enabled": True, "signed_in": False}
 
-    approved = auth.is_approved(user["uid"], user["email"])
+    approved = await asyncio.to_thread(auth.is_approved, user["uid"], user["email"])
     if approved:
         # A lightweight usage signal — AuthGate.jsx calls /api/me once per
         # sign-in/session, so this is roughly "last time this person opened
@@ -839,7 +949,7 @@ async def create_token(user: dict = Depends(auth.current_user)):
     """
     if not auth.configured():
         raise HTTPException(status_code=404, detail="auth not enabled")
-    return {"token": auth.mint_token(user["uid"])}
+    return {"token": await asyncio.to_thread(auth.mint_token, user["uid"])}
 
 
 class PrefsBody(BaseModel):
@@ -1053,7 +1163,10 @@ async def update_trip(trip_id: str, body: TripBody, user: dict = Depends(auth.cu
 async def delete_trip(trip_id: str, user: dict = Depends(auth.current_user)):
     if not auth.configured():
         raise HTTPException(status_code=404, detail="auth not enabled")
-    _trips_collection(user["uid"]).document(trip_id).delete()
+    ref = _trips_collection(user["uid"]).document(trip_id)
+    if not ref.get().exists:
+        raise HTTPException(status_code=404, detail="trip not found")
+    ref.delete()
     return {"ok": True}
 
 
@@ -1112,8 +1225,12 @@ async def clear_anchor_event(trip_id: str, user: dict = Depends(auth.current_use
 # (name, from_hour, to_hour) in 24h local wall-clock time — generic enough
 # to cover a restaurant-and-a-show day without pretending to know anyone's
 # actual arrival/checkout times, which this app doesn't collect (TripBody
-# only has start_date/end_date, not times).
-_DAYPARTS = [("morning", 8, 12), ("afternoon", 12, 17), ("evening", 17, 23)]
+# only has start_date/end_date, not times). Spans the full 0-24 range (not
+# just 8-22) so a late anchor (an 11pm show, a post-midnight reservation)
+# still lands in some bucket and blocks it — a late/early anchor outside
+# 8-22 used to silently vanish from the "open time slots" view, since
+# is_anchor_slot below never matched any bucket for it.
+_DAYPARTS = [("morning", 0, 12), ("afternoon", 12, 17), ("evening", 17, 24)]
 
 
 def _trip_time_slots(trip: dict) -> list:
@@ -1484,6 +1601,35 @@ def _rank_by_taste(items: list) -> list:
     return sorted(items, key=lambda i: -_taste_score(i))
 
 
+async def _assembled_items(
+    city: str, music_genre: str = "", chefs: Optional[list] = None,
+    cuisines: Optional[list] = None, uid: str = "",
+) -> list:
+    """The common pipeline behind every taste-matched-picks surface for a
+    city: cached grounded items -> personalized 'why' lines -> taste-based
+    ranking -> this account's own dismissed-item filter. Shared by
+    get_results, get_surprise, and the MCP server's find_venues/
+    surprise_me, so an agent-facing call can't silently skip the cache,
+    personalization, ranking, or dismissed-item filter the way it used to
+    (those tools used to call _grounded_items directly, bypassing all
+    four and drifting from this function's own later fixes — e.g.
+    surprise_me's food-or-bar pairing below).
+    """
+    chefs = chefs or []
+    cuisines = cuisines or []
+    items = await _cached_grounded_items(city, music_genre, chefs, cuisines)
+    items = _with_personal_why(items, music_genre, cuisines)
+    items = _rank_by_taste(items)
+    # _cached_grounded_items is a shared, cross-account cache, so a
+    # dismissal can't be baked into it — filter it back out per-request
+    # against this account's own dismissed_picks doc instead.
+    if auth.configured() and uid:
+        dismissed = _dismissed_ids(uid)
+        if dismissed:
+            items = [i for i in items if i["id"] not in dismissed]
+    return items
+
+
 @app.get("/api/results")
 async def get_results(
     city: str, filter: str = "all", music_genre: str = "", chefs: str = "", cuisines: str = "", trip_id: str = "",
@@ -1494,18 +1640,9 @@ async def get_results(
     # venues get returned, just an extra Places lookup for ResultsFeed's
     # header banner (see places.find_city_photo).
     items, city_photo_ref = await asyncio.gather(
-        _cached_grounded_items(city, music_genre, list(_split(chefs)), cuisine_list),
+        _assembled_items(city, music_genre, list(_split(chefs)), cuisine_list, user["uid"]),
         _cached_city_photo(city),
     )
-    items = _with_personal_why(items, music_genre, cuisine_list)
-    items = _rank_by_taste(items)
-    # _cached_grounded_items is a shared, cross-account cache, so a
-    # dismissal can't be baked into it — filter it back out per-request
-    # against this account's own dismissed_picks doc instead.
-    if auth.configured():
-        dismissed = _dismissed_ids(user["uid"])
-        if dismissed:
-            items = [i for i in items if i["id"] not in dismissed]
     # trip_id, when given, orders food picks by distance from the trip's
     # base address (the hotel) — see _rank_by_trip_distance. Applied before
     # the filter below so "food only" and "all" both reflect the same order.
@@ -1526,13 +1663,7 @@ async def get_surprise(
     city: str, seed: int = 0, music_genre: str = "", chefs: str = "", cuisines: str = "",
     user: dict = Depends(auth.current_user),
 ):
-    cuisine_list = list(_split(cuisines))
-    items = await _cached_grounded_items(city, music_genre, list(_split(chefs)), cuisine_list)
-    items = _with_personal_why(items, music_genre, cuisine_list)
-    if auth.configured():
-        dismissed = _dismissed_ids(user["uid"])
-        if dismissed:
-            items = [i for i in items if i["id"] not in dismissed]
+    items = await _assembled_items(city, music_genre, list(_split(chefs)), list(_split(cuisines)), user["uid"])
     # Bars are an equally valid "main pick" alongside food now, not a
     # second-class category only food got to be — see _DISTANCE_RANKED_TYPES.
     food_or_bar = [i for i in items if i["type"] in _DISTANCE_RANKED_TYPES]

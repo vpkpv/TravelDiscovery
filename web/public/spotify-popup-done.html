@@ -22,10 +22,16 @@
       var params = new URLSearchParams(window.location.search);
       var result = { source: 'traveldiscovery-spotify' };
       var artistsRaw = params.get('artists');
+      var genresRaw = params.get('genres');
       var error = params.get('error');
       if (artistsRaw) {
         try {
           result.artists = JSON.parse(artistsRaw);
+          // Best-effort genre match for the artists above (see
+          // api/curated_food.py's infer_music_genres) — feeds the app's
+          // existing genre-keyed music matching for a Spotify-connected
+          // account; [] if inference failed, same as a manual pick of none.
+          result.genres = genresRaw ? JSON.parse(genresRaw) : [];
         } catch (e) {
           result.error = 'denied';
         }

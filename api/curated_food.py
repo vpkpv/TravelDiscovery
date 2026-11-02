@@ -19,7 +19,7 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel
 
-from data import CUISINES
+from data import CUISINES, MUSIC_GENRES
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 # `or` on top of .get(), not just a .get() default: Cloud Run can have this
@@ -45,6 +45,10 @@ class BarSuggestion(BaseModel):
     name: str
     why: str
     area: str = ""
+
+
+class GenreGuess(BaseModel):
+    genres: list[str]
 
 
 def configured() -> bool:
@@ -172,3 +176,50 @@ def suggest_bars(city: str, limit: int = 10) -> list:
     return [
         {"name": s.name, "why": s.why, "area": s.area} for s in suggestions if s.name.strip()
     ]
+
+
+def infer_music_genres(artists: list, limit: int = 3) -> list:
+    """Best-effort mapping of a Spotify top-artist list onto this app's
+    fixed music-genre vocabulary (data.MUSIC_GENRES) — called from
+    main.py's spotify_callback right after spotify.top_artists returns.
+
+    Spotify's own per-artist `genres` field is unusable for this (see
+    spotify.py's docstring: it comes back empty on essentially every
+    artist in practice), so this asks Gemini to do the same job from
+    artist names instead. Without this step, a Spotify-connected
+    account's taste signal (its top artists) was captured and shown on
+    the confirm screen but never reached find_music_venues/_personal_why
+    — both keyed on music_genre, which stayed "" for the entire Spotify
+    path. Returns [] (not a guess) on any failure or when nothing in the
+    response matches the real vocabulary — the caller then falls back to
+    the same unpersonalized music results an empty genre list already
+    produces today, not a crash or a made-up genre.
+    """
+    if not configured() or not artists:
+        return []
+
+    prompt = (
+        f"Here is a music listener's top artists, most-listened first: "
+        f"{', '.join(artists)}. Pick the {limit} best-matching genres for "
+        f"this listener, best match first, choosing only from this exact "
+        f"list and returning nothing outside it: {', '.join(MUSIC_GENRES)}."
+    )
+    try:
+        response = _get_client().models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=GenreGuess,
+            ),
+        )
+    except Exception as exc:
+        log.warning("music-genre inference failed for artists %r: %s", artists, exc)
+        return []
+
+    guess = response.parsed
+    if guess is None:
+        log.warning("genre-inference response didn't parse against the schema: %r", response.text)
+        return []
+    valid = set(MUSIC_GENRES)
+    return [g for g in guess.genres if g in valid][:limit]

@@ -1103,6 +1103,31 @@ async def main():
                   # everything fetched so far" reasoning that already applies
                   # to the local output.json below applies doubly to Firestore,
                   # since nothing else reads output.json back afterwards.
+    def _seed_existing_items(slug: str) -> list:
+        """The city's existing venues/{slug} doc, read once per slug per
+        run — _save/_save_multi below merge new items on top of this
+        instead of replacing the whole document. Without it, a filtered
+        run (INGEST_SOURCE_FILTER, or INGEST_SKIP_VIDEOS skipping the
+        video loop entirely) only ever populates by_city[slug]["items"]
+        with what *this* run's sources produced; the final .set() then
+        overwrote the whole doc with just that subset, silently deleting
+        every previously-ingested venue whose source wasn't re-run this
+        time. db is already known non-None at every call site below.
+        """
+        doc = db.collection("venues").document(slug).get()
+        return list((doc.to_dict() or {}).get("items", [])) if doc.exists else []
+
+    def _merge_items(existing: list, new_items: list) -> list:
+        """A same-named new item replaces its existing counterpart (a
+        re-run source's fresher data for that venue); every other
+        existing item — from a source this run didn't touch — passes
+        through untouched; anything genuinely new is appended.
+        """
+        by_name = {places._normalize(i["name"]): i for i in existing if i.get("name")}
+        for item in new_items:
+            by_name[places._normalize(item["name"])] = item
+        return list(by_name.values())
+
     def _save(city: str, items: list) -> None:
         """Shared by both loops below: incremental output.json + Firestore
         save after every single source (video or article), not just at the
@@ -1112,7 +1137,9 @@ async def main():
         OUTPUT_FILE.write_text(json.dumps(all_results, indent=2))
         if items and db is not None:
             slug = places._slugify(city)
-            by_city.setdefault(slug, {"city": city, "items": []})["items"].extend(items)
+            if slug not in by_city:
+                by_city[slug] = {"city": city, "items": _seed_existing_items(slug)}
+            by_city[slug]["items"] = _merge_items(by_city[slug]["items"], items)
             try:
                 db.collection("venues").document(slug).set(by_city[slug])
             except Exception as exc:
@@ -1133,7 +1160,9 @@ async def main():
             by_this_batch.setdefault(item["city"], []).append(item)
         for city, city_items in by_this_batch.items():
             slug = places._slugify(city)
-            by_city.setdefault(slug, {"city": city, "items": []})["items"].extend(city_items)
+            if slug not in by_city:
+                by_city[slug] = {"city": city, "items": _seed_existing_items(slug)}
+            by_city[slug]["items"] = _merge_items(by_city[slug]["items"], city_items)
             try:
                 db.collection("venues").document(slug).set(by_city[slug])
             except Exception as exc:
