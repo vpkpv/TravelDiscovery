@@ -657,7 +657,17 @@ async def find_chef_venues(city: str, chefs: list, country: str = "") -> list:
         # Happy Crane") found nothing under the old phrasing.
         direct = await find_place(entry, city, country)
         if direct:
-            return {**direct, "name": entry, "chef": entry, "match_type": "own_restaurant"}
+            # A real Places name match alone doesn't mean this is actually
+            # theirs — confirmed live: "Padma Lakshmi" (a food personality
+            # with no restaurant of her own, and also a common Indian
+            # given name) matched a real but unconnected Chennai business
+            # this way, which got asserted as "her own restaurant" with no
+            # verification at all. Only trust the direct match when Gemini
+            # separately confirms this name is actually a real chef/
+            # restaurateur; otherwise fall through to the similar-style
+            # resolution below, same as a name with no direct match at all.
+            if await asyncio.to_thread(chef_style.owns_restaurants, entry):
+                return {**direct, "name": entry, "chef": entry, "match_type": "own_restaurant"}
 
         # chef_style.resolve_chef_style makes a synchronous (blocking) Gemini
         # SDK call — run it off the event loop via to_thread so a slow

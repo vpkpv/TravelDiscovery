@@ -46,6 +46,10 @@ class ChefStyleResult(BaseModel):
     style: str
 
 
+class RestaurateurCheck(BaseModel):
+    is_restaurateur: bool
+
+
 def configured() -> bool:
     return bool(GEMINI_API_KEY)
 
@@ -117,3 +121,57 @@ def resolve_chef_style(name: str) -> dict:
     resolved = {"chef_name": result.chef_name.strip(), "style": result.style.strip()}
     _cache[key] = resolved
     return resolved
+
+
+def owns_restaurants(name: str) -> bool:
+    """True only when Gemini specifically recognizes `name` as a real chef
+    or restaurateur — someone who actually owns/operates restaurants —
+    not just a food personality, author, TV host, critic, or influencer
+    who doesn't. Guards places.find_chef_venues' direct-match step:
+    confirmed live, a Places search for "Padma Lakshmi, Chennai" (a
+    cookbook author/TV host with no restaurant of her own — also a
+    common Indian given name) found a real, unrelated local business
+    that happens to share her name, and the old code unconditionally
+    labeled it "this is her own restaurant". An exact name match alone
+    can't tell a chef's own place apart from pure name coincidence; this
+    asks the one thing Places data itself can't answer.
+
+    Defaults to False (no credit given) on any failure, missing config,
+    or genuine uncertainty — the caller falls back to the existing
+    similar-style resolution instead of risking another false "own
+    restaurant" claim, same honest "in the style of" wording already
+    used for any other unrecognized name.
+    """
+    if not configured():
+        return False
+    key = f"owns:{name.strip().lower()}"
+    if not name.strip():
+        return False
+    if key in _cache:
+        return bool(_cache[key])
+
+    prompt = (
+        f'Is "{name}" specifically known as a real chef or restaurateur — someone who actually '
+        f'owns or operates one or more restaurants? Answer true only if you are confident of '
+        f'this from real, specific knowledge. A food personality, cookbook author, TV host, '
+        f'critic, or influencer who does not personally own/run a restaurant should be false, '
+        f'even if widely known for food in other ways. If unsure, answer false rather than '
+        f'guessing.'
+    )
+    try:
+        response = _get_client().models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=RestaurateurCheck,
+            ),
+        )
+        result = response.parsed
+    except Exception as exc:
+        log.warning("owns_restaurants request failed for %r: %s", name, exc)
+        return False
+
+    value = bool(result and result.is_restaurateur)
+    _cache[key] = value
+    return value
