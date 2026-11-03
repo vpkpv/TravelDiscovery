@@ -982,6 +982,41 @@ WORLD_ARTICLES = [
         "url": "https://www.timeout.com/london/news/38-london-restaurants-have-been-named-the-best-in-the-uk-in-a-prestigious-new-list-and-this-one-ranks-highest-120525",
         "source": "Time Out London — Harden's Guide, Best in the UK",
     },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-02 (this sandbox's tools still can't reach laliste.com
+    # directly, confirmed again on this same date — same standing gap
+    # noted on the Top 1000 entry above). Explicitly multi-city per the
+    # search result itself: names specific venues in Paris, London,
+    # Madrid, La Paz, Mumbai, Mexico City, and Tulum — a distinct feature
+    # from the Top 1000 ranking already above, not a repeat of it.
+    {
+        "url": "https://www.laliste.com/awards/special-awards-2026",
+        "source": "La Liste — International Special Awards 2026",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-02; laliste.com itself unreachable from this sandbox (see
+    # above). Titled as a Seoul feature, but filed here rather than
+    # ARTICLES (single fixed city) on the same caution as the Harden's UK
+    # entry above and the two Mumbai entries below it: a "Korea Special
+    # Awards" program naming it could plausibly also cover Busan, and
+    # there's no way to confirm the real per-venue city split without
+    # being able to load the page. ingest_world_article extracts each
+    # venue's own real city instead of trusting the headline's framing.
+    {
+        "url": "https://www.laliste.com/news/la-liste-korea-special-awards-seouls-culinary-ascension",
+        "source": "La Liste — Korea Special Awards: Seoul's Culinary Ascension",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-02; laliste.com itself unreachable from this sandbox (see
+    # above). A national awards ceremony, not a single-city guide — same
+    # reasoning as the MICHELIN country-wide ceremony entries elsewhere in
+    # this list: Japan's major dining cities (Tokyo, Osaka, Kyoto) are all
+    # plausible winners at a national ceremony, so this is filed here
+    # rather than assumed Tokyo-only.
+    {
+        "url": "https://www.laliste.com/news/la-liste-japan-awards-ceremony-2025",
+        "source": "La Liste — Japan Awards Ceremony 2025",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
