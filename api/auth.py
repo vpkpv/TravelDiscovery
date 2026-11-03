@@ -16,6 +16,7 @@ account attached to the service, which needs the "Cloud Datastore User"
 GOOGLE_APPLICATION_CREDENTIALS to a service account key file path.
 """
 
+import asyncio
 import hashlib
 import logging
 import os
@@ -31,6 +32,30 @@ log = logging.getLogger("auth")
 
 _app = None
 _db = None
+
+# Tasks fired by _fire_and_forget below, kept alive only so asyncio
+# doesn't garbage-collect a still-running task out from under it — asyncio
+# makes no guarantee a task survives if nothing holds a reference to it.
+_background_tasks: set = set()
+
+
+def _fire_and_forget(fn, *args) -> None:
+    """Runs a blocking (Firestore) call in a worker thread without
+    awaiting it — for the handful of functions below (touch_last_active,
+    log_event, log_taste_edit) that are explicitly documented as
+    best-effort, "a failed write here shouldn't block the request."
+    Previously that was true in name only: each ran its blocking
+    Firestore call directly inline on the async event loop, which this
+    whole app otherwise runs on. That doesn't just risk this one
+    request's latency — FastAPI's event loop is single-threaded, so a
+    slow Firestore round-trip here stalls *every* other in-flight
+    request on this worker for the same duration. Requires a running
+    event loop (true at every real call site: these only ever run
+    inside an async request handler).
+    """
+    task = asyncio.create_task(asyncio.to_thread(fn, *args))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
 
 def _ensure_initialized():
@@ -76,7 +101,12 @@ async def verify_token(id_token: str) -> dict:
     """Returns {"uid", "email"} for a valid token, or {} if invalid/expired."""
     _ensure_initialized()
     try:
-        decoded = firebase_auth.verify_id_token(id_token)
+        # Off the event loop: verify_id_token can hit the network (fetching
+        # Google's public keys on a cold cache) and is otherwise a plain
+        # blocking call, same reasoning as _fire_and_forget above — the
+        # difference is this one's result is needed before continuing, so
+        # it's awaited rather than fired in the background.
+        decoded = await asyncio.to_thread(firebase_auth.verify_id_token, id_token)
     except Exception as exc:  # firebase_admin raises several distinct exception types
         log.info("ID token verification failed: %s", exc)
         return {}
@@ -140,8 +170,13 @@ def touch_last_active(uid: str) -> None:
     way to grant access: uses update() rather than set(merge=True), so it
     only ever modifies a doc that already exists and can't accidentally
     satisfy is_approved()'s plain existence check for someone who isn't.
-    Best-effort — a failed write here shouldn't block anyone's request.
+    Best-effort — a failed write here shouldn't block anyone's request
+    (see _fire_and_forget: nor should it block anyone *else's* request).
     """
+    _fire_and_forget(_touch_last_active_blocking, uid)
+
+
+def _touch_last_active_blocking(uid: str) -> None:
     try:
         firestore_client().collection("approved_users").document(uid).update({"last_active": time.time()})
     except Exception as exc:
@@ -157,6 +192,10 @@ def log_taste_edit(uid: str, prefs: dict) -> None:
     today's. Flat collection, auto-id, same shape and best-effort stance
     as log_event — a failed write here shouldn't block saving prefs.
     """
+    _fire_and_forget(_log_taste_edit_blocking, uid, prefs)
+
+
+def _log_taste_edit_blocking(uid: str, prefs: dict) -> None:
     try:
         firestore_client().collection("taste_history").document().set({
             "uid": uid, "prefs": prefs, "ts": time.time(),
@@ -175,6 +214,10 @@ def log_event(uid: str, email: str, event_type: str, detail: str = "") -> None:
     schema. Best-effort, same stance as touch_last_active: a failed write
     here shouldn't block the request it's describing.
     """
+    _fire_and_forget(_log_event_blocking, uid, email, event_type, detail)
+
+
+def _log_event_blocking(uid: str, email: str, event_type: str, detail: str = "") -> None:
     try:
         firestore_client().collection("usage_events").document().set({
             "uid": uid, "email": email, "type": event_type, "detail": detail, "ts": time.time(),
@@ -210,7 +253,7 @@ async def current_user(authorization: str = Header(default="")) -> dict:
     raw_token = authorization.removeprefix("Bearer ").strip()
 
     if raw_token.startswith(_TOKEN_PREFIX):
-        uid = verify_pat(raw_token)
+        uid = await asyncio.to_thread(verify_pat, raw_token)
         if not uid:
             raise HTTPException(status_code=401, detail="invalid or expired token")
         # verify_pat already re-checks is_approved itself, and a PAT
@@ -221,7 +264,7 @@ async def current_user(authorization: str = Header(default="")) -> dict:
     if not user:
         raise HTTPException(status_code=401, detail="invalid or expired token")
 
-    if not is_approved(user["uid"], user["email"]):
+    if not await asyncio.to_thread(is_approved, user["uid"], user["email"]):
         raise HTTPException(status_code=403, detail="account not yet approved")
 
     return user

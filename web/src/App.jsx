@@ -77,16 +77,27 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const artistsRaw = params.get('spotify_artists');
+    const genresRaw = params.get('spotify_genres');
     const error = params.get('spotify_error');
     if (artistsRaw) {
       let artists = [];
+      let genres = [];
       try {
         artists = JSON.parse(artistsRaw);
       } catch {
         // malformed — treat like any other failure below
       }
+      try {
+        genres = genresRaw ? JSON.parse(genresRaw) : [];
+      } catch {
+        genres = [];
+      }
       if (artists.length) {
-        set({ tasteMethod: 'spotify', musicArtists: artists, step: 'spotify-confirm' });
+        // musicGenres, not just musicArtists: find_music_venues/
+        // _personal_why key off music_genre, not artist names (see
+        // api/spotify.py's docstring) — without this, a Spotify-connected
+        // account's taste never actually fed into music matching.
+        set({ tasteMethod: 'spotify', musicArtists: artists, musicGenres: genres, step: 'spotify-confirm' });
       } else {
         set({ tasteMethod: 'spotify', spotifyFailed: true, step: 'genres' });
       }
@@ -145,9 +156,9 @@ export default function App() {
   // case that event doesn't fire (it's had Safari-specific reliability
   // issues historically).
   const applySpotifyResult = (result) => {
-    const { artists, error } = result;
+    const { artists, genres, error } = result;
     if (!error && artists && artists.length) {
-      set({ tasteMethod: 'spotify', musicArtists: artists, step: 'spotify-confirm' });
+      set({ tasteMethod: 'spotify', musicArtists: artists, musicGenres: genres || [], step: 'spotify-confirm' });
     } else {
       set({ tasteMethod: 'spotify', spotifyFailed: true, step: 'genres' });
     }

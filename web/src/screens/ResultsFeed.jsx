@@ -164,19 +164,20 @@ function ResultCard({ item, saved, onToggleSave, onDismiss, country }) {
   return (
     <div
       onClick={() => openExternal(mapsUrl(item))}
-      style={{ background: theme.card, borderRadius: 18, padding: 16, display: 'flex', gap: 14, boxShadow: '0 6px 16px rgba(43,36,32,0.06)', cursor: 'pointer' }}
+      className="td-card"
+      style={{ background: theme.card, borderRadius: 20, padding: 13, display: 'flex', gap: 14, boxShadow: '0 6px 16px rgba(43,36,32,0.06)', cursor: 'pointer', border: `1px solid ${theme.border}` }}
     >
       {showPhoto ? (
         <img
           src={photoUrl(item.photo_ref, 200)}
           alt=""
           onError={() => setPhotoFailed(true)}
-          style={{ width: 84, height: 84, borderRadius: 14, flexShrink: 0, objectFit: 'cover' }}
+          style={{ width: 92, height: 104, borderRadius: 15, flexShrink: 0, objectFit: 'cover' }}
         />
       ) : (
         <div
           style={{
-            width: 84, height: 84, borderRadius: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 92, height: 104, borderRadius: 15, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: `linear-gradient(135deg, ${accentSoft}, ${accent})`,
           }}
         >
@@ -185,7 +186,7 @@ function ResultCard({ item, saved, onToggleSave, onDismiss, country }) {
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-          <div style={{ fontSize: 16.5, fontWeight: 600, lineHeight: 1.3 }}>{item.name}</div>
+          <div style={{ fontSize: 16.5, fontWeight: 700, lineHeight: 1.25, letterSpacing: '-.01em' }}>{item.name}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <div onClick={(e) => { e.stopPropagation(); onToggleSave(item); }} style={{ padding: 2, cursor: 'pointer' }}>
               <svg width="19" height="19" viewBox="0 0 24 24" fill={saved ? theme.accentFood : 'none'} stroke={saved ? theme.accentFood : theme.textFaint} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -206,7 +207,7 @@ function ResultCard({ item, saved, onToggleSave, onDismiss, country }) {
         {item.credential && (
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 5,
-            background: '#FBF1DC', color: '#8A6214', padding: '3px 9px', borderRadius: 10,
+            background: '#FFF1D3', color: '#9B6515', padding: '3px 9px', borderRadius: 10,
             fontWeight: 600, fontSize: 12,
           }}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none">
@@ -247,7 +248,7 @@ function ResultCard({ item, saved, onToggleSave, onDismiss, country }) {
             </>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 10, background: '#F7F2E9', borderRadius: 10, padding: '9px 11px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 10, background: '#FFF6EF', borderRadius: 11, padding: '8px 10px' }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B5AA9C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 2, flexShrink: 0 }}>
             <path d="M12 3l1.9 4.6L18 9l-4.1 1.4L12 15l-1.9-4.6L6 9l4.1-1.4z" />
           </svg>
@@ -261,7 +262,7 @@ function ResultCard({ item, saved, onToggleSave, onDismiss, country }) {
           }}
           style={{
             marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-            background: accent, color: '#FFFFFF', padding: '8px 14px', borderRadius: 12, fontSize: 13, fontWeight: 600,
+            background: `linear-gradient(135deg, ${accent}, ${isFood ? theme.berry : accentSoft})`, color: '#FFFFFF', padding: '8px 14px', borderRadius: 12, fontSize: 13, fontWeight: 700,
           }}
         >
           {bookingLabel(item, country)}
@@ -339,7 +340,8 @@ function TripBanner({ trip, cityName }) {
   };
 
   return (
-    <div style={{ background: theme.chipBg, borderRadius: 14, padding: '12px 14px', marginTop: 14, fontSize: 13.5, color: theme.textMuted }}>
+    <div style={{ background: 'linear-gradient(135deg, #F0EDFF, #FFF0EA)', borderRadius: 18, padding: '14px 16px', marginTop: 18, fontSize: 13.5, color: theme.textMuted, border: '1px solid #E4DBFA' }}>
+      <div style={{ color: theme.accentBar, textTransform: 'uppercase', letterSpacing: '.08em', fontWeight: 700, fontSize: 10.5, marginBottom: 5 }}>Your trip plan</div>
       <div>{fmt(trip.start_date)} – {fmt(trip.end_date)} · {trip.base_address}</div>
       {anchor && (
         <div style={{ marginTop: 4, fontWeight: 600, color: theme.text }}>
@@ -521,9 +523,10 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
             onError={() => setHeroFailed(true)}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(20,16,12,0) 45%, rgba(20,16,12,0.6) 100%)' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(32,26,39,.05) 20%, rgba(32,26,39,.82) 100%)' }} />
           <div style={{ position: 'absolute', left: 24, right: 24, bottom: 18 }}>
-            <div style={{ fontFamily: theme.fontDisplay, fontWeight: 600, fontSize: 32, lineHeight: 1, color: '#FFFFFF' }}>{city.name}</div>
+            <div style={{ fontSize: 11, letterSpacing: '.13em', textTransform: 'uppercase', color: 'rgba(255,255,255,.74)', fontWeight: 700, marginBottom: 7 }}>Curated for your taste</div>
+            <div style={{ fontFamily: theme.fontDisplay, fontWeight: 600, fontSize: 37, letterSpacing: '-.04em', lineHeight: .95, color: '#FFFFFF' }}>{city.name}</div>
             <div style={{ marginTop: 6, fontSize: 14, color: 'rgba(255,255,255,0.88)' }}>
               {surprise ? 'One perfect pairing, chosen for you' : loading ? loadingQuote : `${totalCount} picks matched to your taste`}
             </div>
@@ -534,7 +537,8 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: showHero ? 'flex-end' : 'space-between' }}>
           {!showHero && (
             <div>
-              <div style={{ fontFamily: theme.fontDisplay, fontWeight: 600, fontSize: 32, lineHeight: 1 }}>{city.name}</div>
+              <div style={{ fontSize: 11, letterSpacing: '.13em', textTransform: 'uppercase', color: theme.accentBar, fontWeight: 700, marginBottom: 7 }}>Curated for your taste</div>
+              <div style={{ fontFamily: theme.fontDisplay, fontWeight: 600, fontSize: 37, letterSpacing: '-.04em', lineHeight: .95 }}>{city.name}</div>
               <div style={{ marginTop: 6, fontSize: 14, color: theme.textMuted }}>
                 {surprise ? 'One perfect pairing, chosen for you' : loading ? loadingQuote : `${totalCount} picks matched to your taste`}
               </div>
@@ -542,7 +546,7 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
           )}
           <div
             onClick={onOpenSettings}
-            style={{ width: 40, height: 40, borderRadius: 12, background: theme.card, border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            style={{ width: 42, height: 42, borderRadius: 14, background: theme.card, border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 5px 14px rgba(55,35,52,.08)' }}
           >
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={theme.text} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />
@@ -553,14 +557,14 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
         <TripBanner trip={trip} cityName={city.name} />
 
         {!surprise ? (
-          <div style={{ display: 'flex', gap: 10, marginTop: 18, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, marginTop: 18, alignItems: 'center', flexWrap: 'wrap' }}>
             {['all', 'food', 'music', 'bar'].map((f) => (
               <div
                 key={f}
                 onClick={() => setFilter(f)}
                 style={{
-                  padding: '9px 16px', borderRadius: 16, fontSize: 14, fontWeight: 500, cursor: 'pointer',
-                  background: filter === f ? (f === 'food' ? theme.accentFood : f === 'music' ? theme.accentMusic : f === 'bar' ? theme.accentBar : theme.text) : theme.card,
+                  padding: '9px 14px', borderRadius: 14, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  background: filter === f ? (f === 'food' ? `linear-gradient(135deg, ${theme.accentFood}, ${theme.berry})` : f === 'music' ? theme.accentMusic : f === 'bar' ? theme.accentBar : theme.text) : theme.card,
                   color: filter === f ? '#FFFFFF' : theme.text,
                   border: filter === f ? 'none' : `1px solid ${theme.border}`,
                 }}
@@ -570,7 +574,7 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
             ))}
             <div
               onClick={() => rollSurprise(0)}
-              style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, background: theme.chipBg, borderRadius: 14, padding: '8px 12px', cursor: 'pointer' }}
+              style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, background: '#FFF0E8', borderRadius: 14, padding: '8px 12px', cursor: 'pointer' }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#B85E38" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 3l1.9 4.6L18 9l-4.1 1.4L12 15l-1.9-4.6L6 9l4.1-1.4z" />
@@ -612,7 +616,7 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
         )}
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 22px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="td-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '8px 22px 30px', display: 'flex', flexDirection: 'column', gap: 14 }}>
         {/* Gated on !loading too — without it this flashed on every fetch
             (items starts as [] before the request resolves), not just a
             genuine zero-result city; made more noticeable once a second

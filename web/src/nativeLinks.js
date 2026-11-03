@@ -55,10 +55,15 @@ export function connectSpotifyNative(loginUrl) {
       }
       if (url.host !== 'spotify-callback') return;
       const artistsRaw = url.searchParams.get('artists');
+      const genresRaw = url.searchParams.get('genres');
       const error = url.searchParams.get('error');
       if (artistsRaw) {
         try {
-          finish({ artists: JSON.parse(artistsRaw) });
+          // genres: best-effort match onto the app's fixed vocabulary
+          // (see api/curated_food.py's infer_music_genres) — without it,
+          // the native Spotify path fed artist names through but never
+          // the genre signal find_music_venues/_personal_why key off.
+          finish({ artists: JSON.parse(artistsRaw), genres: genresRaw ? JSON.parse(genresRaw) : [] });
         } catch {
           finish({ error: 'denied' });
         }

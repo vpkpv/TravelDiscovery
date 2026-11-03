@@ -11,14 +11,20 @@ export function StepHeader({ step, total, title, subtitle }) {
   const [aside] = useState(() => pickFrom(ONBOARDING_ASIDES));
   return (
     <div style={{ padding: '48px 26px 0' }}>
-      <div style={{ fontSize: 13, letterSpacing: '0.06em', color: theme.textFaint, textTransform: 'uppercase', marginBottom: 14 }}>
-        Step {step} of {total}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 17 }}>
+        <div style={{ fontSize: 11.5, letterSpacing: '0.12em', color: theme.accentBar, textTransform: 'uppercase', fontWeight: 700 }}>
+          Your travel taste
+        </div>
+        <div style={{ fontSize: 12, color: theme.textMuted, fontWeight: 600 }}>0{step} / 0{total}</div>
       </div>
-      <div style={{ fontFamily: theme.fontDisplay, fontSize: 28, lineHeight: 1.15, color: theme.text }}>{title}</div>
+      <div style={{ height: 5, borderRadius: 999, background: '#F0E5E5', marginBottom: 20, overflow: 'hidden' }}>
+        <div style={{ width: `${(step / total) * 100}%`, height: '100%', borderRadius: 999, background: `linear-gradient(90deg, ${theme.accentFood}, ${theme.berry})` }} />
+      </div>
+      <div style={{ fontFamily: theme.fontDisplay, fontSize: 31, fontWeight: 600, lineHeight: 1.1, color: theme.text, letterSpacing: '-0.03em' }}>{title}</div>
       {subtitle && (
         <div style={{ marginTop: 8, fontSize: 14.5, color: theme.textMuted, lineHeight: 1.5 }}>{subtitle}</div>
       )}
-      <div style={{ marginTop: 8, fontSize: 12.5, color: theme.textFaint, fontStyle: 'italic' }}>{aside}</div>
+      <div style={{ marginTop: 11, fontSize: 12.5, color: theme.accentBar, fontStyle: 'italic' }}>{aside}</div>
     </div>
   );
 }
