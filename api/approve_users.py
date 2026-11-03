@@ -5,6 +5,12 @@ approval is still a deliberate per-person decision, this just saves
 hopping between the Firebase Auth console (to find a uid by email) and
 the Firestore console (to hand-write the approved_users/{uid} doc).
 
+The same operations are also available from a browser, behind sign-in +
+ADMIN_EMAILS, via main.py's /api/admin/* routes — this CLI and that page
+both call the same auth.py functions (list_pending_users, approve_email,
+etc.), so neither one can drift from what the other actually does. Use
+whichever's more convenient; nothing here requires the page or vice versa.
+
 Run locally — needs the same Application Default Credentials setup as
 auth.py's Firestore client does for local dev (GOOGLE_APPLICATION_
 CREDENTIALS, or `gcloud auth application-default login` against the
@@ -38,35 +44,26 @@ problem. Force it to use the system resolver instead:
 import argparse
 import datetime
 import sys
-import time
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
 import auth
-from firebase_admin import auth as firebase_auth
 
 
-def _approved_ref(uid: str):
-    return auth.firestore_client().collection("approved_users").document(uid)
-
-
-def _approved_email_ref(email: str):
-    return auth.firestore_client().collection("approved_emails").document(auth._normalize_email(email))
+def _fmt(ts):
+    return datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M") if ts else "never seen"
 
 
 def cmd_list(_args):
-    pending = [
-        user for user in firebase_auth.list_users().iterate_all()
-        if not _approved_ref(user.uid).get().exists
-    ]
+    pending = auth.list_pending_users()
     if not pending:
         print("No pending (signed-in-but-unapproved) users.")
         return
     print(f"{len(pending)} pending:")
-    for user in pending:
-        print(f"  {user.email or '(no email)'}  uid={user.uid}")
+    for u in pending:
+        print(f"  {u['email'] or '(no email)'}  uid={u['uid']}")
 
 
 def cmd_status(_args):
@@ -77,37 +74,31 @@ def cmd_status(_args):
     on their first sign-in (see cmd_preapprove) — these migrate into the
     "approved" list above automatically once they do (auth.is_approved).
     """
-    docs = list(auth.firestore_client().collection("approved_users").stream())
-    pending_preapprovals = list(auth.firestore_client().collection("approved_emails").stream())
+    approved = auth.list_approved_users()
+    preapproved = auth.list_preapproved_emails()
 
-    def _fmt(ts):
-        return datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M") if ts else "never seen"
-
-    if docs:
-        rows = sorted(docs, key=lambda d: (d.to_dict() or {}).get("last_active", 0), reverse=True)
-        print(f"{len(rows)} approved:")
-        for d in rows:
-            data = d.to_dict() or {}
-            print(f"  {data.get('email') or f'(no email, uid={d.id})'}  last active: {_fmt(data.get('last_active'))}")
+    if approved:
+        print(f"{len(approved)} approved:")
+        for u in approved:
+            label = u["email"] or f"(no email, uid={u['uid']})"
+            print(f"  {label}  last active: {_fmt(u['last_active'])}")
     else:
         print("No approved users yet.")
 
-    if pending_preapprovals:
-        print(f"\n{len(pending_preapprovals)} preapproved, waiting on first sign-in:")
-        for d in pending_preapprovals:
-            data = d.to_dict() or {}
-            print(f"  {data.get('email', d.id)}")
+    if preapproved:
+        print(f"\n{len(preapproved)} preapproved, waiting on first sign-in:")
+        for u in preapproved:
+            print(f"  {u['email']}")
 
 
 def cmd_approve(args):
     for email in args.emails:
         try:
-            user = firebase_auth.get_user_by_email(email)
-        except firebase_auth.UserNotFoundError:
+            result = auth.approve_email(email)
+        except ValueError:
             print(f"  {email}: not found — they need to sign in at least once first (or use `preapprove`).")
             continue
-        _approved_ref(user.uid).set({"email": email, "approved_at": int(time.time())}, merge=True)
-        print(f"  {email}: approved (uid={user.uid})")
+        print(f"  {email}: approved (uid={result['uid']})")
 
 
 def cmd_preapprove(args):
@@ -119,66 +110,38 @@ def cmd_preapprove(args):
     approve_users.py command again for that person.
     """
     for email in args.emails:
-        _approved_email_ref(email).set({"email": email, "preapproved_at": int(time.time())})
+        auth.preapprove_email(email)
         print(f"  {email}: preapproved — will unlock automatically on their first sign-in")
 
 
 def cmd_usage(args):
     """Per-user activity summary from main.py's auth.log_event calls
     (sign_in, view_city, save, booking_click — see those call sites).
-    Reads the whole usage_events collection in one query rather than a
-    per-user sub-collection listing, since a closed pilot's event volume
-    is small enough that this doesn't need to scale further. Sorted by
-    total activity, most active first, so "who's actually using this" is
-    the first thing you see rather than alphabetical by email.
+    Sorted by total activity, most active first, so "who's actually
+    using this" is the first thing you see rather than alphabetical by
+    email.
     """
-    approved = {d.id: (d.to_dict() or {}) for d in auth.firestore_client().collection("approved_users").stream()}
-    target = args.email.strip().lower() if args.email else None
-    if target:
-        approved = {uid: info for uid, info in approved.items() if info.get("email", "").strip().lower() == target}
-        if not approved:
-            print(f"{args.email}: not an approved user.")
-            return
-
-    by_uid = {}
-    for doc in auth.firestore_client().collection("usage_events").stream():
-        data = doc.to_dict() or {}
-        by_uid.setdefault(data.get("uid", ""), []).append(data)
-
-    def _fmt(ts):
-        return datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M") if ts else "never seen"
-
-    rows = []
-    for uid, info in approved.items():
-        events = by_uid.get(uid, [])
-        sign_ins = sum(1 for e in events if e.get("type") == "sign_in")
-        cities = {e["detail"] for e in events if e.get("type") == "view_city" and e.get("detail")}
-        saves = sum(1 for e in events if e.get("type") == "save")
-        clicks = sum(1 for e in events if e.get("type") == "booking_click")
-        total = sign_ins + len(cities) + saves + clicks
-        rows.append((total, info.get("email") or f"(uid={uid})", sign_ins, cities, saves, clicks, info.get("last_active")))
-    rows.sort(key=lambda r: r[0], reverse=True)
-
+    rows = auth.usage_summary(args.email or "")
+    if args.email and not rows:
+        print(f"{args.email}: not an approved user.")
+        return
     if not rows:
         print("No approved users yet.")
         return
-    for _total, email, sign_ins, cities, saves, clicks, last_active in rows:
-        print(f"  {email}: {sign_ins} sign-ins, {len(cities)} cities browsed, {saves} saves, {clicks} booking clicks"
-              f"  (last active: {_fmt(last_active)})")
-        if args.cities and cities:
-            print(f"      cities: {', '.join(sorted(cities))}")
+    for r in rows:
+        print(f"  {r['email']}: {r['sign_ins']} sign-ins, {len(r['cities'])} cities browsed, {r['saves']} saves, "
+              f"{r['booking_clicks']} booking clicks  (last active: {_fmt(r['last_active'])})")
+        if args.cities and r["cities"]:
+            print(f"      cities: {', '.join(r['cities'])}")
 
 
 def cmd_revoke(args):
     for email in args.emails:
-        _approved_email_ref(email).delete()  # a no-op if there was no pending preapproval
-        try:
-            user = firebase_auth.get_user_by_email(email)
-        except firebase_auth.UserNotFoundError:
+        result = auth.revoke_email(email)
+        if result["had_account"]:
+            print(f"  {email}: access revoked (uid={result['uid']})")
+        else:
             print(f"  {email}: no Firebase account yet — any pending preapproval was cleared.")
-            continue
-        _approved_ref(user.uid).delete()
-        print(f"  {email}: access revoked (uid={user.uid})")
 
 
 def main():

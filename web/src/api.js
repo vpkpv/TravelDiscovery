@@ -97,4 +97,12 @@ export const api = {
   // Firebase ID token, since the signed-in session lives inside the React
   // bundle, not anywhere a browser console can reach it.
   createToken: () => post('/api/tokens', {}),
+  // Admin approval page (see web/src/screens/Admin.jsx, at /admin) —
+  // gated server-side by ADMIN_EMAILS (api/auth.py's require_admin), not
+  // by anything client-side; a non-admin hitting these just gets a 403.
+  adminListUsers: () => get('/api/admin/users'),
+  adminUsage: (email = '') => get(`/api/admin/usage?email=${encodeURIComponent(email)}`),
+  adminApprove: (email) => post('/api/admin/approve', { email }),
+  adminPreapprove: (email) => post('/api/admin/preapprove', { email }),
+  adminRevoke: (email) => post('/api/admin/revoke', { email }),
 };

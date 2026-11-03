@@ -3,8 +3,12 @@
 Same pattern as FfAdvisor's approved_users/{uid}: signing in with Google
 proves who you are, but doesn't grant access by itself — a document has to
 exist at approved_users/{uid} in Firestore, added manually by whoever runs
-the pilot. There's no self-serve signup path and no admin UI for this by
-design; see CLAUDE.md's "Access control is manual Firestore approval."
+the pilot. There's still no self-serve signup path — see CLAUDE.md's
+"Access control is manual Firestore approval" — but there is now a small
+admin page (main.py's /api/admin/* routes, gated by ADMIN_EMAILS below)
+for making that same manual, per-person decision without needing shell
+access to run approve_users.py. Every grant is still a deliberate choice
+by whoever runs the pilot; this just changes the interface for making it.
 
 Uses Application Default Credentials — on Cloud Run this is the service
 account attached to the service, which needs the "Cloud Datastore User"
@@ -45,6 +49,22 @@ def configured() -> bool:
     # be set on purpose, same pattern as every other integration here
     # (GOOGLE_PLACES_API_KEY, SPOTIFY_CLIENT_ID, ...).
     return os.environ.get("AUTH_ENABLED", "").strip().lower() in ("1", "true", "yes")
+
+
+# The admin approval page (see main.py's /api/admin/* routes and
+# require_admin below) is gated by a fixed, comma-separated allowlist of
+# emails rather than a Firestore role — this module's own docstring notes
+# there was deliberately no admin UI for the approval gate; adding one
+# still doesn't make this self-serve signup (every grant is still a
+# deliberate per-person decision, same as approve_users.py), it's just a
+# page instead of a CLI for making that decision. A fixed allowlist is
+# enough since this is expected to be the pilot's own owner(s), a handful
+# of people at most, not something that itself needs admin-management UI.
+ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
+
+
+def is_admin(email: str) -> bool:
+    return bool(email) and email.strip().lower() in ADMIN_EMAILS
 
 
 def firestore_client():
@@ -205,6 +225,151 @@ async def current_user(authorization: str = Header(default="")) -> dict:
         raise HTTPException(status_code=403, detail="account not yet approved")
 
     return user
+
+
+async def require_admin(authorization: str = Header(default="")) -> dict:
+    """FastAPI dependency for the admin approval page's endpoints (see
+    main.py's /api/admin/* routes) — deliberately separate from
+    current_user rather than layered on top of it: a personal access
+    token (minted via mint_token for an external agent acting on one
+    already-approved pilot user's own behalf) must never grant access to
+    every other pilot user's approval status, so a PAT is rejected
+    outright here rather than just happening to fail some other check.
+    Gated by ADMIN_EMAILS — see that constant's own comment.
+    """
+    if not configured():
+        raise HTTPException(status_code=404, detail="auth not enabled")
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="missing bearer token")
+    raw_token = authorization.removeprefix("Bearer ").strip()
+    if raw_token.startswith(_TOKEN_PREFIX):
+        raise HTTPException(status_code=403, detail="admin access needs a direct sign-in, not a personal access token")
+
+    user = await verify_token(raw_token)
+    if not user:
+        raise HTTPException(status_code=401, detail="invalid or expired token")
+    if not is_admin(user["email"]):
+        raise HTTPException(status_code=403, detail="not an admin")
+    return user
+
+
+# --- Admin approval operations, shared by approve_users.py's CLI and
+# main.py's /api/admin/* routes (the admin approval page) — one
+# implementation of each, so the CLI and the page can't quietly drift
+# apart on what "approve" or "revoke" actually does. ---
+
+def list_pending_users() -> list:
+    """Signed in, not yet approved — see approve_users.py's `list`."""
+    return [
+        {"email": u.email or "", "uid": u.uid}
+        for u in firebase_auth.list_users().iterate_all()
+        if not firestore_client().collection("approved_users").document(u.uid).get().exists
+    ]
+
+
+def list_approved_users() -> list:
+    """Approved users, most recently active first — see
+    approve_users.py's `status`."""
+    docs = list(firestore_client().collection("approved_users").stream())
+    rows = sorted(docs, key=lambda d: (d.to_dict() or {}).get("last_active", 0), reverse=True)
+    return [
+        {
+            "uid": d.id,
+            "email": (d.to_dict() or {}).get("email", ""),
+            "approved_at": (d.to_dict() or {}).get("approved_at"),
+            "last_active": (d.to_dict() or {}).get("last_active"),
+        }
+        for d in rows
+    ]
+
+
+def list_preapproved_emails() -> list:
+    """Preapproved but still waiting on their first sign-in — see
+    approve_users.py's `status`."""
+    return [
+        {
+            "email": (d.to_dict() or {}).get("email", d.id),
+            "preapproved_at": (d.to_dict() or {}).get("preapproved_at"),
+        }
+        for d in firestore_client().collection("approved_emails").stream()
+    ]
+
+
+def approve_email(email: str) -> dict:
+    """Grants access to an email that's already signed in once (mirrors
+    approve_users.py's `approve`). Raises ValueError if it hasn't — the
+    caller should use preapprove_email instead, which doesn't need a uid.
+    """
+    try:
+        user = firebase_auth.get_user_by_email(email)
+    except firebase_auth.UserNotFoundError:
+        raise ValueError(f"{email} hasn't signed in yet — use preapprove instead")
+    firestore_client().collection("approved_users").document(user.uid).set(
+        {"email": email, "approved_at": int(time.time())}, merge=True
+    )
+    return {"email": email, "uid": user.uid}
+
+
+def preapprove_email(email: str) -> dict:
+    """Grants access before the person has ever signed in (mirrors
+    approve_users.py's `preapprove`) — see is_approved's approved_emails
+    fallback, which migrates this into a real approved_users/{uid} doc
+    the moment they do.
+    """
+    firestore_client().collection("approved_emails").document(_normalize_email(email)).set(
+        {"email": email, "preapproved_at": int(time.time())}
+    )
+    return {"email": email}
+
+
+def revoke_email(email: str) -> dict:
+    """Removes access for an email — clears a pending preapproval and/or
+    an approved_users doc, whichever applies (mirrors approve_users.py's
+    `revoke`).
+    """
+    firestore_client().collection("approved_emails").document(_normalize_email(email)).delete()
+    try:
+        user = firebase_auth.get_user_by_email(email)
+    except firebase_auth.UserNotFoundError:
+        return {"email": email, "had_account": False}
+    firestore_client().collection("approved_users").document(user.uid).delete()
+    return {"email": email, "had_account": True, "uid": user.uid}
+
+
+def usage_summary(email: str = "") -> list:
+    """Per-approved-user activity: sign-ins, cities browsed, saves,
+    booking clicks — the same data approve_users.py's `usage` command
+    prints, as rows instead of lines. Optionally scoped to one email.
+    Sorted by total activity, most active first.
+    """
+    approved = {d.id: (d.to_dict() or {}) for d in firestore_client().collection("approved_users").stream()}
+    target = _normalize_email(email) if email else None
+    if target:
+        approved = {
+            uid: info for uid, info in approved.items()
+            if _normalize_email(info.get("email", "")) == target
+        }
+
+    by_uid = {}
+    for doc in firestore_client().collection("usage_events").stream():
+        data = doc.to_dict() or {}
+        by_uid.setdefault(data.get("uid", ""), []).append(data)
+
+    rows = []
+    for uid, info in approved.items():
+        events = by_uid.get(uid, [])
+        sign_ins = sum(1 for e in events if e.get("type") == "sign_in")
+        cities = sorted({e["detail"] for e in events if e.get("type") == "view_city" and e.get("detail")})
+        saves = sum(1 for e in events if e.get("type") == "save")
+        clicks = sum(1 for e in events if e.get("type") == "booking_click")
+        rows.append({
+            "uid": uid,
+            "email": info.get("email") or f"(uid={uid})",
+            "sign_ins": sign_ins, "cities": cities, "saves": saves,
+            "booking_clicks": clicks, "last_active": info.get("last_active"),
+        })
+    rows.sort(key=lambda r: r["sign_ins"] + len(r["cities"]) + r["saves"] + r["booking_clicks"], reverse=True)
+    return rows
 
 
 # --- Personal access tokens, for the MCP server (see mcp_server.py) ---

@@ -842,6 +842,58 @@ async def create_token(user: dict = Depends(auth.current_user)):
     return {"token": auth.mint_token(user["uid"])}
 
 
+# --- Admin approval page (see web/src/screens/Admin.jsx, reachable at
+# /admin — see main.jsx) — a browser front end for the same manual,
+# per-person approval decision approve_users.py's CLI already makes.
+# Gated by auth.require_admin (ADMIN_EMAILS), not auth.current_user:
+# every endpoint below calls the same auth.py functions that CLI uses,
+# so the two can't drift apart on what "approve"/"revoke" actually does.
+
+class AdminEmailBody(BaseModel):
+    email: str
+
+
+@app.get("/api/admin/users")
+async def admin_list_users(_admin: dict = Depends(auth.require_admin)):
+    """Everything the admin page needs in one call: signed-in-but-
+    unapproved, approved (with last-active), and preapproved-but-not-
+    yet-signed-in — see approve_users.py's `list`/`status` commands,
+    which this mirrors.
+    """
+    pending, approved, preapproved = await asyncio.gather(
+        asyncio.to_thread(auth.list_pending_users),
+        asyncio.to_thread(auth.list_approved_users),
+        asyncio.to_thread(auth.list_preapproved_emails),
+    )
+    return {"pending": pending, "approved": approved, "preapproved": preapproved}
+
+
+@app.get("/api/admin/usage")
+async def admin_usage(email: str = "", _admin: dict = Depends(auth.require_admin)):
+    """Per-approved-user activity (sign-ins, cities browsed, saves,
+    booking clicks) — see approve_users.py's `usage` command.
+    """
+    return {"rows": await asyncio.to_thread(auth.usage_summary, email)}
+
+
+@app.post("/api/admin/approve")
+async def admin_approve(body: AdminEmailBody, _admin: dict = Depends(auth.require_admin)):
+    try:
+        return await asyncio.to_thread(auth.approve_email, body.email)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/api/admin/preapprove")
+async def admin_preapprove(body: AdminEmailBody, _admin: dict = Depends(auth.require_admin)):
+    return await asyncio.to_thread(auth.preapprove_email, body.email)
+
+
+@app.post("/api/admin/revoke")
+async def admin_revoke(body: AdminEmailBody, _admin: dict = Depends(auth.require_admin)):
+    return await asyncio.to_thread(auth.revoke_email, body.email)
+
+
 class PrefsBody(BaseModel):
     prefs: dict
 
