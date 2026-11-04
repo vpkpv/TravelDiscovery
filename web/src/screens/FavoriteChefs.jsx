@@ -67,7 +67,7 @@ export function FavoriteChefs({ step, chefs = [], onChange, onContinue, onSkip }
       <div style={{ padding: '14px 26px 32px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <button
           onClick={onContinue}
-          style={{ background: theme.text, color: '#FFFFFF', width: '100%', height: 54, borderRadius: 27, border: 'none', fontWeight: 600, fontSize: 16 }}
+          style={{ background: theme.text, color: theme.white, width: '100%', height: 54, borderRadius: 27, border: 'none', fontWeight: 600, fontSize: 16 }}
         >
           {chefs.length ? `Continue (${chefs.length} added)` : 'Continue'}
         </button>

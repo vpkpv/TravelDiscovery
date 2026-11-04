@@ -36,7 +36,7 @@ function Row({ primary, secondary, action, actionLabel, busy }) {
             flexShrink: 0, border: 'none', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 600,
             cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1,
             background: actionLabel === 'Revoke' ? theme.accentFoodSoft : theme.accentMusic,
-            color: '#fff',
+            color: theme.white,
           }}
         >
           {actionLabel}
@@ -141,7 +141,7 @@ export function Admin() {
               disabled={preapproving || !newEmail.trim()}
               style={{
                 border: 'none', borderRadius: 12, padding: '10px 18px', fontSize: 14, fontWeight: 600,
-                background: theme.accentMusic, color: '#fff',
+                background: theme.accentMusic, color: theme.white,
                 cursor: preapproving || !newEmail.trim() ? 'default' : 'pointer',
                 opacity: preapproving || !newEmail.trim() ? 0.5 : 1,
               }}

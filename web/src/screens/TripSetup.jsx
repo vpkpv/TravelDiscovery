@@ -130,7 +130,7 @@ export function TripSetup({ city, onContinue, onSkip }) {
           onClick={handleContinue}
           disabled={!canContinue || saving}
           style={{
-            background: theme.text, color: '#FFFFFF', width: '100%', height: 54, borderRadius: 27,
+            background: theme.text, color: theme.white, width: '100%', height: 54, borderRadius: 27,
             border: 'none', fontWeight: 600, fontSize: 16, opacity: canContinue && !saving ? 1 : 0.5,
             cursor: canContinue && !saving ? 'pointer' : 'default',
           }}

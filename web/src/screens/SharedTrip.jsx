@@ -16,7 +16,7 @@ function SharedPickCard({ item }) {
   return (
     <div
       onClick={() => openExternal(mapsUrl(item))}
-      style={{ background: theme.card, borderRadius: 18, padding: 16, display: 'flex', gap: 14, boxShadow: '0 6px 16px rgba(43,36,32,0.06)', cursor: 'pointer' }}
+      style={{ background: theme.card, borderRadius: 18, padding: 16, display: 'flex', gap: 14, boxShadow: theme.shadowCard, cursor: 'pointer' }}
     >
       {item.photo_ref ? (
         <img src={photoUrl(item.photo_ref, 200)} alt="" style={{ width: 72, height: 72, borderRadius: 14, flexShrink: 0, objectFit: 'cover' }} />

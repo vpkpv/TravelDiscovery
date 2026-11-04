@@ -20,10 +20,10 @@ export function PhoneShell({ children }) {
           width: '100%',
           maxWidth: 460,
           minHeight: '100vh',
-          background: `linear-gradient(180deg, ${theme.bg} 0%, #FFF7F2 100%)`,
+          background: `linear-gradient(180deg, ${theme.bg} 0%, ${theme.bgGradientEnd} 100%)`,
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 0 0 1px rgba(43,36,32,0.04)',
+          boxShadow: theme.shadowHairline,
           // Only matters once this runs as an installed PWA (see index.html's
           // viewport-fit=cover + manifest.json) — a normal browser tab's own
           // chrome already keeps content clear of the notch/home indicator,

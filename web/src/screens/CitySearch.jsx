@@ -45,7 +45,7 @@ export function CitySearch({ step, onPickCity }) {
             style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 8px', borderRadius: 16, cursor: 'pointer' }}
           >
             <div style={{ width: 46, height: 46, borderRadius: 12, background: `linear-gradient(135deg, ${theme.accentFood}, ${theme.accentMusic})`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={theme.white} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 21s-7-6.1-7-11a7 7 0 0114 0c0 4.9-7 11-7 11z" /><circle cx="12" cy="10" r="2.6" />
               </svg>
             </div>

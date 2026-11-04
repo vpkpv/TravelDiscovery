@@ -1,4 +1,4 @@
-import { theme } from '../theme.js';
+import { theme, withAlpha } from '../theme.js';
 
 export function Chip({ label, selected, onClick, checkIcon = true }) {
   return (
@@ -15,9 +15,9 @@ export function Chip({ label, selected, onClick, checkIcon = true }) {
         cursor: 'pointer',
         userSelect: 'none',
         background: selected ? `linear-gradient(135deg, ${theme.accentFood}, ${theme.berry})` : theme.card,
-        color: selected ? '#FFFFFF' : theme.text,
+        color: selected ? theme.white : theme.text,
         border: `1px solid ${selected ? theme.accentFood : theme.border}`,
-        boxShadow: selected ? '0 7px 15px rgba(216,70,113,.2)' : '0 3px 8px rgba(51,35,44,.03)',
+        boxShadow: selected ? `0 7px 15px ${withAlpha(theme.berry, 0.2)}` : theme.shadowChip,
       }}
     >
       {selected && checkIcon && (

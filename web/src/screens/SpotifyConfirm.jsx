@@ -23,7 +23,7 @@ export function SpotifyConfirm({ artists, onContinue, onPickManually }) {
         <button
           onClick={onContinue}
           style={{
-            background: theme.text, color: '#FFFFFF',
+            background: theme.text, color: theme.white,
             width: '100%', height: 54, borderRadius: 27, border: 'none', fontWeight: 600, fontSize: 16,
           }}
         >

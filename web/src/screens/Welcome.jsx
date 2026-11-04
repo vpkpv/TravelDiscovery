@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { theme } from '../theme.js';
+import { theme, withAlpha } from '../theme.js';
 import { WELCOME_ASIDES, pickFrom } from '../funQuotes.js';
 
 export function Welcome({ onChooseSpotify, onChooseManual }) {
@@ -7,7 +7,7 @@ export function Welcome({ onChooseSpotify, onChooseManual }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <div style={{ padding: '48px 28px 0', position: 'relative' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 11px', borderRadius: 99, background: '#FFF0E8', color: theme.accentFood, fontSize: 11.5, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 11px', borderRadius: 99, background: theme.chipBg, color: theme.accentFood, fontSize: 11.5, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase' }}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: theme.accentFood, boxShadow: `0 0 0 4px ${theme.accentFood}22` }} /> Taste-led travel
         </div>
         <div style={{ fontFamily: theme.fontDisplay, fontWeight: 600, fontSize: 43, lineHeight: .98, letterSpacing: '-.05em', marginTop: 18 }}>
@@ -28,17 +28,17 @@ export function Welcome({ onChooseSpotify, onChooseManual }) {
           onClick={onChooseSpotify}
           style={{
             border: 'none', borderRadius: 20, padding: 18,
-            display: 'flex', alignItems: 'center', gap: 14, background: `linear-gradient(135deg, ${theme.spotifyGreen}, #159947)`, textAlign: 'left', color: '#fff', boxShadow: '0 12px 24px rgba(29,185,84,.22)',
+            display: 'flex', alignItems: 'center', gap: 14, background: `linear-gradient(135deg, ${theme.spotifyGreen}, ${theme.spotifyGreenDark})`, textAlign: 'left', color: theme.white, boxShadow: `0 12px 24px ${withAlpha(theme.spotifyGreen, 0.22)}`,
           }}
         >
-          <div style={{ width: 44, height: 44, borderRadius: 13, background: 'rgba(255,255,255,.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <div style={{ width: 44, height: 44, borderRadius: 13, background: withAlpha(theme.white, 0.18), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={theme.white} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 14v-2a8 8 0 0116 0v2" /><rect x="2" y="14" width="4" height="7" rx="2" /><rect x="18" y="14" width="4" height="7" rx="2" />
             </svg>
           </div>
           <div>
             <div style={{ fontSize: 16, fontWeight: 700 }}>Connect Spotify</div>
-            <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.82)', marginTop: 2 }}>Use your listening history</div>
+            <div style={{ fontSize: 13.5, color: withAlpha(theme.white, 0.82), marginTop: 2 }}>Use your listening history</div>
           </div>
         </button>
 
@@ -49,7 +49,7 @@ export function Welcome({ onChooseSpotify, onChooseManual }) {
             display: 'flex', alignItems: 'center', gap: 14, background: theme.card, textAlign: 'left',
           }}
         >
-          <div style={{ width: 44, height: 44, borderRadius: 13, background: '#EAF0FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 13, background: theme.musicIconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={theme.accentMusic} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
             </svg>

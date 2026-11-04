@@ -34,7 +34,7 @@ export function CuisinePick({ step, selected, onChange, onContinue }) {
           onClick={onContinue}
           style={{
             background: selected.length ? theme.text : theme.border,
-            color: selected.length ? '#FFFFFF' : theme.textFaint,
+            color: selected.length ? theme.white : theme.textFaint,
             width: '100%', height: 54, borderRadius: 27, border: 'none', fontWeight: 600, fontSize: 16,
           }}
         >
