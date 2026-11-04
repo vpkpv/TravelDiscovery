@@ -186,7 +186,15 @@ def _country_variants(country: str) -> list:
     # take that alone — a no-op for an already-bare country string like
     # the curated CITIES list uses.
     country = country.rsplit(",", 1)[-1].strip()
-    normalized = _normalize(country)
+    # Strip periods before normalizing — confirmed live: Gemini's free-form
+    # extraction (ingest_world_article, see extract.py) tagged several real
+    # US venues (Le Bernardin, Jungsik, Daniel, among others from a single
+    # La Liste Top 1000 run) with "U.S.A." rather than "USA". _normalize()
+    # only lowercases/collapses whitespace, so "u.s.a." never matched the
+    # "usa" alias below, and never appeared as a substring of a real Places
+    # address (which always renders unpunctuated "USA") — every one of
+    # those venues was silently rejected despite being completely real.
+    normalized = _normalize(country).replace(".", "")
     for aliases in _COUNTRY_ALIASES.values():
         if normalized in aliases:
             return aliases
