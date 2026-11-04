@@ -1,24 +1,24 @@
 import { useEffect, useState } from 'react';
-import { theme } from '../theme.js';
+import { theme, withAlpha } from '../theme.js';
 import { api, photoUrl } from '../api.js';
 import { LOADING_QUOTES, EMPTY_STATE_ASIDES, SURPRISE_OUTROS_FOOD, SURPRISE_OUTROS_BAR, pickFrom } from '../funQuotes.js';
 import { openExternal } from '../nativeLinks.js';
 
-function FoodIcon({ color = '#FFFFFF' }) {
+function FoodIcon({ color = theme.white }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <path d="M18 8h1a4 4 0 010 8h-1" /><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" /><path d="M6 1v3M10 1v3M14 1v3" />
     </svg>
   );
 }
-function MusicIcon({ color = '#FFFFFF' }) {
+function MusicIcon({ color = theme.white }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
     </svg>
   );
 }
-function BarIcon({ color = '#FFFFFF' }) {
+function BarIcon({ color = theme.white }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 4h16l-8 9-8-9z" /><path d="M12 13v6M8 19h8" />
@@ -165,7 +165,7 @@ function ResultCard({ item, saved, onToggleSave, onDismiss, country }) {
     <div
       onClick={() => openExternal(mapsUrl(item))}
       className="td-card"
-      style={{ background: theme.card, borderRadius: 20, padding: 13, display: 'flex', gap: 14, boxShadow: '0 6px 16px rgba(43,36,32,0.06)', cursor: 'pointer', border: `1px solid ${theme.border}` }}
+      style={{ background: theme.card, borderRadius: 20, padding: 13, display: 'flex', gap: 14, boxShadow: theme.shadowCard, cursor: 'pointer', border: `1px solid ${theme.border}` }}
     >
       {showPhoto ? (
         <img
@@ -207,7 +207,7 @@ function ResultCard({ item, saved, onToggleSave, onDismiss, country }) {
         {item.credential && (
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 5,
-            background: '#FFF1D3', color: '#9B6515', padding: '3px 9px', borderRadius: 10,
+            background: theme.badgeGoldSoft, color: theme.badgeGold, padding: '3px 9px', borderRadius: 10,
             fontWeight: 600, fontSize: 12,
           }}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none">
@@ -243,13 +243,13 @@ function ResultCard({ item, saved, onToggleSave, onDismiss, country }) {
             </>
           ) : (
             <>
-              <span style={{ background: '#EAF2F2', color: theme.accentMusic, padding: '3px 9px', borderRadius: 10, fontWeight: 500, fontSize: 12.5 }}>{item.genre}</span>
+              <span style={{ background: theme.musicChipBg, color: theme.accentMusic, padding: '3px 9px', borderRadius: 10, fontWeight: 500, fontSize: 12.5 }}>{item.genre}</span>
               <span style={{ color: theme.textFaint }}>· {item.addr}</span>
             </>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 10, background: '#FFF6EF', borderRadius: 11, padding: '8px 10px' }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B5AA9C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 2, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 10, background: theme.quoteBg, borderRadius: 11, padding: '8px 10px' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={theme.quoteIcon} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 2, flexShrink: 0 }}>
             <path d="M12 3l1.9 4.6L18 9l-4.1 1.4L12 15l-1.9-4.6L6 9l4.1-1.4z" />
           </svg>
           <div style={{ fontSize: 13, color: theme.textMuted, lineHeight: 1.45, fontStyle: 'italic' }}>{item.personal_why || item.why}</div>
@@ -262,11 +262,11 @@ function ResultCard({ item, saved, onToggleSave, onDismiss, country }) {
           }}
           style={{
             marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-            background: `linear-gradient(135deg, ${accent}, ${isFood ? theme.berry : accentSoft})`, color: '#FFFFFF', padding: '8px 14px', borderRadius: 12, fontSize: 13, fontWeight: 700,
+            background: `linear-gradient(135deg, ${accent}, ${isFood ? theme.berry : accentSoft})`, color: theme.white, padding: '8px 14px', borderRadius: 12, fontSize: 13, fontWeight: 700,
           }}
         >
           {bookingLabel(item, country)}
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={theme.white} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 12h14M13 6l6 6-6 6" />
           </svg>
         </div>
@@ -340,7 +340,7 @@ function TripBanner({ trip, cityName }) {
   };
 
   return (
-    <div style={{ background: 'linear-gradient(135deg, #F0EDFF, #FFF0EA)', borderRadius: 18, padding: '14px 16px', marginTop: 18, fontSize: 13.5, color: theme.textMuted, border: '1px solid #E4DBFA' }}>
+    <div style={{ background: `linear-gradient(135deg, ${theme.bannerGradientStart}, ${theme.bannerGradientEnd})`, borderRadius: 18, padding: '14px 16px', marginTop: 18, fontSize: 13.5, color: theme.textMuted, border: `1px solid ${theme.bannerBorder}` }}>
       <div style={{ color: theme.accentBar, textTransform: 'uppercase', letterSpacing: '.08em', fontWeight: 700, fontSize: 10.5, marginBottom: 5 }}>Your trip plan</div>
       <div>{fmt(trip.start_date)} – {fmt(trip.end_date)} · {trip.base_address}</div>
       {anchor && (
@@ -523,11 +523,11 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
             onError={() => setHeroFailed(true)}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(32,26,39,.05) 20%, rgba(32,26,39,.82) 100%)' }} />
+          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg, ${withAlpha(theme.ink, 0.05)} 20%, ${withAlpha(theme.ink, 0.82)} 100%)` }} />
           <div style={{ position: 'absolute', left: 24, right: 24, bottom: 18 }}>
-            <div style={{ fontSize: 11, letterSpacing: '.13em', textTransform: 'uppercase', color: 'rgba(255,255,255,.74)', fontWeight: 700, marginBottom: 7 }}>Curated for your taste</div>
-            <div style={{ fontFamily: theme.fontDisplay, fontWeight: 600, fontSize: 37, letterSpacing: '-.04em', lineHeight: .95, color: '#FFFFFF' }}>{city.name}</div>
-            <div style={{ marginTop: 6, fontSize: 14, color: 'rgba(255,255,255,0.88)' }}>
+            <div style={{ fontSize: 11, letterSpacing: '.13em', textTransform: 'uppercase', color: withAlpha(theme.white, 0.74), fontWeight: 700, marginBottom: 7 }}>Curated for your taste</div>
+            <div style={{ fontFamily: theme.fontDisplay, fontWeight: 600, fontSize: 37, letterSpacing: '-.04em', lineHeight: .95, color: theme.white }}>{city.name}</div>
+            <div style={{ marginTop: 6, fontSize: 14, color: withAlpha(theme.white, 0.88) }}>
               {surprise ? 'One perfect pairing, chosen for you' : loading ? loadingQuote : `${totalCount} picks matched to your taste`}
             </div>
           </div>
@@ -546,7 +546,7 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
           )}
           <div
             onClick={onOpenSettings}
-            style={{ width: 42, height: 42, borderRadius: 14, background: theme.card, border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 5px 14px rgba(55,35,52,.08)' }}
+            style={{ width: 42, height: 42, borderRadius: 14, background: theme.card, border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: theme.shadowButton }}
           >
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={theme.text} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />
@@ -565,7 +565,7 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
                 style={{
                   padding: '9px 14px', borderRadius: 14, fontSize: 13, fontWeight: 700, cursor: 'pointer',
                   background: filter === f ? (f === 'food' ? `linear-gradient(135deg, ${theme.accentFood}, ${theme.berry})` : f === 'music' ? theme.accentMusic : f === 'bar' ? theme.accentBar : theme.text) : theme.card,
-                  color: filter === f ? '#FFFFFF' : theme.text,
+                  color: filter === f ? theme.white : theme.text,
                   border: filter === f ? 'none' : `1px solid ${theme.border}`,
                 }}
               >
@@ -574,12 +574,12 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
             ))}
             <div
               onClick={() => rollSurprise(0)}
-              style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, background: '#FFF0E8', borderRadius: 14, padding: '8px 12px', cursor: 'pointer' }}
+              style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, background: theme.chipBg, borderRadius: 14, padding: '8px 12px', cursor: 'pointer' }}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#B85E38" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={theme.chipText} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 3l1.9 4.6L18 9l-4.1 1.4L12 15l-1.9-4.6L6 9l4.1-1.4z" />
               </svg>
-              <span style={{ fontSize: 13, color: '#B85E38', fontWeight: 600 }}>Something different</span>
+              <span style={{ fontSize: 13, color: theme.chipText, fontWeight: 600 }}>Something different</span>
             </div>
           </div>
         ) : null}
@@ -594,7 +594,7 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
                 style={{
                   padding: '5px 12px', borderRadius: 12, fontSize: 12.5, fontWeight: 500, cursor: 'pointer',
                   background: sort === s.id ? theme.text : theme.chipBg,
-                  color: sort === s.id ? '#FFFFFF' : theme.textMuted,
+                  color: sort === s.id ? theme.white : theme.textMuted,
                 }}
               >
                 {s.label}
@@ -609,7 +609,7 @@ export function ResultsFeed({ city, musicGenre = '', favoriteChefs = [], cuisine
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
               Back to all picks
             </div>
-            <div onClick={() => rollSurprise(surprise.seed + 1)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, background: theme.text, color: '#fff', padding: '9px 16px', borderRadius: 16, fontSize: 14, fontWeight: 500 }}>
+            <div onClick={() => rollSurprise(surprise.seed + 1)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, background: theme.text, color: theme.white, padding: '9px 16px', borderRadius: 16, fontSize: 14, fontWeight: 500 }}>
               Shuffle again
             </div>
           </div>
