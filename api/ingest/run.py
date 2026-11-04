@@ -71,6 +71,16 @@ VIDEOS = [
         "city": "Mumbai",
         "source": "The Food Ranger — Street Food Tour, Best Curry",
     },
+    # Found via WebSearch, 2026-11-03 — creator-diversification pass (every
+    # existing video source before this was Mark Wiens or one of 6 other
+    # creators; this batch adds new ones). Luke Martin / Chopstick Travel
+    # verified via a second, independent search tying the channel name to
+    # this exact video title before adding.
+    {
+        "video_id": "Rus0ItxcvMw",
+        "city": "Mumbai",
+        "source": "Luke Martin (Chopstick Travel) — Indian Street Food in Mumbai, 161 Year Old Puri",
+    },
     # New York (US) — Mark Wiens x National Geographic co-production, still
     # his content/voice, just cross-posted rather than his own channel.
     # City string is "New York", not "New York City" — matches both Google
@@ -83,6 +93,15 @@ VIDEOS = [
         "video_id": "CE6Y8tqhO4A",
         "city": "New York",
         "source": "Mark Wiens x Nat Geo — NYC's Most Iconic Foods in 24 Hours",
+    },
+    # Found via WebSearch, 2026-11-03 — creator-diversification pass (see
+    # Mumbai comment above). One-pizzeria-per-episode format rather than a
+    # multi-stop tour, same as the Barstool entries added below for
+    # Chicago, but still a real, specifically-named venue each time.
+    {
+        "video_id": "-ZK3apcuXpk",
+        "city": "New York",
+        "source": "Dave Portnoy / One Bite (Barstool Sports) — The Original Joe's Pizza, Greenwich Village",
     },
     # Paris (Europe)
     {
@@ -108,17 +127,48 @@ VIDEOS = [
         "city": "Paris",
         "source": "Les Frenchies — 12 Street Food Where Locals Eat in Paris",
     },
+    # Found via WebSearch, 2026-11-03 — creator-diversification pass (see
+    # Mumbai comment above).
+    {
+        "video_id": "5Gq8bZuSc3I",
+        "city": "Paris",
+        "source": "EURO TROTTER (Mark Felice) — Paris Food Tour, Part 3",
+    },
     # Rome (Europe)
     {
         "video_id": "vPVqo3MvfVo",
         "city": "Rome",
         "source": "Mark Wiens — Amazing Roman Food and Attractions",
     },
+    # Found via WebSearch, 2026-11-03 — creator-diversification pass (see
+    # Mumbai comment above). Davidsbeenhere (David Hoffmann) verified via a
+    # second, independent search tying the channel to this exact title;
+    # confidence moderate rather than high since this sandbox's WebFetch
+    # couldn't load the page itself to double-check (see the Seoul entries
+    # below for the same caveat).
+    {
+        "video_id": "xgMIbQLktdw",
+        "city": "Rome",
+        "source": "Davidsbeenhere — Ultimate Rome Food Tour, Beyond the Tourist Traps",
+    },
     # Chicago (US) — second US city
     {
         "video_id": "YmEJzrDVACg",
         "city": "Chicago",
         "source": "Mark Wiens — Ultimate Chicago Pizza Tour",
+    },
+    # Found via WebSearch, 2026-11-03 — creator-diversification pass (see
+    # Mumbai comment above). One-pizzeria-per-episode format, same note as
+    # the New York Barstool entry above.
+    {
+        "video_id": "OnORNFeIa2M",
+        "city": "Chicago",
+        "source": "Dave Portnoy / One Bite (Barstool Sports) — The First Ever Deep Dish, Pizzeria Uno",
+    },
+    {
+        "video_id": "tvTEtLIMYeE",
+        "city": "Chicago",
+        "source": "Dave Portnoy / One Bite (Barstool Sports) — Art Of Pizza, Chicago",
     },
     # Tokyo — already in the app's curated "trending" city list
     {
@@ -153,6 +203,19 @@ VIDEOS = [
         "city": "Tokyo",
         "source": "Best Ever Food Review Show — Japan Street Food $100 Challenge in Asakusa, Tokyo",
     },
+    # Found via WebSearch, 2026-11-03 — creator-diversification pass (see
+    # Mumbai comment above). Paolo fromTOKYO verified via a second,
+    # independent search tying the channel to both exact titles.
+    {
+        "video_id": "6x_fdCi8ZIk",
+        "city": "Tokyo",
+        "source": "Paolo fromTOKYO — Hidden Japanese Street Food Tour, Tokyo Happy Road",
+    },
+    {
+        "video_id": "LJnuyjpZiwI",
+        "city": "Tokyo",
+        "source": "Paolo fromTOKYO — Hidden Japanese Street Food Tour, Daikanyama",
+    },
     # Mexico City — already in the app's curated "trending" city list
     {
         "video_id": "Xcbf0LyGHpw",
@@ -163,6 +226,15 @@ VIDEOS = [
         "video_id": "DGFYeusTrKc",
         "city": "Mexico City",
         "source": "The Food Ranger — Huge Street Food Tour",
+    },
+    # Found via WebSearch, 2026-11-03 — creator-diversification pass (see
+    # Mumbai comment above). Title was truncated in search results
+    # ("Mexico City's MOST WANTED Street Food..."); confirm the full title
+    # on the page before relying on it elsewhere.
+    {
+        "video_id": "-sO_BWE0rII",
+        "city": "Mexico City",
+        "source": "Luke Martin (Chopstick Travel) — Mexico City's Most Wanted Street Food",
     },
     # Bangkok — already in the app's curated "trending" city list
     {
@@ -188,11 +260,38 @@ VIDEOS = [
         "city": "Bangkok",
         "source": "Doobydobap — Michelin Street Food in Bangkok",
     },
+    # Found via WebSearch, 2026-11-03 — creator-diversification pass (see
+    # Mumbai comment above). Gary Butler (The Roaming Cook) verified via a
+    # second, independent search tying the channel to both exact titles.
+    {
+        "video_id": "HpkppmKjmPg",
+        "city": "Bangkok",
+        "source": "Gary Butler (The Roaming Cook) — Bangkok Food Tour",
+    },
+    {
+        "video_id": "t0Llrf9dWwE",
+        "city": "Bangkok",
+        "source": "Gary Butler (The Roaming Cook) — Thai Street Food in Bangkok, Authentic Local Tour",
+    },
     # Seoul — already in the app's curated "trending" city list
     {
         "video_id": "RbpKkvlHYTw",
         "city": "Seoul",
         "source": "Mark Wiens — Best Korean Food Tour Ever (Seoul to Busan)",
+    },
+    # Found via WebSearch, 2026-11-03 — creator-diversification pass (see
+    # Mumbai comment above; same moderate-confidence caveat as the Rome
+    # entry above — channel attribution via search summaries, not a loaded
+    # page, since this sandbox's WebFetch can't reach youtube.com).
+    {
+        "video_id": "H6dSBXfO9P0",
+        "city": "Seoul",
+        "source": "Davidsbeenhere — 150 Hours in Seoul, South Korea (Full Documentary)",
+    },
+    {
+        "video_id": "SbpA8AkJlFY",
+        "city": "Seoul",
+        "source": "Davidsbeenhere — Top 10 Korean Street Foods in Seoul",
     },
 ]
 
@@ -1017,6 +1116,32 @@ WORLD_ARTICLES = [
         "url": "https://www.laliste.com/news/la-liste-japan-awards-ceremony-2025",
         "source": "La Liste — Japan Awards Ceremony 2025",
     },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-03 (official michelin.com press release; michelin.com is
+    # unreachable from this sandbox's WebFetch, same standing gap as
+    # laliste.com above — confirmed by two independent search result sets).
+    # Multi-city regional ceremony (Oct 21, 2026, 2nd annual American South
+    # edition): New Orleans, Atlanta, Nashville, and several cities with no
+    # prior coverage anywhere in this file — Charlotte, Raleigh, Memphis,
+    # Knoxville, Greenville, Asheville (see new CITY_COUNTRIES entries
+    # below). 266 restaurants, 44 cuisine types, 3 new one-star restaurants.
+    {
+        "url": "https://www.michelin.com/en/publications/products-and-services/new-michelin-starred-restaurants-shine-across-the-american-south",
+        "source": "MICHELIN Guide — American South 2026",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-03 (official michelin.com press release; same reachability
+    # caveat as the American South entry above — corroborated by secondary
+    # Greek press: travel.gr, GreekCityTimes, GreekReporter, all reporting
+    # the same Oct 20, 2026 ceremony). A new country — Greece has no prior
+    # coverage anywhere in this file (see new CITY_COUNTRIES entries
+    # below). Athens (38 of 62 restaurants), plus first-time inclusion of
+    # Santorini and Thessaloniki; Lycabettus (Santorini) debuted directly
+    # at two stars.
+    {
+        "url": "https://www.michelin.com/en/publications/products-and-services/the-michelin-guide-athens-thessaloniki-santorini-2027",
+        "source": "MICHELIN Guide — Athens, Thessaloniki & Santorini 2027",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
@@ -1060,6 +1185,19 @@ CITY_COUNTRIES = {
     "San Diego": "USA",
     "Beijing": "China",
     "San Antonio": "USA",
+    # Added with the MICHELIN Guide — American South 2026 WORLD_ARTICLES
+    # entry, 2026-11-03 — no prior coverage anywhere in this file before it.
+    "Charlotte": "USA",
+    "Raleigh": "USA",
+    "Memphis": "USA",
+    "Knoxville": "USA",
+    "Greenville": "USA",
+    "Asheville": "USA",
+    # Added with the MICHELIN Guide — Athens, Thessaloniki & Santorini 2027
+    # WORLD_ARTICLES entry, 2026-11-03 — a new country, no prior coverage.
+    "Athens": "Greece",
+    "Thessaloniki": "Greece",
+    "Santorini": "Greece",
     # New country — Canada has no prior coverage anywhere in this file
     # (see Canada's 100 Best 2026 below).
     "Toronto": "Canada",
