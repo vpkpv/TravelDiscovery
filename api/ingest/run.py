@@ -1142,6 +1142,32 @@ WORLD_ARTICLES = [
         "url": "https://www.michelin.com/en/publications/products-and-services/the-michelin-guide-athens-thessaloniki-santorini-2027",
         "source": "MICHELIN Guide — Athens, Thessaloniki & Santorini 2027",
     },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-04 — daily-discovery scheduled search. Toronto is already in
+    # CITY_COUNTRIES but only had the Canada-wide "100 Best" article above;
+    # this is its first dedicated single-city guide.
+    {
+        "url": "https://torontolife.com/deep-dives/these-are-torontos-best-new-restaurants-of-2026/",
+        "source": "Toronto Life — Toronto's Best New Restaurants of 2026",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-04 — daily-discovery scheduled search. Montreal is already in
+    # CITY_COUNTRIES with no dedicated single-city guide until now; same
+    # evergreen timeout.com/<city>/restaurants/best-restaurants-in-<city>
+    # pattern already used successfully for Rome, Tokyo, Sydney, etc.
+    {
+        "url": "https://www.timeout.com/montreal/restaurants/best-restaurants-in-montreal",
+        "source": "Time Out Montreal — Best Restaurants in Montreal",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-04 — daily-discovery scheduled search. Distinct venues/angle
+    # from the existing NYC URLs above (a "best new restaurants in the
+    # world" naming, not a repeat of the "best restaurants in nyc" or
+    # "four NYC restaurants" entries already in this list).
+    {
+        "url": "https://www.timeout.com/newyork/news/these-two-nyc-spots-were-just-named-the-best-new-restaurants-in-the-world-042525",
+        "source": "Time Out New York — Two NYC Spots Named Best New Restaurants in the World",
+    },
 ]
 
 # city -> country, so places.find_place can reject a same-named result in
