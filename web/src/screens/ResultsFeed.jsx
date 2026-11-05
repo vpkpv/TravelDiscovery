@@ -237,7 +237,7 @@ function ResultCard({ item, saved, onToggleSave, onDismiss, country }) {
                   · {(() => {
                     const miles = item.distance_km * 0.621371;
                     return miles < 0.1 ? `${Math.round(miles * 5280)}ft` : `${miles.toFixed(1)}mi`;
-                  })()} from hotel
+                  })()} from {item.distance_from === 'hotel' || !item.distance_from ? 'hotel' : item.distance_from}
                 </span>
               )}
             </>

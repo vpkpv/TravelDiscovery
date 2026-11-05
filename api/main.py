@@ -839,17 +839,19 @@ _DISTANCE_RANKED_TYPES = {"food", "bar"}
 
 
 async def _rank_by_trip_distance(items: list, trip_id: str, uid: str) -> list:
-    """Orders food and bar picks by distance from the trip's base address
-    (the hotel) — "a restaurant itinerary around where the hotel booking
-    is," with bars brought up to the same treatment (confirmed live: bars
-    were passing through unranked, a second-class citizen next to food).
-    Combines the backlog's distance-ranking story with the base address
-    captured at trip setup. Picks missing lat/lng (chef-venue matches
-    never carry it, and an ingested food venue only gets it once
-    re-grounded after this field was added — see pipeline.py's
-    GROUNDING_REFRESH_DAYS) sort after every measured pick rather than
-    being dropped — an unmeasured distance isn't evidence it's far away.
-    Music items and an unknown/base-address-less trip are left untouched.
+    """Orders food and bar picks by distance from whichever of the trip's
+    two reference points — the base address (hotel) or a grounded anchor
+    event — each pick is actually closer to; "a restaurant itinerary
+    around where the hotel booking is" plus "pre-show picks walkable to
+    the anchor," not two separate ranking passes. Bars get the same
+    treatment as food (confirmed live: bars were passing through
+    unranked, a second-class citizen next to food). Picks missing lat/lng
+    (chef-venue matches never carry it, and an ingested food venue only
+    gets it once re-grounded after this field was added — see
+    pipeline.py's GROUNDING_REFRESH_DAYS) sort after every measured pick
+    rather than being dropped — an unmeasured distance isn't evidence
+    it's far away. Music items and an unknown/base-address-less trip are
+    left untouched.
     """
     ref = _trips_collection(uid).document(trip_id)
     doc = ref.get()
@@ -889,6 +891,20 @@ async def _rank_by_trip_distance(items: list, trip_id: str, uid: str) -> list:
         base_lat, base_lng = geo["lat"], geo["lng"]
         ref.update({"base_lat": base_lat, "base_lng": base_lng})
 
+    # The "pre-show picks are walkable to Disney Hall" half of the
+    # distance/slot-aware ranking story — an anchor event is where the trip
+    # actually converges for part of the day, so a pick a short walk from
+    # it is just as relevant as one near the hotel, not just a worse-ranked
+    # also-ran behind every hotel-adjacent pick. Rather than building full
+    # per-venue slot assignment (a separate, UI-shaped story — see
+    # _trip_time_slots' own docstring), each pick is ranked by whichever
+    # reference point it's actually closer to; distance_from says which,
+    # so the UI can say "from hotel" or "from <anchor>" honestly instead of
+    # always claiming "from hotel" when the number is really anchor-measured.
+    anchor = trip.get("anchor") or {}
+    anchor_lat, anchor_lng = anchor.get("lat"), anchor.get("lng")
+    has_anchor = anchor_lat is not None and anchor_lng is not None
+
     other = [i for i in items if i["type"] not in _DISTANCE_RANKED_TYPES]
     measured, unmeasured = [], []
     for i in items:
@@ -896,11 +912,17 @@ async def _rank_by_trip_distance(items: list, trip_id: str, uid: str) -> list:
             continue
         if i.get("lat") is None or i.get("lng") is None:
             unmeasured.append(i)
-        else:
-            measured.append((_haversine_km(base_lat, base_lng, i["lat"], i["lng"]), i))
-    measured.sort(key=lambda pair: pair[0])
+            continue
+        hotel_km = _haversine_km(base_lat, base_lng, i["lat"], i["lng"])
+        if has_anchor:
+            anchor_km = _haversine_km(anchor_lat, anchor_lng, i["lat"], i["lng"])
+            if anchor_km < hotel_km:
+                measured.append((anchor_km, i, anchor.get("venue_name", "the anchor event")))
+                continue
+        measured.append((hotel_km, i, "hotel"))
+    measured.sort(key=lambda triple: triple[0])
 
-    ranked = [{**i, "distance_km": round(d, 2)} for d, i in measured] + unmeasured
+    ranked = [{**i, "distance_km": round(d, 2), "distance_from": src} for d, i, src in measured] + unmeasured
     return ranked + other
 
 
@@ -1258,6 +1280,8 @@ async def set_anchor_event(trip_id: str, body: AnchorEventBody, user: dict = Dep
         "start_time": body.start_time,
         "addr": ground.get("addr", ""),
         "place_id": ground.get("place_id", ""),
+        "lat": ground.get("lat"),
+        "lng": ground.get("lng"),
     }
     ref.update({"anchor": anchor})
     return {"id": trip_id, **trip, "anchor": anchor}
