@@ -290,11 +290,57 @@ function museHandoffPrompt(cityName, trip) {
   );
 }
 
+function TripSlots({ slots }) {
+  if (!slots || slots.length === 0) return null;
+  // Group the flat (date, daypart) list api/main.py's _trip_time_slots
+  // returns into one row per date, in the order the API already returns
+  // them (one date's dayparts are always contiguous) — no sort needed.
+  const byDate = [];
+  for (const slot of slots) {
+    const last = byDate[byDate.length - 1];
+    if (last && last.date === slot.date) {
+      last.slots.push(slot);
+    } else {
+      byDate.push({ date: slot.date, slots: [slot] });
+    }
+  }
+  const fmtDay = (d) => new Date(`${d}T00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: theme.textFaint, marginBottom: 6 }}>Open time</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {byDate.map(({ date, slots: daySlots }) => (
+          <div key={date} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11.5, color: theme.textFaint, width: 64, flexShrink: 0 }}>{fmtDay(date)}</span>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+              {daySlots.map((slot) => (
+                <span
+                  key={slot.daypart}
+                  title={slot.open ? '' : slot.anchor?.venue_name || ''}
+                  style={{
+                    fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 8, textTransform: 'capitalize',
+                    background: slot.open ? theme.card : theme.accentBar,
+                    color: slot.open ? theme.textMuted : theme.white,
+                    border: slot.open ? `1px solid ${theme.border}` : 'none',
+                  }}
+                >
+                  {slot.daypart}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TripBanner({ trip, cityName }) {
   const [copied, setCopied] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [scorecard, setScorecard] = useState(null);
+  const [slots, setSlots] = useState(null);
   const tripId = trip?.id;
 
   // Before-the-trip readiness snapshot (see api/main.py's
@@ -303,6 +349,15 @@ function TripBanner({ trip, cityName }) {
   useEffect(() => {
     if (!tripId) return;
     api.getTripScorecard(tripId).then(setScorecard).catch(() => {});
+  }, [tripId]);
+
+  // Which of the trip's (date, daypart) blocks are actually free vs. taken
+  // by the anchor event — see api/main.py's _trip_time_slots. Same silent
+  // stance as the scorecard fetch above: a failure here just means the
+  // "Open time" row doesn't render, not a broken trip banner.
+  useEffect(() => {
+    if (!tripId) return;
+    api.getTripSlots(tripId).then((d) => setSlots(d.slots)).catch(() => {});
   }, [tripId]);
 
   if (!trip) return null;
@@ -356,6 +411,7 @@ function TripBanner({ trip, cityName }) {
           {scorecard.nearest_pick_km != null && ` · nearest pick ${scorecard.nearest_pick_km} km from your base`}
         </div>
       )}
+      <TripSlots slots={slots} />
       <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 14 }}>
         <div
           onClick={handOff}

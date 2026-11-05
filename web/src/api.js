@@ -83,8 +83,10 @@ export const api = {
   clearAnchorEvent: (tripId) => del(`/api/trips/${encodeURIComponent(tripId)}/anchor`),
   shareTrip: (tripId) => post(`/api/trips/${encodeURIComponent(tripId)}/share`, {}),
   unshareTrip: (tripId) => del(`/api/trips/${encodeURIComponent(tripId)}/share`),
-  // Data only for now (see api/main.py's get_trip_slots) — no day/slot
-  // picker UI calls this yet.
+  // Rendered as the trip banner's "Open time" row (ResultsFeed.jsx's
+  // TripSlots) — see api/main.py's get_trip_slots/_trip_time_slots. Still
+  // just which blocks are free, not which picks go in them — slot-aware
+  // ranking is its own, separate story.
   getTripSlots: (tripId) => get(`/api/trips/${encodeURIComponent(tripId)}/slots`),
   getTripScorecard: (tripId) => get(`/api/trips/${encodeURIComponent(tripId)}/scorecard`),
   // Public — no account needed, see api/main.py's get_shared_trip. Reuses
