@@ -166,11 +166,21 @@ def _looks_like_match(candidate: str, found: str) -> bool:
 # its own alias, same as China. Confirmed live: "Neolokal" (Istanbul, from
 # World's 50 Best) was wrongly dropped because Places renders "Türkiye"
 # where Gemini wrote "Turkey".
+#
+# Same mismatch for the UK's constituent countries and for UAE's short
+# form — confirmed live: "Ikoyi" (London) was wrongly dropped because a
+# WORLD_ARTICLES source tagged it "England" (Places renders "UK"), and
+# "Trèsind Studio"/"FZN" (Dubai) were wrongly dropped because Gemini wrote
+# "UAE" where Places renders "United Arab Emirates".
 _COUNTRY_ALIASES = {
     "united states": ["usa", "united states", "united states of america", "us"],
-    "united kingdom": ["uk", "united kingdom", "great britain"],
+    "united kingdom": [
+        "uk", "united kingdom", "great britain",
+        "england", "scotland", "wales", "northern ireland",
+    ],
     "china": ["china", "hong kong", "macau", "macao"],
     "turkey": ["turkey", "turkiye"],
+    "united arab emirates": ["uae", "united arab emirates"],
 }
 
 
