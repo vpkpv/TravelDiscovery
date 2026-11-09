@@ -728,6 +728,113 @@ ARTICLES = [
         "city": "Montreal",
         "source": "Tastet — Canada's 100 Best 2026 (Montreal)",
     },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-05 — daily-discovery scheduled search. Washington DC's only
+    # prior coverage is a Resy Hit List entry; this names specific
+    # finalists from DC's own major local restaurant-industry awards.
+    {
+        "url": "https://www.axios.com/local/washington-dc/2026/04/06/rammys-2026-finalists-dc-restaurants",
+        "city": "Washington DC",
+        "source": "Axios DC — RAMMYs 2026 Finalists",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-06 — daily-discovery scheduled search. Scoped to Singapore's
+    # own representatives on Asia's 50 Best 2026 (Odette, Seroja, etc.) —
+    # same single-city-angle-on-a-bigger-list pattern as the Outlook
+    # Traveller/Delhi entry above, not the full multi-city ranking itself
+    # (see the separate Asia's 50 Best WORLD_ARTICLES entry below for
+    # that).
+    {
+        "url": "https://www.timeout.com/singapore/news/asias-50-best-restaurants-2026-6-singapore-restaurants-in-the-top-50-032626",
+        "city": "Singapore",
+        "source": "Time Out Singapore — 6 Singapore Restaurants in Asia's 50 Best 2026",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-06 — daily-discovery scheduled search. Mexico City's only
+    # prior coverage is a Spanish-language CDMX-ranking piece, not a
+    # restaurant-specific guide.
+    {
+        "url": "https://www.timeout.com/mexico-city/restaurants/best-restaurant-openings-in-mexico-city-2026",
+        "city": "Mexico City",
+        "source": "Time Out — Best Restaurant Openings in Mexico City 2026",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-07 — daily-discovery scheduled search. Miami has zero Resy
+    # Hit List entries despite the series being heavily used for ~16
+    # other cities already in this file.
+    {
+        "url": "https://blog.resy.com/the-hit-list/miami-restaurants-oct-2026/",
+        "city": "Miami",
+        "source": "Resy — The Hit List (Miami, Oct 2026)",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-07 — daily-discovery scheduled search. Covers Vancouver's
+    # 2026 Michelin Guide selections, including the city's first
+    # two-star restaurant (AnnaLena). Vancouver is configured (added with
+    # the Canada's 100 Best entries) but had no single-city guide yet.
+    {
+        "url": "https://www.timeout.com/vancouver/news/2026-michelin-starred-restaurants-in-vancouver-102226",
+        "city": "Vancouver",
+        "source": "Time Out Vancouver — 2026 Michelin-Starred Restaurants",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-09 — daily-discovery scheduled search. Mumbai's only prior
+    # coverage is India-wide award roundups (WORLD_ARTICLES, since those
+    # span multiple cities) — this is its first dedicated single-city
+    # guide.
+    {
+        "url": "https://www.timeout.com/mumbai/restaurants/best-restaurants-in-mumbai",
+        "city": "Mumbai",
+        "source": "Time Out — Best Restaurants in Mumbai",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-09 — daily-discovery scheduled search. Athens' only prior
+    # coverage is the multi-city MICHELIN Athens/Thessaloniki/Santorini
+    # ceremony roundup (WORLD_ARTICLES) — this is its first single-city
+    # guide.
+    {
+        "url": "https://www.timeout.com/athens/restaurants/best-restaurants-in-athens",
+        "city": "Athens",
+        "source": "Time Out — Best Restaurants in Athens",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-09 — daily-discovery scheduled search. Raleigh's only prior
+    # coverage is the multi-city Axios Charlotte/Raleigh Michelin piece
+    # above (WORLD_ARTICLES, since it spans two cities) — this is its
+    # first single-city guide.
+    {
+        "url": "https://www.timeout.com/raleigh/restaurants/best-restaurants-in-raleigh",
+        "city": "Raleigh",
+        "source": "Time Out — Best Restaurants in Raleigh",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-09 — daily-discovery scheduled search. Memphis had zero
+    # prior coverage anywhere in this file.
+    {
+        "url": "https://www.timeout.com/memphis/restaurants/best-restaurants-in-memphis",
+        "city": "Memphis",
+        "source": "Time Out — Best Restaurants in Memphis",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-09 — daily-discovery scheduled search. San Antonio had zero
+    # prior coverage anywhere in this file.
+    {
+        "url": "https://www.timeout.com/san-antonio/restaurants/best-restaurants-in-san-antonio",
+        "city": "San Antonio",
+        "source": "Time Out — Best Restaurants in San Antonio",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-09 — daily-discovery scheduled search. A general-news
+    # outlet reporting on Foodism's own "23 best Toronto restaurants"
+    # ranking, not the food publication itself — lower confidence than
+    # this file's usual bar, but Toronto is already configured and every
+    # extracted venue is explicitly a Toronto restaurant per the
+    # headline, so the single-city tag here is safe regardless.
+    {
+        "url": "https://www.ctvnews.ca/toronto/photos/2026/03/26/these-23-restaurants-are-the-best-in-toronto-already-this-year-according-to-a-food-magazine/",
+        "city": "Toronto",
+        "source": "CTV News — Foodism's 23 Best Toronto Restaurants",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -1167,6 +1274,81 @@ WORLD_ARTICLES = [
     {
         "url": "https://www.timeout.com/newyork/news/these-two-nyc-spots-were-just-named-the-best-new-restaurants-in-the-world-042525",
         "source": "Time Out New York — Two NYC Spots Named Best New Restaurants in the World",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-05 — daily-discovery scheduled search. A multi-city
+    # overview naming several "food destination" cities for 2026, not a
+    # single venue list — filed here rather than guessed into any one
+    # configured city.
+    {
+        "url": "https://timeout.com/news/the-best-food-destinations-for-2026-named-by-the-michelin-guide-011226",
+        "source": "Time Out — Best Food Destinations for 2026, Named by the Michelin Guide",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-06 — daily-discovery scheduled search. The 2026 North
+    # America ranking reveal (a Chicago restaurant took #1) — distinct
+    # from the generic theworlds50best.com/restaurants/best-in-north-
+    # america/index.html already above, which is an evergreen index page,
+    # not this dated reveal article. Spans many North American cities, so
+    # filed here rather than tagged to any one of them.
+    {
+        "url": "https://www.timeout.com/usa/news/here-are-the-50-best-restaurants-in-north-america-052926",
+        "source": "Time Out — 50 Best Restaurants in North America 2026",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-06 — daily-discovery scheduled search. Asia's 50 Best 2026
+    # full reveal (Hong Kong's The Chairman #1 and Wing #2; Gaggan #3
+    # Thailand; Mingles #4 Korea; Nusara #5) — touches several configured
+    # cities at once (Bangkok, Seoul, Mumbai, Singapore), so filed here
+    # rather than any one of them. See the separate Singapore-angle
+    # ARTICLES entry above for that city's own dedicated coverage of the
+    # same ranking.
+    {
+        "url": "https://www.timeout.com/asia/news/asias-50-best-restaurants-2026-are-out-and-hong-kong-just-took-the-top-two-spots-032626",
+        "source": "Time Out Asia — Asia's 50 Best Restaurants 2026",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-06 — daily-discovery scheduled search. Covers both
+    # Charlotte and Raleigh's 2026 Michelin honors in one piece — two
+    # distinct cities, so filed here rather than tagged to either one
+    # (same reasoning as every other multi-city regional ceremony piece
+    # in this list, e.g. the MICHELIN American South entry below).
+    {
+        "url": "https://www.axios.com/local/charlotte/2026/10/22/north-carolina-michelin-stars-bib-gourmand-restaurants",
+        "source": "Axios — Charlotte and Triangle (Raleigh) 2026 Michelin Honors",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-07 — daily-discovery scheduled search. The main World's 50
+    # Best Restaurants 2026 ranking (1-50) — note this is a different URL
+    # path than the theworlds50best.com/restaurants/best-in-the-world/
+    # list/1-50 entry already above; could turn out to be the same
+    # current ranking under a different path, in which case this mostly
+    # no-ops against venues already grounded from that one, not a
+    # meaningful extra cost either way.
+    {
+        "url": "https://www.theworlds50best.com/list/1-50",
+        "source": "The World's 50 Best Restaurants 2026 (list/1-50)",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-07 — daily-discovery scheduled search. The actual Condé
+    # Nast Traveller-affiliated India awards source (distinct from the
+    # Esquire India / Free Press Journal / Outlook Traveller India-wide
+    # roundups already above) — Mumbai is heavily represented (13
+    # entries, including the top-3 finishers), but this spans India-wide
+    # like those, so filed here for the same reason they are.
+    {
+        "url": "https://www.district.in/blog/conde-nast-district-top-restaurants-awards-2026",
+        "source": "Condé Nast Traveller x District — India's Top 50 Restaurants Awards 2026",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-07 — daily-discovery scheduled search. Time Out reporting
+    # Food & Wine's 2026 Global Tastemakers ranking (Ikoyi #1 London,
+    # Maido #2 Lima, Ciel Dining #3) — spans multiple countries, distinct
+    # slug/topic from the other Time Out world-best-restaurants entries
+    # already in this list.
+    {
+        "url": "https://timeout.com/news/the-worlds-best-restaurants-have-been-named-for-2026-042226",
+        "source": "Time Out — Food & Wine's 2026 Global Tastemakers",
     },
 ]
 
