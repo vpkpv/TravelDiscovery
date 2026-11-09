@@ -49,109 +49,70 @@ function sourceUrl(item) {
   return '';
 }
 
-// Deep-links out to a booking/ticketing provider's own search, rather than
-// a real in-app reservation flow — the providers' actual booking APIs are
-// partner-gated (a business agreement, not a self-serve API key), so this
-// is what's buildable without one: the same pattern as mapsUrl() above, a
-// verified name/address handed to the provider's own search rather than us
-// claiming to know their internal venue/event IDs.
-//
-// Ticketmaster/OpenTable barely operate in India — confirmed live:
-// Ticketmaster offered up a real Mumbai venue, then said it couldn't book
-// there at all. BookMyShow (events) and Zomato (restaurants) are the
-// dominant platforms there instead, but — unlike Ticketmaster's /search?q=
-// and OpenTable's /s?term=, both real, documented, generic search
-// endpoints — neither has a public, documented search-by-name URL (only
-// direct event/restaurant-slug links), so a Google search restricted to
-// its domain is the reliable equivalent rather than guessing a slug.
-// Zomato specifically also covers the "no tables, delivery/takeout only"
-// case this surfaced (e.g. a vada pav stall) — its own restaurant page
-// shows whichever of table booking or delivery that venue actually offers,
-// which we have no data to predict ahead of time, so routing there instead
-// of promising "reserve a table" everywhere is the honest default.
 // The picked city's country field can be the bare curated value ("India")
 // or, for a Places-autocomplete city, Google's structured secondaryText —
 // typically "Maharashtra, India", not just "India". Rather than lean on
-// city.country alone (confirmed live: still routed to OpenTable for a
-// Mumbai venue even after handling that secondaryText case — something
-// upstream of this function wasn't reliably carrying country through),
-// also check the venue's own grounded address, which Places always
-// formats ending in the country name regardless of how the city was
-// searched — the screenshot that reported this bug shows exactly that:
-// "...Maharashtra 400028, India". Two independent signals, either enough.
+// city.country alone (confirmed live: a Mumbai venue still misclassified
+// even after handling that secondaryText case — something upstream of
+// this function wasn't reliably carrying country through), also check the
+// venue's own grounded address, which Places always formats ending in the
+// country name regardless of how the city was searched — the screenshot
+// that reported this bug shows exactly that: "...Maharashtra 400028,
+// India". Two independent signals, either enough. Still used for music
+// ticketing below (Ticketmaster doesn't book in India at all — confirmed
+// live, it offered up a real Mumbai venue then said it couldn't book
+// there).
 function _isIndia(item, country) {
   return [country, item.addr].some((s) => (s || '').toLowerCase().includes('india'));
 }
 
-// Confirmed live (WebSearch, not assumed) as OpenTable's real dedicated
-// markets — everywhere else, OpenTable's own /s search was routing users
-// there regardless of whether it actually serves that country, the exact
-// bug the India fix above caught, just unaddressed for every other
-// country. Checked specifically and confirmed NO single dominant platform
-// exists for Thailand, Vietnam, Singapore, South Korea, or the UAE (all
-// already in or being added to this app's city list) — multiple
-// competing apps, no clear leader — so guessing one of them would just
-// trade one wrong confident link for another. Europe outside the UK
-// mostly runs on TheFork, but it uses per-country domains (thefork.fr,
-// .es, .it, .pt...) rather than one global one, so a site-restricted
-// link there risks guessing the wrong domain — left to the generic
-// fallback below instead of a confident-but-possibly-wrong one.
-const _OPENTABLE_COUNTRIES = ['usa', 'united states', 'canada', 'united kingdom', 'great britain', 'australia', 'germany', 'japan', 'mexico'];
-
-function _opentableCountry(item, country) {
-  const haystacks = [country, item.addr].map((s) => (s || '').toLowerCase());
-  return _OPENTABLE_COUNTRIES.some((c) => haystacks.some((h) => h.includes(c)));
-}
-
+// Food/bar booking used to deep-link to a provider's own site (OpenTable's
+// /s?term= search, or Zomato for India) — dropped after a live report that
+// Maps was consistently the better landing page: a provider's own
+// name/address search regularly failed to land on the right restaurant at
+// all (no public per-venue ID to link to directly, just a generic search
+// users had to disambiguate themselves), while the Maps listing — same
+// verified address as mapsUrl() above — always resolves, and itself
+// surfaces a "Reserve" button pulling from whichever partner (OpenTable,
+// Resy, etc.) that venue actually has, when one exists, plus hours/phone/
+// website when it doesn't. So the booking button and tapping the card now
+// land in the same place for food/bar; ticketing is the one case Maps
+// can't cover, since a concert needs an actual ticket vendor, not a venue
+// listing.
 function bookingUrl(item, country) {
-  const isIndia = _isIndia(item, country);
-  const q = item.addr ? `${item.name} ${item.addr}` : item.name;
-
-  // &btnI=1 is Google's "I'm Feeling Lucky" redirect — jumps straight to
-  // the top result instead of showing a results page. Used only for the
-  // India routes: neither BookMyShow nor Zomato has a real search-by-name
-  // URL (see this function's own doc comment above), so this is the only
-  // way to land directly on the listing without a results-page click in
-  // between — confirmed live: without it, "Reserve" landed on a Google
-  // SERP, not the restaurant's own page.
   if (item.type === 'music') {
-    if (isIndia) {
+    if (_isIndia(item, country)) {
+      // &btnI=1 is Google's "I'm Feeling Lucky" redirect — jumps straight
+      // to the top result instead of a results page. BookMyShow has no
+      // public search-by-name URL (only direct event-slug links), so a
+      // Google search restricted to its domain is the reliable
+      // equivalent rather than guessing a slug — confirmed live: without
+      // btnI=1, this landed on a Google SERP, not BookMyShow's own page.
+      const q = item.addr ? `${item.name} ${item.addr}` : item.name;
       return `https://www.google.com/search?q=${encodeURIComponent(`${q} site:in.bookmyshow.com`)}&btnI=1`;
     }
     return `https://www.ticketmaster.com/search?q=${encodeURIComponent(item.name)}`;
   }
-
-  if (isIndia) {
-    return `https://www.google.com/search?q=${encodeURIComponent(`${q} site:zomato.com`)}&btnI=1`;
-  }
-  if (_opentableCountry(item, country)) {
-    const params = new URLSearchParams({ term: item.name });
-    if (item.lat != null && item.lng != null) {
-      params.set('latitude', item.lat);
-      params.set('longitude', item.lng);
-    }
-    return `https://www.opentable.com/s?${params.toString()}`;
-  }
-  // No confirmed single dominant platform for this country — a plain,
-  // non-site-restricted search is the honest default here rather than
-  // guessing a specific provider that might not even operate there.
-  return `https://www.google.com/search?q=${encodeURIComponent(`${q} reservations`)}`;
+  return mapsUrl(item);
 }
 
 function bookingLabel(item, country) {
   if (item.type === 'music') return 'Get tickets';
+  // Still distinguished for India, independent of where the click lands
+  // now: many ingested India picks are street-food stalls or delivery-
+  // only, so "reserve a table" would overpromise regardless of
+  // destination — Maps doesn't know ahead of time whether that's even
+  // possible any more than Zomato's own listing did.
   return _isIndia(item, country) ? 'Order / reserve' : 'Reserve a table';
 }
 
-// Which provider bookingUrl() actually routed to — kept in sync with that
-// function's own branching, used only for usage-event logging (see
+// Which destination bookingUrl() actually routed to — kept in sync with
+// that function's own branching, used only for usage-event logging (see
 // api.logBookingClick) so a click on India-vs-not, food-vs-music isn't
 // all lumped into one undifferentiated "booking click" count.
 function bookingProvider(item, country) {
-  const isIndia = _isIndia(item, country);
-  if (item.type === 'music') return isIndia ? 'bookmyshow' : 'ticketmaster';
-  if (isIndia) return 'zomato';
-  return _opentableCountry(item, country) ? 'opentable' : 'generic_search';
+  if (item.type === 'music') return _isIndia(item, country) ? 'bookmyshow' : 'ticketmaster';
+  return 'google_maps';
 }
 
 function ResultCard({ item, saved, onToggleSave, onDismiss, country }) {
