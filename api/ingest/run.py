@@ -835,6 +835,33 @@ ARTICLES = [
         "city": "Toronto",
         "source": "CTV News — Foodism's 23 Best Toronto Restaurants",
     },
+    # All three entries below added 2026-11-11 at the user's request, after
+    # noticing Lungi (Michelin Bib Gourmand, Sri Lankan/South Indian, Upper
+    # East Side) and Kidilum (Kerala, Flatiron, opened Feb 2026) were both
+    # missing from NYC's taste-matched Indian results — neither had any
+    # dedicated source in this file. URLs verified via WebSearch
+    # structured-link hits (direct WebFetch to guide.michelin.com and
+    # gothamist.com is DNS-blocked in this sandbox, same restriction already
+    # known for eater.com/cntraveler.com). New York had no Michelin source
+    # at all before this, unlike LA/SF/Seoul/etc. — this is its first.
+    {
+        "url": "https://guide.michelin.com/us/new-york/restaurants",
+        "city": "New York",
+        "source": "MICHELIN Guide — New York Restaurant Selection",
+    },
+    {
+        "url": "https://guide.michelin.com/us/en/article/michelin-guide-ceremony/the-most-affordable-restaurants-in-new-york-city",
+        "city": "New York",
+        "source": "MICHELIN Guide — Most Affordable Restaurants in NYC",
+    },
+    # Published June 2025, so likely predates Kidilum's Feb 2026 opening —
+    # kept anyway for its other South Indian NYC coverage (Chatti,
+    # Kanyakumari, and likely Lungi, which opened ~Jan 2025).
+    {
+        "url": "https://api-prod.gothamist.com/arts-entertainment/beyond-the-dosa-south-indias-new-moment-in-nyc-restaurants",
+        "city": "New York",
+        "source": "Gothamist — Beyond the Dosa: South India's New Moment in NYC",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
