@@ -873,6 +873,16 @@ ARTICLES = [
         "city": "New York",
         "source": "The Infatuation — Best New Restaurants NYC 2026",
     },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-11 — added at user request 2026-11-12. Resy's Hit List is
+    # monthly; the NYC entry above this point is only the September 2026
+    # snapshot. This May 2026 edition explicitly flagged Kidilum (opened
+    # Feb 2026) as a notable new Flatiron opening.
+    {
+        "url": "https://blog.resy.com/the-hit-list/nyc-restaurants-may-2026/",
+        "city": "New York",
+        "source": "Resy Hit List — NYC, May 2026",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
