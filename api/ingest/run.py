@@ -862,6 +862,17 @@ ARTICLES = [
         "city": "New York",
         "source": "Gothamist — Beyond the Dosa: South India's New Moment in NYC",
     },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-11 — daily-discovery scheduled search, added at user request
+    # 2026-11-12. Eligibility window (Oct 2025-Oct 2026) covers Kidilum's
+    # Feb 2026 opening — this is the best single shot at catching it found
+    # so far (Michelin doesn't list it; the Gothamist piece above predates
+    # it).
+    {
+        "url": "https://www.theinfatuation.com/new-york/guides/best-new-restaurants-new-york-2026",
+        "city": "New York",
+        "source": "The Infatuation — Best New Restaurants NYC 2026",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -1376,6 +1387,15 @@ WORLD_ARTICLES = [
     {
         "url": "https://timeout.com/news/the-worlds-best-restaurants-have-been-named-for-2026-042226",
         "source": "Time Out — Food & Wine's 2026 Global Tastemakers",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-11 — daily-discovery scheduled search, added at user request
+    # 2026-11-12. 25 breakout new openings across 22 cities (eligibility
+    # window Oct 2025-Oct 2026) — The Infatuation had no source anywhere in
+    # this file before this.
+    {
+        "url": "https://www.theinfatuation.com/all/guides/best-new-restaurants-america-2026",
+        "source": "The Infatuation — America's Best New Restaurants of 2026",
     },
 ]
 
