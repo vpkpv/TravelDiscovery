@@ -883,6 +883,26 @@ ARTICLES = [
         "city": "New York",
         "source": "Resy Hit List — NYC, May 2026",
     },
+    # All three entries below surfaced directly in WebSearch results'
+    # structured links, 2026-11-12/13 — daily-discovery scheduled search,
+    # added at user request 2026-11-15. Each city previously had only one
+    # source (a Resy Hit List or a single news piece), none a dedicated
+    # new-openings guide.
+    {
+        "url": "https://www.theinfatuation.com/atlanta/guides/best-new-restaurants-atlanta-2026",
+        "city": "Atlanta",
+        "source": "The Infatuation — Best New Restaurants Atlanta 2026",
+    },
+    {
+        "url": "https://www.theinfatuation.com/washington-dc/guides/best-new-restaurants-dc-2026",
+        "city": "Washington DC",
+        "source": "The Infatuation — Best New Restaurants DC 2026",
+    },
+    {
+        "url": "https://www.theinfatuation.com/boston/guides/best-new-restaurants-boston-2026",
+        "city": "Boston",
+        "source": "The Infatuation — Best New Restaurants Boston 2026",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -1406,6 +1426,23 @@ WORLD_ARTICLES = [
     {
         "url": "https://www.theinfatuation.com/all/guides/best-new-restaurants-america-2026",
         "source": "The Infatuation — America's Best New Restaurants of 2026",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-13 — daily-discovery scheduled search, added at user request
+    # 2026-11-15. Published Nov 4 2026 from 11M+ verified diner reviews —
+    # no OpenTable source exists anywhere in this file before this.
+    {
+        "url": "https://www.opentable.com/blog/?p=153397",
+        "source": "OpenTable — Top 100 Restaurants in America 2026",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-13 — daily-discovery scheduled search, added at user request
+    # 2026-11-15. World fine-dining top 25 (Fogón Asado Buenos Aires #1,
+    # KOMA Singapore #2) plus a separate US fine-dining top 25 — no
+    # Tripadvisor source exists anywhere in this file before this.
+    {
+        "url": "https://tripadvisor.com/TravelersChoice-Restaurants-m33202",
+        "source": "Tripadvisor — Travelers' Choice Best of the Best Restaurants 2026",
     },
 ]
 
