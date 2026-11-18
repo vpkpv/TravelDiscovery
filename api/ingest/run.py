@@ -903,35 +903,15 @@ ARTICLES = [
         "city": "Boston",
         "source": "The Infatuation — Best New Restaurants Boston 2026",
     },
-    # All four entries below surfaced directly in WebSearch results'
-    # structured links, 2026-11-16/18 — daily-discovery scheduled search,
-    # added at user request 2026-11-18. Denver, Phoenix, Minneapolis, and
-    # Charleston each had zero dedicated sources in this file before this
-    # (new CITY_COUNTRIES entries added for all four — see below).
-    {
-        "url": "https://www.timeout.com/denver/restaurants/best-restaurants-in-denver",
-        "city": "Denver",
-        "source": "Time Out — Best Restaurants in Denver",
-    },
-    {
-        "url": "https://www.michelin.com/en/publications/products-and-services/michelin-guide-unveils-first-statewide-selection-for-colorado",
-        "city": "Denver",
-        "source": "MICHELIN Guide — Colorado's First Statewide Selection 2026",
-    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-17 — daily-discovery scheduled search, added at user request
+    # 2026-11-18 (Denver/Minneapolis/Charleston from the same batch were
+    # not wanted — Phoenix only). Phoenix had zero dedicated sources in
+    # this file before this (new CITY_COUNTRIES entry added below).
     {
         "url": "https://www.theinfatuation.com/phoenix/guides/phoenix-best-restaurants",
         "city": "Phoenix",
         "source": "The Infatuation — Phoenix Best Restaurants",
-    },
-    {
-        "url": "https://mspmag.com/eat-and-drink/the-best-restaurants-in-the-twin-cities-2026/",
-        "city": "Minneapolis",
-        "source": "Mpls.St.Paul Magazine — Best Restaurants in the Twin Cities 2026",
-    },
-    {
-        "url": "https://blog.resy.com/the-hit-list/charleston-restaurants-summer-2026/",
-        "city": "Charleston",
-        "source": "Resy Hit List — Charleston, Summer 2026",
     },
 ]
 
@@ -1536,12 +1516,9 @@ CITY_COUNTRIES = {
     "Vancouver": "Canada",
     "Calgary": "Canada",
     "Montreal": "Canada",
-    # Added with the Denver/Phoenix/Minneapolis/Charleston ARTICLES
-    # entries above, 2026-11-18 — none had a CITY_COUNTRIES entry before.
-    "Denver": "USA",
+    # Added with the Phoenix ARTICLES entry above, 2026-11-18 — no prior
+    # CITY_COUNTRIES entry.
     "Phoenix": "USA",
-    "Minneapolis": "USA",
-    "Charleston": "USA",
 }
 
 
