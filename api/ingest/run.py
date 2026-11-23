@@ -913,6 +913,42 @@ ARTICLES = [
         "city": "Phoenix",
         "source": "The Infatuation — Phoenix Best Restaurants",
     },
+    # All six entries below surfaced directly in WebSearch results'
+    # structured links, 2026-11-20/23 — daily-discovery scheduled search,
+    # added at user request 2026-11-23. Amsterdam, Dublin, Edinburgh,
+    # Budapest, Vienna, and Lyon each had zero dedicated sources in this
+    # file before this (new CITY_COUNTRIES entries added below for the
+    # three new countries — Netherlands, Ireland, Hungary, Austria).
+    {
+        "url": "https://www.timeout.com/amsterdam/restaurants/best-restaurants-in-amsterdam",
+        "city": "Amsterdam",
+        "source": "Time Out — Best Restaurants in Amsterdam",
+    },
+    {
+        "url": "https://guide.michelin.com/ie/en/best-of/the-best-restaurants-in-dublin",
+        "city": "Dublin",
+        "source": "MICHELIN Guide — Best-of Guides Dublin",
+    },
+    {
+        "url": "https://guide.michelin.com/us/en/best-of/the-best-restaurants-in-edinburgh",
+        "city": "Edinburgh",
+        "source": "MICHELIN Guide — Best-of Guides Edinburgh",
+    },
+    {
+        "url": "https://www.timeout.com/budapest/restaurants/best-restaurants-in-budapest",
+        "city": "Budapest",
+        "source": "Time Out — Best Restaurants in Budapest",
+    },
+    {
+        "url": "https://www.timeout.com/vienna/restaurants/best-restaurants-in-vienna",
+        "city": "Vienna",
+        "source": "Time Out — Best Restaurants in Vienna",
+    },
+    {
+        "url": "https://guide.michelin.com/de/de/article/travel/die-besten-restaurants-in-lyon-michelin-guide",
+        "city": "Lyon",
+        "source": "MICHELIN Guide — Best Restaurants in Lyon",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -1519,6 +1555,13 @@ CITY_COUNTRIES = {
     # Added with the Phoenix ARTICLES entry above, 2026-11-18 — no prior
     # CITY_COUNTRIES entry.
     "Phoenix": "USA",
+    # Added with the Amsterdam/Dublin/Budapest/Vienna ARTICLES entries
+    # above, 2026-11-23 — new countries, no prior coverage. Edinburgh
+    # (UK) and Lyon (France) reuse London's/Paris's existing entries.
+    "Amsterdam": "Netherlands",
+    "Dublin": "Ireland",
+    "Budapest": "Hungary",
+    "Vienna": "Austria",
 }
 
 
