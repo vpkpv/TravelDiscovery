@@ -949,6 +949,15 @@ ARTICLES = [
         "city": "Lyon",
         "source": "MICHELIN Guide — Best Restaurants in Lyon",
     },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-25 — daily-discovery scheduled search, added at user request
+    # 2026-11-26. Naples had zero dedicated sources before this (Italy
+    # already covered via Rome's existing CITY_COUNTRIES entry).
+    {
+        "url": "https://timeout.com/naples/restaurants/best-restaurants-in-naples",
+        "city": "Naples",
+        "source": "Time Out — Best Restaurants in Naples",
+    },
 ]
 
 # Same manual-vetting principle as ARTICLES above, but for a multi-city
@@ -1489,6 +1498,16 @@ WORLD_ARTICLES = [
     {
         "url": "https://tripadvisor.com/TravelersChoice-Restaurants-m33202",
         "source": "Tripadvisor — Travelers' Choice Best of the Best Restaurants 2026",
+    },
+    # URL surfaced directly in a WebSearch result's structured links,
+    # 2026-11-25 — daily-discovery scheduled search, added at user request
+    # 2026-11-26. Poland's first-ever nationwide MICHELIN Guide (May 2026
+    # ceremony in Kraków) — spans multiple Polish cities (Kraków's
+    # Bottiglieria 1881, Warsaw entries, etc.), so filed here rather than
+    # tagged to one city. New country, no prior coverage.
+    {
+        "url": "https://guide.michelin.com/pl/en/article/michelin-guide-ceremony/the-full-list-of-michelin-star-restaurants-in-poland",
+        "source": "MICHELIN Guide — Full List of Michelin Star Restaurants in Poland",
     },
 ]
 
